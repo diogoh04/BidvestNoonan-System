@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "./lib/session";
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|logo.jpg|logo.svg|logoUCD.png|Bidvest-noonanlogo.jpg).*)"],
