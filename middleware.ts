@@ -6,6 +6,7 @@ export const config = {
 };
 
 export async function middleware(req: NextRequest) {
+  try {
   const { pathname } = req.nextUrl;
 
   if (pathname === "/login" || pathname === "/api/auth/login") {
@@ -25,6 +26,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+    return NextResponse.next();
+  } catch (err: any) {
+    return new NextResponse("MIDDLEWARE ERROR: " + (err?.message || String(err)) + "\\n\\n" + (err?.stack || ""), { status: 500 });
+  }
 }
+
 
