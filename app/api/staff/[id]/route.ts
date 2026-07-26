@@ -10,12 +10,17 @@ function mapStaff(w: any): StaffDTO {
     telefone: w.telefone,
     staffNumber: w.staffNumber,
     role: w.role,
-    buildings: (w.buildingsAsTeamLeader ?? []).map((sb: any) => ({
+    buildingId: w.buildingId ? w.buildingId.toString() : null,
+    buildingNome: w.building?.nome ?? null,
+    createdAt: w.createdAt ? w.createdAt.toISOString() : null,
+    buildings: w.buildingsAsTeamLeader?.map((sb: any) => ({
+
       id: sb.building.id.toString(),
       nome: sb.building.nome,
     })),
   };
 }
+
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const staff = await prisma.staff.findUnique({
