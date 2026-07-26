@@ -45,15 +45,15 @@ function LoginForm() {
             className="h-12 w-auto object-contain"
           />
         </div>
-        <h1 className="mb-1 text-center font-display text-lg font-bold text-ink">Gestão de Staff</h1>
-        <p className="mb-6 text-center text-sm text-ink/50">Digite a senha de acesso</p>
+        <h1 className="mb-1 text-center font-display text-lg font-bold text-ink">Building Management System</h1>
+        <p className="mb-6 text-center text-sm text-ink/50">Enter your access password.</p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Senha"
+            placeholder="Password"
             autoFocus
             className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
           />
