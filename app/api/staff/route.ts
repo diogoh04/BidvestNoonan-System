@@ -12,6 +12,7 @@ function mapStaff(w: any): StaffDTO {
     role: w.role,
     buildingId: w.buildingId ? w.buildingId.toString() : null,
     buildingNome: w.building?.nome ?? null,
+    createdAt: w.createdAt ? w.createdAt.toISOString() : null,
     buildings: w.buildingsAsTeamLeader?.map((sb: any) => ({
       id: sb.building.id.toString(),
       nome: sb.building.nome,

@@ -36,7 +36,6 @@ export default async function EditStaffPage({ params }: { params: { id: string }
               staffNumber: staff.staffNumber ?? "",
               telefone: staff.telefone ?? "",
               role: staff.role,
-              buildingId: staff.buildingId ?? "",
               buildingIds: staff.buildings?.map((b: any) => b.id) ?? [],
             }}
           />
