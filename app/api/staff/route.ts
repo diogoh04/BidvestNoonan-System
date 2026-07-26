@@ -1,0 +1,92 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { staffInputSchema } from "@/lib/validation";
+import { toJSONSafe, StaffDTO } from "@/lib/types";
+
+function mapStaff(w: any): StaffDTO {
+  return {
+    id: w.id.toString(),
+    nome: w.nome,
+    telefone: w.telefone,
+    staffNumber: w.staffNumber,
+    role: w.role,
+    buildingId: w.buildingId ? w.buildingId.toString() : null,
+    buildingNome: w.building?.nome ?? null,
+    buildings: w.buildingsAsTeamLeader?.map((sb: any) => ({
+      id: sb.building.id.toString(),
+      nome: sb.building.nome,
+    })),
+  };
+}
+
+// GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get("q")?.trim();
+  const buildingId = searchParams.get("buildingId");
+  const role = searchParams.get("role");
+
+  const and: any[] = [];
+
+  if (role === "cleaner" || role === "team_leader") {
+    and.push({ role });
+  }
+
+  if (q) {
+    and.push({
+      OR: [
+        { nome: { contains: q, mode: "insensitive" } },
+        { staffNumber: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (buildingId) {
+    and.push({
+      OR: [
+        { buildingId: BigInt(buildingId) },
+        { buildingsAsTeamLeader: { some: { buildingId: BigInt(buildingId) } } },
+      ],
+    });
+  }
+
+  const where: any = and.length > 0 ? { AND: and } : {};
+
+  const staff = await prisma.staff.findMany({
+    where,
+    include: { building: true, buildingsAsTeamLeader: { include: { building: true } } },
+    orderBy: { nome: "asc" },
+  });
+
+  return NextResponse.json(toJSONSafe(staff.map(mapStaff)));
+}
+
+// POST /api/staff  - cadastra cleaner ou team leader
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const parsed = staffInputSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const data = parsed.data;
+
+  const created = await prisma.staff.create({
+    data: {
+      nome: data.nome,
+      staffNumber: data.staffNumber,
+      telefone: data.telefone || null,
+      role: data.role,
+      buildingId:
+        data.role === "cleaner" && data.buildingId ? BigInt(data.buildingId) : null,
+      buildingsAsTeamLeader:
+        data.role === "team_leader" && data.buildingIds
+          ? { create: data.buildingIds.map((id) => ({ buildingId: BigInt(id) })) }
+          : undefined,
+    },
+    include: { building: true, buildingsAsTeamLeader: { include: { building: true } } },
+  });
+
+  return NextResponse.json(toJSONSafe(mapStaff(created)), { status: 201 });
+}

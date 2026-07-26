@@ -1,0 +1,91 @@
+// Prisma schema mapeado em cima do banco Neon já existente.
+// Nomes de tabela/coluna em @@map/@map preservam o schema original (worker, predios, feedback)
+// para não quebrar nada que já existe; os nomes dos models em inglês são só para o código.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- Staff (tabela física: worker) ----------
+model Staff {
+  id          BigInt   @id @default(autoincrement())
+  nome        String?  @db.VarChar(255)
+  telefone    String?  @db.VarChar(255)
+  horasSemana Int?     @map("horas_semana")
+  staffNumber String?  @map("staff_number") @db.VarChar(255)
+
+  // "cleaner" | "team_leader" — validado na aplicação (zod) + CHECK constraint no banco
+  role        String   @default("cleaner") @db.VarChar(20)
+
+  // Prédio fixo — usado só para cleaner. Team leader usa a tabela de vínculo StaffBuilding.
+  buildingId  BigInt?  @map("predios")
+  building    Building? @relation(fields: [buildingId], references: [id])
+
+  // Coluna legada (texto livre), mantida no banco mas não usada pela aplicação
+  predioLegado String? @map("predio") @db.VarChar(255)
+
+  observations Feedback[]
+  buildingsAsTeamLeader StaffBuilding[]
+
+  @@map("worker")
+}
+
+// ---------- Building (tabela física: predios) ----------
+model Building {
+  id   BigInt @id @default(autoincrement())
+  nome String @unique @db.VarChar(255)
+  horasDisponiveis Int? @map("horas_disponiveis")
+  workOrder String? @map("work_order")
+
+  staff         Staff[]
+  teamLeaders   StaffBuilding[]
+  slots         BuildingSlot[]
+
+  @@map("predios")
+}
+
+// ---------- Vagas fixas do prédio (posições com horas definidas, independente de quem ocupa hoje) ----------
+model BuildingSlot {
+  id         BigInt   @id @default(autoincrement())
+  buildingId BigInt   @map("building_id")
+  horas      Int
+  ordem      Int      @default(0)
+
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("building_slot")
+}
+
+// ---------- Vínculo N:N entre team leader e prédios (tabela nova: staff_building) ----------
+model StaffBuilding {
+  staffId    BigInt   @map("staff_id")
+  buildingId BigInt   @map("building_id")
+  horas      Int? 
+
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@id([staffId, buildingId])
+  @@map("staff_building")
+}
+
+// ---------- Observações (tabela física já existente: feedback) ----------
+model Feedback {
+  id       BigInt    @id @default(autoincrement())
+  texto    String?   @db.VarChar(255)
+  data     DateTime? @default(now())
+  workerId BigInt?   @map("worker_id")
+
+  staff    Staff?    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@map("feedback")
+}
