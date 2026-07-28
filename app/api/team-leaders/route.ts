@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const teamLeaders = await prisma.staff.findMany({
     where: { role: "team_leader" },

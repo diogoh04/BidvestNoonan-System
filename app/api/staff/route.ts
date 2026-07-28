@@ -73,21 +73,20 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
 
-  const created = await prisma.staff.create({
+    const created = await prisma.staff.create({
     data: {
       nome: data.nome,
       staffNumber: data.staffNumber,
       telefone: data.telefone || null,
       role: data.role,
-      buildingId:
-        data.role === "cleaner" && data.buildingId ? BigInt(data.buildingId) : null,
       buildingsAsTeamLeader:
-        data.role === "team_leader" && data.buildingIds
+        data.buildingIds && data.buildingIds.length > 0
           ? { create: data.buildingIds.map((id) => ({ buildingId: BigInt(id) })) }
           : undefined,
     },
     include: { building: true, buildingsAsTeamLeader: { include: { building: true } } },
   });
+
 
   return NextResponse.json(toJSONSafe(mapStaff(created)), { status: 201 });
 }
