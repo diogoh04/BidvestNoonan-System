@@ -119,10 +119,10 @@ function frontTableSizing(rowCount: number) {
 // crescia sem limite. O piso da primeira faixa reproduz o tamanho de hoje
 // (0-7 covers = 19 linhas), então quem já cabia não muda nada.
 function backTableSizing(rowCount: number) {
-  if (rowCount <= 19) return { text: "text-[11px]", pad: "p-1", cellH: "h-8" };
-  if (rowCount <= 24) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
-  if (rowCount <= 32) return { text: "text-[9px]", pad: "p-[2px]", cellH: "h-5" };
-  return { text: "text-[8px]", pad: "p-0", cellH: "h-4" };
+  if (rowCount <= 19) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
+  if (rowCount <= 24) return { text: "text-[9px]", pad: "p-[2px]", cellH: "h-5" };
+  if (rowCount <= 32) return { text: "text-[8px]", pad: "p-0", cellH: "h-4" };
+  return { text: "text-[7px]", pad: "p-0", cellH: "h-3" };
 }
 
 export default function TimesheetView({ building }: { building: Building }) {
@@ -194,18 +194,18 @@ export default function TimesheetView({ building }: { building: Building }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 border-b-2 border-ink pb-3">
-        <Image src="/logo.jpg" alt="Bidvest Noonan" width={160} height={50} className="h-10 w-auto object-contain" />
-        <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink">
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 border-b-2 border-ink pb-3 print:pb-1">
+        <Image src="/logo.jpg" alt="Bidvest Noonan" width={160} height={50} className="h-10 w-auto object-contain print:h-6" />
+        <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink print:text-sm">
           Sign In &amp; Sign Out Book
         </h1>
         <div className="flex items-center gap-6">
-          <span className="font-display text-lg font-bold text-ink">{building.nome}</span>
-          <Image src="/logoUCD.png" alt="Logo do cliente" width={56} height={56} className="h-14 w-14 shrink-0 object-contain" />
+          <span className="font-display text-lg font-bold text-ink print:text-xs">{building.nome}</span>
+          <Image src="/logoUCD.png" alt="Logo do cliente" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-4 text-sm">
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-4 text-sm print:mt-1">
         <div className="flex items-center gap-2">
           <span className="font-medium text-ink">WEEK</span>
           <WeekField />
@@ -217,25 +217,25 @@ export default function TimesheetView({ building }: { building: Building }) {
           <WeekField />
         </div>
 
-        <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-xs">
+        <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-xs print:grid-cols-7 print:gap-x-2 print:gap-y-0 print:text-[7px]">
           <span><strong>HP</strong> - Holiday Paid</span>
           <span><strong>AA</strong> - Absent Autorized</span>
           <span><strong>S</strong> - Sick</span>
           <span><strong>HU</strong> - Holiday Unpaid</span>
           <span><strong>AU</strong> - Absent Unautorized</span>
           <span><strong>BH</strong> - Bank Holiday</span>
-          <span className="col-span-3"><strong>P45</strong> - Leaving</span>
+          <span className="col-span-3 print:col-span-1"><strong>P45</strong> - Leaving</span>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2 text-sm">
+      <div className="mt-3 flex items-center gap-2 text-sm print:mt-1">
         <span className="font-medium text-ink">Team Leader</span>
         <span className="inline-block min-w-[220px] border-b border-ink px-2">
           {building.teamLeaders.map((t) => t.nome).join(", ") || "\u00A0"}
         </span>
       </div>
 
-      <table className={`mt-6 w-full border-collapse ${sz.text}`}>
+      <table className={`mt-6 w-full border-collapse print:mt-2 ${sz.text}`}>
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>
@@ -292,7 +292,7 @@ export default function TimesheetView({ building }: { building: Building }) {
         </tbody>
       </table>
 
-      <div className="mt-10 break-before-page">
+      <div className="mt-10 print:mt-0 break-before-page">
         <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
           {coverNome ? (
             <span className="flex items-center gap-1.5 rounded-md border border-petrol bg-petrolLight px-2.5 py-1.5 text-xs text-petrol">
