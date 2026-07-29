@@ -31,6 +31,12 @@ model Staff {
   // Coluna legada (texto livre), mantida no banco mas não usada pela aplicação
   predioLegado String? @map("predio") @db.VarChar(255)
 
+  // Status especial ("p45" | "le" | "blocked" | null = ativo). Quando
+  // preenchido, o staff não tem vínculo real com prédio (StaffBuilding) —
+  // ver seção "Outros" na home.
+  status    String?   @db.VarChar(20)
+  blockedAt DateTime? @map("blocked_at")
+
   observations Feedback[]
   buildingsAsTeamLeader StaffBuilding[]
 

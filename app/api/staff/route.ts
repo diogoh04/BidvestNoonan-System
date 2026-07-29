@@ -16,20 +16,27 @@ function mapStaff(w: any): StaffDTO {
       role: sb.role,
       horas: sb.horas,
     })),
+    status: w.status ?? null,
+    blockedAt: w.blockedAt ? w.blockedAt.toISOString() : null,
   };
 }
 
-// GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner
+// GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner&status=p45
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const buildingId = searchParams.get("buildingId");
   const role = searchParams.get("role");
+  const status = searchParams.get("status");
 
   const and: any[] = [];
 
   if (role === "cleaner" || role === "team_leader") {
     and.push({ buildingsAsTeamLeader: { some: { role } } });
+  }
+
+  if (status === "p45" || status === "le" || status === "blocked") {
+    and.push({ status });
   }
 
   if (q) {
@@ -72,15 +79,21 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
 
+  // Staff com status especial (P45/LE/Blocked) não tem vínculo real de
+  // prédio — ignora quaisquer assignments enviados nesse caso.
+  const assignments = data.status ? [] : data.assignments;
+
   const created = await prisma.staff.create({
     data: {
       nome: data.nome,
       staffNumber: data.staffNumber,
       telefone: data.telefone || null,
+      status: data.status ?? null,
+      blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,
       buildingsAsTeamLeader:
-        data.assignments.length > 0
+        assignments.length > 0
           ? {
-              create: data.assignments.map((a) => ({
+              create: assignments.map((a) => ({
                 buildingId: BigInt(a.buildingId),
                 role: a.role,
                 horas: a.horas ?? null,

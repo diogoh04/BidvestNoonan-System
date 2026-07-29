@@ -7,6 +7,7 @@ import { Plus, Trash2 } from "lucide-react";
 type Building = { id: string; nome: string };
 type Role = "cleaner" | "team_leader";
 type Assignment = { buildingId: string; role: Role; horas: number | null };
+type Status = "p45" | "le" | "blocked" | null;
 
 export type StaffFormValues = {
   id?: string;
@@ -14,7 +15,16 @@ export type StaffFormValues = {
   staffNumber: string;
   telefone: string;
   assignments: Assignment[];
+  status?: Status;
+  blockedAt?: string | null;
 };
+
+const STATUS_OPTIONS: { value: Status; label: string }[] = [
+  { value: null, label: "Ativo" },
+  { value: "p45", label: "P45" },
+  { value: "le", label: "LE" },
+  { value: "blocked", label: "Staff Blocked" },
+];
 
 export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const router = useRouter();
@@ -25,6 +35,8 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const [staffNumber, setStaffNumber] = useState(initial?.staffNumber ?? "");
   const [telefone, setTelefone] = useState(initial?.telefone ?? "");
   const [assignments, setAssignments] = useState<Assignment[]>(initial?.assignments ?? []);
+  const [status, setStatus] = useState<Status>(initial?.status ?? null);
+  const [blockedAt, setBlockedAt] = useState(initial?.blockedAt?.slice(0, 10) ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newBuildingName, setNewBuildingName] = useState("");
@@ -84,7 +96,14 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     setSaving(true);
     setError(null);
 
-    const payload = { nome, staffNumber, telefone, assignments };
+    const payload = {
+      nome,
+      staffNumber,
+      telefone,
+      assignments,
+      status,
+      blockedAt: status === "blocked" && blockedAt ? blockedAt : null,
+    };
 
     try {
       const res = await fetch(isEdit ? `/api/staff/${initial!.id}` : "/api/staff", {
@@ -143,6 +162,46 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         </div>
       </div>
 
+      <div>
+        <label className="mb-1 block text-sm font-medium text-ink">Status</label>
+        <div className="flex flex-wrap gap-2">
+          {STATUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => setStatus(opt.value)}
+              className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                status === opt.value
+                  ? "border-petrol bg-petrol text-white"
+                  : "border-line bg-white text-ink hover:border-petrol"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {status && (
+          <p className="mt-2 text-xs text-ink/50">
+            Os vínculos de prédio deste staff serão removidos ao salvar.
+          </p>
+        )}
+
+        {status === "blocked" && (
+          <div className="mt-2">
+            <label className="mb-1 block text-xs font-medium text-ink/50">Bloqueado desde</label>
+            <input
+              type="date"
+              value={blockedAt}
+              onChange={(e) => setBlockedAt(e.target.value)}
+              className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
+            />
+          </div>
+        )}
+      </div>
+
+      {!status && (
+      <>
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">
           Prédios{" "}
@@ -252,6 +311,8 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           </button>
         </div>
       </div>
+      </>
+      )}
 
       {error && <p className="text-sm text-danger">{error}</p>}
 

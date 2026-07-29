@@ -16,6 +16,8 @@ function mapStaff(w: any): StaffDTO {
       role: sb.role,
       horas: sb.horas,
     })),
+    status: w.status ?? null,
+    blockedAt: w.blockedAt ? w.blockedAt.toISOString() : null,
   };
 }
 
@@ -54,6 +56,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const data = parsed.data;
   const staffId = BigInt(params.id);
 
+  // Staff com status especial (P45/LE/Blocked) não tem vínculo real de
+  // prédio — ignora quaisquer assignments enviados nesse caso.
+  const assignments = data.status ? [] : data.assignments;
+
   await prisma.staffBuilding.deleteMany({ where: { staffId } });
 
   const updated = await prisma.staff.update({
@@ -62,10 +68,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       nome: data.nome,
       staffNumber: data.staffNumber,
       telefone: data.telefone || null,
+      status: data.status ?? null,
+      blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,
       buildingsAsTeamLeader:
-        data.assignments.length > 0
+        assignments.length > 0
           ? {
-              create: data.assignments.map((a) => ({
+              create: assignments.map((a) => ({
                 buildingId: BigInt(a.buildingId),
                 role: a.role,
                 horas: a.horas ?? null,

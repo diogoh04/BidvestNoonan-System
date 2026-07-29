@@ -17,6 +17,10 @@ export const staffInputSchema = z
         })
       )
       .default([]),
+    // Status especial (ver seção "Outros") — staff com status preenchido
+    // não tem vínculo real de prédio (assignments é sempre limpo no servidor).
+    status: z.enum(["p45", "le", "blocked"]).nullable().optional(),
+    blockedAt: z.string().trim().nullable().optional(),
   })
   .superRefine((data, ctx) => {
     const seen = new Set<string>();

@@ -41,6 +41,8 @@ export default async function EditStaffPage({ params }: { params: { id: string }
                   role: b.role,
                   horas: b.horas ?? null,
                 })) ?? [],
+              status: staff.status ?? null,
+              blockedAt: staff.blockedAt ?? null,
             }}
           />
         </div>
