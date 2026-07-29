@@ -52,39 +52,51 @@ function WeekField() {
     <input
       type="text"
       maxLength={2}
-      className="inline-block w-10 border-0 border-b border-ink bg-transparent text-center outline-none focus:bg-petrolLight"
+      className="inline-block w-10 border-0 border-b border-ink bg-transparent text-center leading-none outline-none focus:bg-petrolLight"
     />
   );
 }
 
 // Campo livre pra preencher na tela (número de horas ou um dos códigos HP/AA/S/HU/AU/BH/P45).
-// Não persiste — só pra digitar antes de imprimir/exportar.
-function SignCell({ className }: { className: string }) {
+// Não persiste — só pra digitar antes de imprimir/exportar. `textClass` é
+// aplicado direto no input (não só herdado da tabela) pra garantir que ele
+// nunca force a linha a ficar mais alta que o `cellH` calculado.
+function SignCell({ className, textClass }: { className: string; textClass: string }) {
   return (
     <td className={className}>
       <input
         type="text"
         maxLength={5}
-        className="h-full w-full border-none bg-transparent p-0 text-center text-inherit outline-none focus:bg-petrolLight"
+        className={`h-full w-full border-none bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight ${textClass}`}
       />
     </td>
   );
 }
 
-function BlankRow({ n }: { n: number }) {
+function BlankRow({
+  n,
+  cell,
+  signCell,
+  textClass,
+}: {
+  n: number;
+  cell: string;
+  signCell: string;
+  textClass: string;
+}) {
   return (
     <>
       {Array.from({ length: n }).map((_, i) => (
         <tr key={"blank-" + i}>
-          <td className="border border-ink p-1 h-8"></td>
-          <td className="border border-ink p-1"></td>
-          <td className="border border-ink p-1"></td>
-          <td className="border border-ink p-1"></td>
-          <td className="border border-ink p-1"></td>
+          <td className={signCell}></td>
+          <td className={cell}></td>
+          <td className={cell}></td>
+          <td className={cell}></td>
+          <td className={cell}></td>
           {DAYS.map((d) => (
             <>
-              <SignCell key={d + i + "-in"} className="border border-ink p-1" />
-              <SignCell key={d + i + "-out"} className="border border-ink p-1" />
+              <SignCell key={d + i + "-in"} className={signCell} textClass={textClass} />
+              <SignCell key={d + i + "-out"} className={signCell} textClass={textClass} />
             </>
           ))}
         </tr>
@@ -97,7 +109,20 @@ function frontTableSizing(rowCount: number) {
   if (rowCount <= 10) return { text: "text-xs", pad: "p-1", cellH: "h-8" };
   if (rowCount <= 16) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
   if (rowCount <= 24) return { text: "text-[9px]", pad: "p-0.5", cellH: "h-5" };
-  return { text: "text-[8px]", pad: "p-[2px]", cellH: "h-4" };
+  if (rowCount <= 32) return { text: "text-[8px]", pad: "p-[2px]", cellH: "h-4" };
+  if (rowCount <= 45) return { text: "text-[7px]", pad: "p-px", cellH: "h-3" };
+  return { text: "text-[6px]", pad: "p-0", cellH: "h-3" };
+}
+
+// Mesma ideia do frontTableSizing, mas pro verso ("Building Covers") — hoje
+// era tudo fixo (text-[11px]/h-8), então com mais de 7 covers a tabela
+// crescia sem limite. O piso da primeira faixa reproduz o tamanho de hoje
+// (0-7 covers = 19 linhas), então quem já cabia não muda nada.
+function backTableSizing(rowCount: number) {
+  if (rowCount <= 19) return { text: "text-[11px]", pad: "p-1", cellH: "h-8" };
+  if (rowCount <= 24) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
+  if (rowCount <= 32) return { text: "text-[9px]", pad: "p-[2px]", cellH: "h-5" };
+  return { text: "text-[8px]", pad: "p-0", cellH: "h-4" };
 }
 
 export default function TimesheetView({ building }: { building: Building }) {
@@ -112,6 +137,10 @@ export default function TimesheetView({ building }: { building: Building }) {
   const signCell = `border border-ink ${sz.pad} ${sz.cellH}`;
 
   const [covers, setCovers] = useState<Cover[]>(building.covers);
+  const backRowCount = covers.length + Math.max(MIN_COVER_ROWS - covers.length, 1) + 12;
+  const backSz = backTableSizing(backRowCount);
+  const backCell = `border border-ink ${backSz.pad}`;
+  const backSignCell = `border border-ink ${backSz.pad} ${backSz.cellH}`;
   const [coverNome, setCoverNome] = useState("");
   const [coverStaffNumber, setCoverStaffNumber] = useState("");
   const [coverHoras, setCoverHoras] = useState("");
@@ -254,8 +283,8 @@ export default function TimesheetView({ building }: { building: Building }) {
               <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
               {DAYS.map((d) => (
                 <>
-                  <SignCell key={d + i + "-in"} className={signCell} />
-                  <SignCell key={d + i + "-out"} className={signCell} />
+                  <SignCell key={d + i + "-in"} className={signCell} textClass={sz.text} />
+                  <SignCell key={d + i + "-out"} className={signCell} textClass={sz.text} />
                 </>
               ))}
             </tr>
@@ -308,16 +337,16 @@ export default function TimesheetView({ building }: { building: Building }) {
           {coverError && <span className="text-xs text-danger">{coverError}</span>}
         </div>
 
-        <table className="w-full border-collapse text-[11px]">
+        <table className={`w-full border-collapse ${backSz.text}`}>
           <thead>
             <tr>
-              <th rowSpan={2} className="border border-ink p-1 align-middle">Building Covers</th>
-              <th rowSpan={2} className="border border-ink p-1 align-middle">Hours</th>
-              <th rowSpan={2} className="border border-ink p-1 align-middle">WO</th>
-              <th rowSpan={2} className="border border-ink p-1 align-middle">Name</th>
-              <th rowSpan={2} className="border border-ink p-1 align-middle">Staff Number</th>
+              <th rowSpan={2} className={`${backCell} align-middle`}>Building Covers</th>
+              <th rowSpan={2} className={`${backCell} align-middle`}>Hours</th>
+              <th rowSpan={2} className={`${backCell} align-middle`}>WO</th>
+              <th rowSpan={2} className={`${backCell} align-middle`}>Name</th>
+              <th rowSpan={2} className={`${backCell} align-middle`}>Staff Number</th>
               {DAYS.map((d) => (
-                <th key={d} colSpan={2} className="border border-ink p-1 text-center">
+                <th key={d} colSpan={2} className={`${backCell} text-center`}>
                   {d}
                 </th>
               ))}
@@ -325,8 +354,8 @@ export default function TimesheetView({ building }: { building: Building }) {
             <tr>
               {DAYS.map((d) => (
                 <>
-                  <th key={d + "-in2"} className="border border-ink p-1 text-center font-normal">SIGN IN</th>
-                  <th key={d + "-out2"} className="border border-ink p-1 text-center font-normal">SIGN OUT</th>
+                  <th key={d + "-in2"} className={`${backCell} text-center font-normal`}>SIGN IN</th>
+                  <th key={d + "-out2"} className={`${backCell} text-center font-normal`}>SIGN OUT</th>
                 </>
               ))}
             </tr>
@@ -334,10 +363,10 @@ export default function TimesheetView({ building }: { building: Building }) {
           <tbody>
             {covers.map((c) => (
               <tr key={c.id}>
-                <td className="border border-ink p-1 h-8 text-center">{building.nome}</td>
-                <td className="border border-ink p-1 text-center">{c.horas ?? ""}</td>
-                <td className="border border-ink p-1 text-center">{building.workOrder ?? ""}</td>
-                <td className="border border-ink p-1">
+                <td className={`${backSignCell} text-center`}>{building.nome}</td>
+                <td className={`${backCell} text-center`}>{c.horas ?? ""}</td>
+                <td className={`${backCell} text-center`}>{building.workOrder ?? ""}</td>
+                <td className={backCell}>
                   <span className="flex items-center justify-between gap-2">
                     {c.nome ?? ""}
                     <button
@@ -350,20 +379,25 @@ export default function TimesheetView({ building }: { building: Building }) {
                     </button>
                   </span>
                 </td>
-                <td className="border border-ink p-1 text-center">{c.staffNumber ?? ""}</td>
+                <td className={`${backCell} text-center`}>{c.staffNumber ?? ""}</td>
                 {DAYS.map((d) => (
                   <>
-                    <SignCell key={d + c.id + "-in"} className="border border-ink p-1" />
-                    <SignCell key={d + c.id + "-out"} className="border border-ink p-1" />
+                    <SignCell key={d + c.id + "-in"} className={backSignCell} textClass={backSz.text} />
+                    <SignCell key={d + c.id + "-out"} className={backSignCell} textClass={backSz.text} />
                   </>
                 ))}
               </tr>
             ))}
-            <BlankRow n={Math.max(MIN_COVER_ROWS - covers.length, 1)} />
+            <BlankRow
+              n={Math.max(MIN_COVER_ROWS - covers.length, 1)}
+              cell={backCell}
+              signCell={backSignCell}
+              textClass={backSz.text}
+            />
 
             <tr>
-              <td className="border border-ink p-1 font-medium">ESTATES ADDITIONAL</td>
-              <td className="border border-ink p-1"></td>
+              <td className={`${backCell} font-medium`}>ESTATES ADDITIONAL</td>
+              <td className={backCell}></td>
               {(() => {
                 const total = 13;
                 const per = Math.floor(total / coverItems.length);
@@ -371,7 +405,7 @@ export default function TimesheetView({ building }: { building: Building }) {
                   <td
                     key={idx}
                     colSpan={idx === coverItems.length - 1 ? total - per * (coverItems.length - 1) : per}
-                    className="border border-ink p-1 text-center font-medium"
+                    className={`${backCell} text-center font-medium`}
                   >
                     {item}
                   </td>
@@ -379,23 +413,23 @@ export default function TimesheetView({ building }: { building: Building }) {
               })()}
             </tr>
 
-            <BlankRow n={6} />
+            <BlankRow n={6} cell={backCell} signCell={backSignCell} textClass={backSz.text} />
 
             <tr>
-              <td className="border border-ink p-1 font-medium">ESTATES EVENTS</td>
-              <td className="border border-ink p-1"></td>
-              <td className="border border-ink p-1 text-center font-medium">{ESTATES_EVENTS_WO}</td>
-              <td className="border border-ink p-1"></td>
-              <td className="border border-ink p-1"></td>
+              <td className={`${backCell} font-medium`}>ESTATES EVENTS</td>
+              <td className={backCell}></td>
+              <td className={`${backCell} text-center font-medium`}>{ESTATES_EVENTS_WO}</td>
+              <td className={backCell}></td>
+              <td className={backCell}></td>
               {DAYS.map((d) => (
                 <>
-                  <SignCell key={d + "-events-in"} className="border border-ink p-1" />
-                  <SignCell key={d + "-events-out"} className="border border-ink p-1" />
+                  <SignCell key={d + "-events-in"} className={backSignCell} textClass={backSz.text} />
+                  <SignCell key={d + "-events-out"} className={backSignCell} textClass={backSz.text} />
                 </>
               ))}
             </tr>
 
-            <BlankRow n={4} />
+            <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} />
           </tbody>
         </table>
       </div>
