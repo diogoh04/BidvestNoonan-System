@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X } from "lucide-react";
 import { computeOpenSlots, type Slot } from "@/lib/openSlots";
+import StaffSearchInput from "@/components/StaffSearchInput";
 
 type StaffLine = {
   id: string;
@@ -44,6 +45,20 @@ function buildRows(cleaners: StaffLine[], slots: Slot[]) {
   return rows;
 }
 
+// Campo livre pra preencher na tela (número de horas ou um dos códigos HP/AA/S/HU/AU/BH/P45).
+// Não persiste — só pra digitar antes de imprimir/exportar.
+function SignCell({ className }: { className: string }) {
+  return (
+    <td className={className}>
+      <input
+        type="text"
+        maxLength={5}
+        className="h-full w-full border-none bg-transparent p-0 text-center text-inherit outline-none focus:bg-petrolLight"
+      />
+    </td>
+  );
+}
+
 function BlankRow({ n }: { n: number }) {
   return (
     <>
@@ -56,8 +71,8 @@ function BlankRow({ n }: { n: number }) {
           <td className="border border-ink p-1"></td>
           {DAYS.map((d) => (
             <>
-              <td key={d + i + "-in"} className="border border-ink p-1"></td>
-              <td key={d + i + "-out"} className="border border-ink p-1"></td>
+              <SignCell key={d + i + "-in"} className="border border-ink p-1" />
+              <SignCell key={d + i + "-out"} className="border border-ink p-1" />
             </>
           ))}
         </tr>
@@ -79,10 +94,12 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
     (sum, b) => sum + Math.max(b.cleaners.length, b.slots.length, 1),
     0
   );
-  const grandTotalHours = teamLeader.buildings.reduce((sum, b) => {
-    const rows = buildRows(b.cleaners, b.slots);
-    return sum + rows.reduce((s, r) => s + (r.horas ?? 0), 0);
-  }, 0);
+  // Total de horas = soma das vagas configuradas de cada prédio (não soma das
+  // linhas exibidas, que podem ter horas de staff que não batem com nenhuma vaga).
+  const grandTotalHours = teamLeader.buildings.reduce(
+    (sum, b) => sum + b.slots.reduce((s, slot) => s + slot.horas, 0),
+    0
+  );
   const sz = frontTableSizing(totalFrontRows);
   const cell = `border border-ink ${sz.pad}`;
   const signCell = `border border-ink ${sz.pad} ${sz.cellH}`;
@@ -252,8 +269,8 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                     </td>
                     {DAYS.map((d) => (
                       <>
-                        <td key={d + b.id + "-in"} className={signCell}></td>
-                        <td key={d + b.id + "-out"} className={signCell}></td>
+                        <SignCell key={d + b.id + "-in"} className={signCell} />
+                        <SignCell key={d + b.id + "-out"} className={signCell} />
                       </>
                     ))}
                   </tr>
@@ -281,8 +298,8 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                     <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
                     {DAYS.map((d) => (
                       <>
-                        <td key={d + b.id + i + "-in"} className={signCell}></td>
-                        <td key={d + b.id + i + "-out"} className={signCell}></td>
+                        <SignCell key={d + b.id + i + "-in"} className={signCell} />
+                        <SignCell key={d + b.id + i + "-out"} className={signCell} />
                       </>
                     ))}
                   </tr>
@@ -306,18 +323,29 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               </option>
             ))}
           </select>
-          <input
-            value={coverNome}
-            onChange={(e) => setCoverNome(e.target.value)}
-            placeholder="Nome"
-            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
-          />
-          <input
-            value={coverStaffNumber}
-            onChange={(e) => setCoverStaffNumber(e.target.value)}
-            placeholder="Staff number"
-            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
-          />
+          {coverNome ? (
+            <span className="flex items-center gap-1.5 rounded-md border border-petrol bg-petrolLight px-2.5 py-1.5 text-xs text-petrol">
+              {coverNome} {coverStaffNumber && `#${coverStaffNumber}`}
+              <button
+                type="button"
+                onClick={() => {
+                  setCoverNome("");
+                  setCoverStaffNumber("");
+                }}
+                className="hover:text-petrolDark"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ) : (
+            <StaffSearchInput
+              onSelect={(staff) => {
+                setCoverNome(staff.nome);
+                setCoverStaffNumber(staff.staffNumber ?? "");
+              }}
+              placeholder="Buscar staff..."
+            />
+          )}
           <input
             type="number"
             min={0}
@@ -383,8 +411,8 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                 <td className="border border-ink p-1 text-center">{cover.staffNumber ?? ""}</td>
                 {DAYS.map((d) => (
                   <>
-                    <td key={d + cover.id + "-in"} className="border border-ink p-1"></td>
-                    <td key={d + cover.id + "-out"} className="border border-ink p-1"></td>
+                    <SignCell key={d + cover.id + "-in"} className="border border-ink p-1" />
+                    <SignCell key={d + cover.id + "-out"} className="border border-ink p-1" />
                   </>
                 ))}
               </tr>
@@ -419,8 +447,8 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               <td className="border border-ink p-1"></td>
               {DAYS.map((d) => (
                 <>
-                  <td key={d + "-events-in"} className="border border-ink p-1"></td>
-                  <td key={d + "-events-out"} className="border border-ink p-1"></td>
+                  <SignCell key={d + "-events-in"} className="border border-ink p-1" />
+                  <SignCell key={d + "-events-out"} className="border border-ink p-1" />
                 </>
               ))}
             </tr>

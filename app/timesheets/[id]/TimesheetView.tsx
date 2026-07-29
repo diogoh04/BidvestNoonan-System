@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X } from "lucide-react";
 import { computeOpenSlots, type Slot } from "@/lib/openSlots";
+import StaffSearchInput from "@/components/StaffSearchInput";
 
 type StaffLine = {
   id: string;
@@ -43,6 +44,20 @@ function buildRows(building: Building) {
   return rows;
 }
 
+// Campo livre pra preencher na tela (número de horas ou um dos códigos HP/AA/S/HU/AU/BH/P45).
+// Não persiste — só pra digitar antes de imprimir/exportar.
+function SignCell({ className }: { className: string }) {
+  return (
+    <td className={className}>
+      <input
+        type="text"
+        maxLength={5}
+        className="h-full w-full border-none bg-transparent p-0 text-center text-inherit outline-none focus:bg-petrolLight"
+      />
+    </td>
+  );
+}
+
 function BlankRow({ n }: { n: number }) {
   return (
     <>
@@ -55,8 +70,8 @@ function BlankRow({ n }: { n: number }) {
           <td className="border border-ink p-1"></td>
           {DAYS.map((d) => (
             <>
-              <td key={d + i + "-in"} className="border border-ink p-1"></td>
-              <td key={d + i + "-out"} className="border border-ink p-1"></td>
+              <SignCell key={d + i + "-in"} className="border border-ink p-1" />
+              <SignCell key={d + i + "-out"} className="border border-ink p-1" />
             </>
           ))}
         </tr>
@@ -75,7 +90,10 @@ function frontTableSizing(rowCount: number) {
 export default function TimesheetView({ building }: { building: Building }) {
   const rows = buildRows(building);
   const coverItems = [`${building.nome} - WO ${building.workOrder ?? "—"}`];
-  const totalHours = rows.reduce((sum, r) => sum + (r.horas ?? 0), 0);
+  // Total de horas do prédio = soma das vagas configuradas (não soma das linhas
+  // exibidas, que incluem team leaders e podem ter horas de staff que não batem
+  // com nenhuma vaga).
+  const totalHours = building.slots.reduce((sum, s) => sum + s.horas, 0);
   const sz = frontTableSizing(rows.length);
   const cell = `border border-ink ${sz.pad}`;
   const signCell = `border border-ink ${sz.pad} ${sz.cellH}`;
@@ -223,8 +241,8 @@ export default function TimesheetView({ building }: { building: Building }) {
               <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
               {DAYS.map((d) => (
                 <>
-                  <td key={d + i + "-in"} className={signCell}></td>
-                  <td key={d + i + "-out"} className={signCell}></td>
+                  <SignCell key={d + i + "-in"} className={signCell} />
+                  <SignCell key={d + i + "-out"} className={signCell} />
                 </>
               ))}
             </tr>
@@ -234,18 +252,29 @@ export default function TimesheetView({ building }: { building: Building }) {
 
       <div className="mt-10 break-before-page">
         <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
-          <input
-            value={coverNome}
-            onChange={(e) => setCoverNome(e.target.value)}
-            placeholder="Nome"
-            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
-          />
-          <input
-            value={coverStaffNumber}
-            onChange={(e) => setCoverStaffNumber(e.target.value)}
-            placeholder="Staff number"
-            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
-          />
+          {coverNome ? (
+            <span className="flex items-center gap-1.5 rounded-md border border-petrol bg-petrolLight px-2.5 py-1.5 text-xs text-petrol">
+              {coverNome} {coverStaffNumber && `#${coverStaffNumber}`}
+              <button
+                type="button"
+                onClick={() => {
+                  setCoverNome("");
+                  setCoverStaffNumber("");
+                }}
+                className="hover:text-petrolDark"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ) : (
+            <StaffSearchInput
+              onSelect={(staff) => {
+                setCoverNome(staff.nome);
+                setCoverStaffNumber(staff.staffNumber ?? "");
+              }}
+              placeholder="Buscar staff..."
+            />
+          )}
           <input
             type="number"
             min={0}
@@ -311,8 +340,8 @@ export default function TimesheetView({ building }: { building: Building }) {
                 <td className="border border-ink p-1 text-center">{c.staffNumber ?? ""}</td>
                 {DAYS.map((d) => (
                   <>
-                    <td key={d + c.id + "-in"} className="border border-ink p-1"></td>
-                    <td key={d + c.id + "-out"} className="border border-ink p-1"></td>
+                    <SignCell key={d + c.id + "-in"} className="border border-ink p-1" />
+                    <SignCell key={d + c.id + "-out"} className="border border-ink p-1" />
                   </>
                 ))}
               </tr>
@@ -347,8 +376,8 @@ export default function TimesheetView({ building }: { building: Building }) {
               <td className="border border-ink p-1"></td>
               {DAYS.map((d) => (
                 <>
-                  <td key={d + "-events-in"} className="border border-ink p-1"></td>
-                  <td key={d + "-events-out"} className="border border-ink p-1"></td>
+                  <SignCell key={d + "-events-in"} className="border border-ink p-1" />
+                  <SignCell key={d + "-events-out"} className="border border-ink p-1" />
                 </>
               ))}
             </tr>
