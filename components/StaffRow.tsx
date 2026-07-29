@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquarePlus, Pencil, Trash2, X } from "lucide-react";
+import { MessageSquarePlus, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { toWhatsAppHref } from "@/lib/phone";
 
 type StaffRowProps = {
   id: string;
@@ -104,7 +105,21 @@ export default function StaffRow({
           <div className="font-medium text-ink">{nome || "—"}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-xs text-ink/50">
             <span>#{staffNumber || "s/n"}</span>
-            {telefone && <span>{telefone}</span>}
+            {telefone &&
+              (toWhatsAppHref(telefone) ? (
+                <a
+                  href={toWhatsAppHref(telefone)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-petrol hover:underline"
+                >
+                  <MessageCircle size={12} />
+                  {telefone}
+                </a>
+              ) : (
+                <span>{telefone}</span>
+              ))}
             {subtitle && <span className="text-petrol">{subtitle}</span>}
           </div>
         </div>
