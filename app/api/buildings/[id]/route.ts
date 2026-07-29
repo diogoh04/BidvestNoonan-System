@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     nome: l.staff.nome,
     staffNumber: l.staff.staffNumber,
     telefone: l.staff.telefone,
-    role: l.staff.role,
+    role: l.role,
     horasSemana: l.horas ?? l.staff.horasSemana,
   });
 
@@ -34,8 +34,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       horasDisponiveis: building.horasDisponiveis,
       workOrder: building.workOrder,
       slots: slots.map((s) => ({ id: s.id.toString(), horas: s.horas })),
-      cleaners: links.filter((l) => l.staff.role === "cleaner").map(mapLink),
-      teamLeaders: links.filter((l) => l.staff.role === "team_leader").map(mapLink),
+      cleaners: links.filter((l) => l.role === "cleaner").map(mapLink),
+      teamLeaders: links.filter((l) => l.role === "team_leader").map(mapLink),
     })
   );
 }

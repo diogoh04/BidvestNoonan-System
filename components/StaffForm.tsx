@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Trash2 } from "lucide-react";
 
 type Building = { id: string; nome: string };
 type Role = "cleaner" | "team_leader";
+type Assignment = { buildingId: string; role: Role; horas: number | null };
 
 export type StaffFormValues = {
   id?: string;
   nome: string;
   staffNumber: string;
   telefone: string;
-  role: Role;
-  buildingIds: string[];
+  assignments: Assignment[];
 };
 
 export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
@@ -23,8 +24,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const [nome, setNome] = useState(initial?.nome ?? "");
   const [staffNumber, setStaffNumber] = useState(initial?.staffNumber ?? "");
   const [telefone, setTelefone] = useState(initial?.telefone ?? "");
-  const [role, setRole] = useState<Role>(initial?.role ?? "cleaner");
-  const [buildingIds, setBuildingIds] = useState<string[]>(initial?.buildingIds ?? []);
+  const [assignments, setAssignments] = useState<Assignment[]>(initial?.assignments ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newBuildingName, setNewBuildingName] = useState("");
@@ -54,7 +54,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       const created = await res.json();
       setNewBuildingName("");
       loadBuildings();
-      setBuildingIds((prev) => [...prev, created.id]);
+      setAssignments((prev) => [...prev, { buildingId: created.id, role: "cleaner", horas: null }]);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -62,16 +62,29 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     }
   }
 
-  function toggleBuilding(id: string) {
-    setBuildingIds((prev) => (prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]));
+  function addAssignment() {
+    const used = new Set(assignments.map((a) => a.buildingId));
+    const next = buildings.find((b) => !used.has(b.id));
+    if (!next) return;
+    setAssignments((prev) => [...prev, { buildingId: next.id, role: "cleaner", horas: null }]);
   }
+
+  function updateAssignment(index: number, patch: Partial<Assignment>) {
+    setAssignments((prev) => prev.map((a, i) => (i === index ? { ...a, ...patch } : a)));
+  }
+
+  function removeAssignment(index: number) {
+    setAssignments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const hasBuildingAvailable = assignments.length < buildings.length;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
-    const payload = { nome, staffNumber, telefone, role, buildingIds };
+    const payload = { nome, staffNumber, telefone, assignments };
 
     try {
       const res = await fetch(isEdit ? `/api/staff/${initial!.id}` : "/api/staff", {
@@ -84,7 +97,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         const body = await res.json().catch(() => null);
         throw new Error(
           body?.error?.formErrors?.[0] ||
-            body?.error?.fieldErrors?.buildingIds?.[0] ||
+            body?.error?.fieldErrors?.assignments?.[0] ||
             "Não foi possível salvar. Confira os campos."
         );
       }
@@ -100,26 +113,6 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div>
-        <label className="mb-1 block text-sm font-medium text-ink">Tipo</label>
-        <div className="flex gap-2">
-          {(["cleaner", "team_leader"] as Role[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
-                role === r
-                  ? "border-petrol bg-petrol text-white"
-                  : "border-line bg-white text-ink hover:border-petrol"
-              }`}
-            >
-              {r === "cleaner" ? "Cleaner" : "Team Leader"}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">Nome</label>
         <input
@@ -154,30 +147,88 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         <label className="mb-1 block text-sm font-medium text-ink">
           Prédios{" "}
           <span className="font-normal text-ink/40">
-            {role === "team_leader"
-              ? "(selecione um ou mais — obrigatório)"
-              : "(opcional — pode cadastrar sem prédio ainda, ou em vários)"}
+            (opcional — pode cadastrar sem prédio, ou em vários, com papéis diferentes em cada um)
           </span>
         </label>
-        <div className="flex flex-wrap gap-2 rounded-md border border-line bg-white p-3">
-          {buildings.length === 0 && (
-            <span className="text-sm text-ink/40">Nenhum prédio cadastrado ainda.</span>   
+
+        <div className="space-y-2">
+          {assignments.length === 0 && (
+            <p className="text-sm text-ink/40">Nenhum vínculo adicionado ainda.</p>
           )}
-          {buildings.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => toggleBuilding(b.id)}
-              className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                buildingIds.includes(b.id)
-                  ? "border-petrol bg-petrolLight text-petrol"
-                  : "border-line text-ink hover:border-petrol"
-              }`}
-            >
-              {b.nome}
-            </button>
-          ))}
+
+          {assignments.map((a, i) => {
+            const usedElsewhere = new Set(
+              assignments.filter((_, j) => j !== i).map((x) => x.buildingId)
+            );
+            const options = buildings.filter((b) => b.id === a.buildingId || !usedElsewhere.has(b.id));
+
+            return (
+              <div
+                key={i}
+                className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-white p-3"
+              >
+                <select
+                  value={a.buildingId}
+                  onChange={(e) => updateAssignment(i, { buildingId: e.target.value })}
+                  className="min-w-[140px] flex-1 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+                >
+                  {options.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.nome}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="flex gap-1">
+                  {(["cleaner", "team_leader"] as Role[]).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => updateAssignment(i, { role: r })}
+                      className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                        a.role === r
+                          ? "border-petrol bg-petrol text-white"
+                          : "border-line bg-white text-ink hover:border-petrol"
+                      }`}
+                    >
+                      {r === "cleaner" ? "Cleaner" : "Team Leader"}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  type="number"
+                  min={0}
+                  value={a.horas ?? ""}
+                  onChange={(e) =>
+                    updateAssignment(i, { horas: e.target.value === "" ? null : Number(e.target.value) })
+                  }
+                  placeholder="h/sem"
+                  className="w-20 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => removeAssignment(i)}
+                  title="Remover vínculo"
+                  className="rounded p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
         </div>
+
+        <button
+          type="button"
+          onClick={addAssignment}
+          disabled={!hasBuildingAvailable}
+          className="mt-2 flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
+        >
+          <Plus size={14} />
+          Adicionar vínculo
+        </button>
       </div>
 
       <div>

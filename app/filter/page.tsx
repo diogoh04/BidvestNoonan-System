@@ -11,8 +11,7 @@ type Staff = {
   nome: string | null;
   staffNumber: string | null;
   telefone: string | null;
-  role: "cleaner" | "team_leader";
-  buildings: { id: string; nome: string }[];
+  buildings: { id: string; nome: string; role: "cleaner" | "team_leader" }[];
 };
 
 export default function FilterPage() {
@@ -113,8 +112,12 @@ export default function FilterPage() {
 
           {!loading &&
             results.map((s) => {
-              const prediosLabel =
-                s.buildings.length > 0 ? s.buildings.map((b) => b.nome).join(", ") : "Sem prédio";
+              const subtitle =
+                s.buildings.length > 0
+                  ? s.buildings
+                      .map((b) => `${b.role === "team_leader" ? "Team Leader" : "Cleaner"} em ${b.nome}`)
+                      .join(" · ")
+                  : "Sem prédio";
               return (
                 <StaffRow
                   key={s.id}
@@ -122,9 +125,7 @@ export default function FilterPage() {
                   nome={s.nome}
                   staffNumber={s.staffNumber}
                   telefone={s.telefone}
-                  subtitle={
-                    s.role === "team_leader" ? `Team Leader · ${prediosLabel}` : prediosLabel
-                  }
+                  subtitle={subtitle}
                   onDeleted={(id) => setResults((prev) => prev.filter((p) => p.id !== id))}
                 />
               );

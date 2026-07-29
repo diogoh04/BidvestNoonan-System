@@ -20,7 +20,8 @@ model Staff {
   horasSemana Int?     @map("horas_semana")
   staffNumber String?  @map("staff_number") @db.VarChar(255)
 
-  // "cleaner" | "team_leader" — validado na aplicação (zod) + CHECK constraint no banco
+  // Legado: papel global não é mais usado pela aplicação (ver StaffBuilding.role,
+  // que guarda o papel por vínculo staff+prédio). Coluna mantida sem uso.
   role        String   @default("cleaner") @db.VarChar(20)
 
   // Prédio fixo — usado só para cleaner. Team leader usa a tabela de vínculo StaffBuilding.
@@ -67,7 +68,11 @@ model BuildingSlot {
 model StaffBuilding {
   staffId    BigInt   @map("staff_id")
   buildingId BigInt   @map("building_id")
-  horas      Int? 
+  horas      Int?
+
+  // "cleaner" | "team_leader" — papel deste vínculo específico (staff+prédio).
+  // Permite que o mesmo staff seja team_leader em um prédio e cleaner em outro.
+  role       String   @default("cleaner") @db.VarChar(20)
 
   staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)

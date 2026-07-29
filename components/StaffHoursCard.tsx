@@ -7,10 +7,12 @@ export default function StaffHoursCard({
   staffId,
   initialHours,
   buildingId,
+  onSaved,
 }: {
   staffId: string;
   initialHours: number | null;
   buildingId?: string;
+  onSaved?: (horas: number | null) => void;
 }) {
   const [hours, setHours] = useState(initialHours);
   const [editing, setEditing] = useState(false);
@@ -35,6 +37,7 @@ export default function StaffHoursCard({
       if (!res.ok) throw new Error();
       setHours(parsed);
       setEditing(false);
+      onSaved?.(parsed);
     } catch {
     } finally {
       setSaving(false);

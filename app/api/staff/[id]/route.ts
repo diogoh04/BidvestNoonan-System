@@ -9,14 +9,12 @@ function mapStaff(w: any): StaffDTO {
     nome: w.nome,
     telefone: w.telefone,
     staffNumber: w.staffNumber,
-    role: w.role,
-    buildingId: w.buildingId ? w.buildingId.toString() : null,
-    buildingNome: w.building?.nome ?? null,
     createdAt: w.createdAt ? w.createdAt.toISOString() : null,
-    buildings: w.buildingsAsTeamLeader?.map((sb: any) => ({
-
+    buildings: (w.buildingsAsTeamLeader ?? []).map((sb: any) => ({
       id: sb.building.id.toString(),
       nome: sb.building.nome,
+      role: sb.role,
+      horas: sb.horas,
     })),
   };
 }
@@ -64,10 +62,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       nome: data.nome,
       staffNumber: data.staffNumber,
       telefone: data.telefone || null,
-      role: data.role,
       buildingsAsTeamLeader:
-        data.buildingIds && data.buildingIds.length > 0
-          ? { create: data.buildingIds.map((id) => ({ buildingId: BigInt(id) })) }
+        data.assignments.length > 0
+          ? {
+              create: data.assignments.map((a) => ({
+                buildingId: BigInt(a.buildingId),
+                role: a.role,
+                horas: a.horas ?? null,
+              })),
+            }
           : undefined,
     },
     include: { buildingsAsTeamLeader: { include: { building: true } } },

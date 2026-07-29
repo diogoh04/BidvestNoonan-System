@@ -35,8 +35,12 @@ export default async function EditStaffPage({ params }: { params: { id: string }
               nome: staff.nome ?? "",
               staffNumber: staff.staffNumber ?? "",
               telefone: staff.telefone ?? "",
-              role: staff.role,
-              buildingIds: staff.buildings?.map((b: any) => b.id) ?? [],
+              assignments:
+                staff.buildings?.map((b: any) => ({
+                  buildingId: b.id,
+                  role: b.role,
+                  horas: b.horas ?? null,
+                })) ?? [],
             }}
           />
         </div>

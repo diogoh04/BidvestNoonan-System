@@ -8,11 +8,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     include: { buildingsAsTeamLeader: { include: { building: true } } },
   });
 
-  if (!teamLeader || teamLeader.role !== "team_leader") {
+  const leaderLinks = teamLeader?.buildingsAsTeamLeader.filter((l) => l.role === "team_leader") ?? [];
+
+  if (!teamLeader || leaderLinks.length === 0) {
     return NextResponse.json({ error: "Team leader não encontrado" }, { status: 404 });
   }
 
-  const buildingIds = teamLeader.buildingsAsTeamLeader.map((l) => l.buildingId);
+  const buildingIds = leaderLinks.map((l) => l.buildingId);
 
   const links = await prisma.staffBuilding.findMany({
     where: { buildingId: { in: buildingIds } },
@@ -30,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       nome: teamLeader.nome,
       staffNumber: teamLeader.staffNumber,
       telefone: teamLeader.telefone,
-      buildings: teamLeader.buildingsAsTeamLeader.map((l) => ({
+      buildings: leaderLinks.map((l) => ({
         id: l.building.id.toString(),
         nome: l.building.nome,
         horasDisponiveis: l.building.horasDisponiveis,
@@ -39,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           .filter((s) => s.buildingId === l.buildingId)
           .map((s) => ({ id: s.id.toString(), horas: s.horas })),
         cleaners: links
-          .filter((link) => link.buildingId === l.buildingId && link.staff.role === "cleaner")
+          .filter((link) => link.buildingId === l.buildingId && link.role === "cleaner")
           .map((link) => ({
             id: link.staff.id.toString(),
             nome: link.staff.nome,

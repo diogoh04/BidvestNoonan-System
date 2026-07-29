@@ -9,13 +9,12 @@ function mapStaff(w: any): StaffDTO {
     nome: w.nome,
     telefone: w.telefone,
     staffNumber: w.staffNumber,
-    role: w.role,
-    buildingId: w.buildingId ? w.buildingId.toString() : null,
-    buildingNome: w.building?.nome ?? null,
     createdAt: w.createdAt ? w.createdAt.toISOString() : null,
-    buildings: w.buildingsAsTeamLeader?.map((sb: any) => ({
+    buildings: (w.buildingsAsTeamLeader ?? []).map((sb: any) => ({
       id: sb.building.id.toString(),
       nome: sb.building.nome,
+      role: sb.role,
+      horas: sb.horas,
     })),
   };
 }
@@ -30,7 +29,7 @@ export async function GET(req: NextRequest) {
   const and: any[] = [];
 
   if (role === "cleaner" || role === "team_leader") {
-    and.push({ role });
+    and.push({ buildingsAsTeamLeader: { some: { role } } });
   }
 
   if (q) {
@@ -55,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   const staff = await prisma.staff.findMany({
     where,
-    include: { building: true, buildingsAsTeamLeader: { include: { building: true } } },
+    include: { buildingsAsTeamLeader: { include: { building: true } } },
     orderBy: { nome: "asc" },
   });
 
@@ -73,20 +72,24 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
 
-    const created = await prisma.staff.create({
+  const created = await prisma.staff.create({
     data: {
       nome: data.nome,
       staffNumber: data.staffNumber,
       telefone: data.telefone || null,
-      role: data.role,
       buildingsAsTeamLeader:
-        data.buildingIds && data.buildingIds.length > 0
-          ? { create: data.buildingIds.map((id) => ({ buildingId: BigInt(id) })) }
+        data.assignments.length > 0
+          ? {
+              create: data.assignments.map((a) => ({
+                buildingId: BigInt(a.buildingId),
+                role: a.role,
+                horas: a.horas ?? null,
+              })),
+            }
           : undefined,
     },
-    include: { building: true, buildingsAsTeamLeader: { include: { building: true } } },
+    include: { buildingsAsTeamLeader: { include: { building: true } } },
   });
-
 
   return NextResponse.json(toJSONSafe(mapStaff(created)), { status: 201 });
 }

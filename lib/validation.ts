@@ -5,20 +5,30 @@ export const staffInputSchema = z
     nome: z.string().trim().min(1, "Nome é obrigatório"),
     staffNumber: z.string().trim().min(1, "Staff number é obrigatório"),
     telefone: z.string().trim().optional().nullable(),
-    role: z.enum(["cleaner", "team_leader"]),
-    // cleaner: 0 ou 1 prédio (opcional). team_leader: 1+ prédios (obrigatório).
-    buildingId: z.string().optional().nullable(), // usado quando role = cleaner
-    buildingIds: z.array(z.string()).optional(), // usado quando role = team_leader
+    // Um vínculo por prédio: papel (cleaner/team_leader) e horas são
+    // independentes por prédio, permitindo que o mesmo staff seja team
+    // leader em um prédio e cleaner em outro.
+    assignments: z
+      .array(
+        z.object({
+          buildingId: z.string(),
+          role: z.enum(["cleaner", "team_leader"]),
+          horas: z.number().nullable().optional(),
+        })
+      )
+      .default([]),
   })
   .superRefine((data, ctx) => {
-    if (data.role === "team_leader") {
-      if (!data.buildingIds || data.buildingIds.length === 0) {
+    const seen = new Set<string>();
+    for (const [i, a] of data.assignments.entries()) {
+      if (seen.has(a.buildingId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Team leader precisa de pelo menos um prédio",
-          path: ["buildingIds"],
+          message: "Prédio duplicado na lista de vínculos",
+          path: ["assignments", i, "buildingId"],
         });
       }
+      seen.add(a.buildingId);
     }
   });
 

@@ -15,6 +15,30 @@ type StaffItem = {
 
 type Slot = { id: string; horas: number };
 
+// Casa cada staff com uma vaga de mesma quantidade de horas (não por posição/índice),
+// já que vagas de horas diferentes não são intercambiáveis. Staff sem match de horas
+// ainda consome uma vaga qualquer, só para manter a contagem total correta.
+function computeOpenSlots(slots: Slot[], staffList: { horasSemana?: number | null }[]): Slot[] {
+  const remaining = [...slots];
+  const unmatched: typeof staffList = [];
+
+  for (const s of staffList) {
+    const idx = s.horasSemana != null ? remaining.findIndex((slot) => slot.horas === s.horasSemana) : -1;
+    if (idx !== -1) {
+      remaining.splice(idx, 1);
+    } else {
+      unmatched.push(s);
+    }
+  }
+
+  for (const _ of unmatched) {
+    if (remaining.length === 0) break;
+    remaining.shift();
+  }
+
+  return remaining;
+}
+
 export default function BuildingStaffClient({
   staff,
   emptyLabel,
@@ -31,7 +55,7 @@ export default function BuildingStaffClient({
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const openSlots = initialSlots ? slots.slice(list.length) : [];
+  const openSlots = initialSlots ? computeOpenSlots(slots, list) : [];
 
   async function saveSlotHours(slotId: string) {
     const horas = Number(editValue);
@@ -71,7 +95,14 @@ export default function BuildingStaffClient({
               onDeleted={(id) => setList((prev) => prev.filter((p) => p.id !== id))}
             />
           </div>
-          <StaffHoursCard staffId={s.id} initialHours={s.horasSemana ?? null} buildingId={buildingId} />
+          <StaffHoursCard
+            staffId={s.id}
+            initialHours={s.horasSemana ?? null}
+            buildingId={buildingId}
+            onSaved={(horas) =>
+              setList((prev) => prev.map((p) => (p.id === s.id ? { ...p, horasSemana: horas } : p)))
+            }
+          />
         </div>
       ))}
 

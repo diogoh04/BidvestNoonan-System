@@ -14,8 +14,8 @@ export async function GET() {
       buildings.map((b) => ({
         id: b.id.toString(),
         nome: b.nome,
-        totalCleaners: b.teamLeaders.filter((l) => l.staff.role === "cleaner").length,
-        totalTeamLeaders: b.teamLeaders.filter((l) => l.staff.role === "team_leader").length,
+        totalCleaners: b.teamLeaders.filter((l) => l.role === "cleaner").length,
+        totalTeamLeaders: b.teamLeaders.filter((l) => l.role === "team_leader").length,
       }))
     )
   );

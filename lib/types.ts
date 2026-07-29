@@ -5,10 +5,7 @@ export type StaffDTO = {
   nome: string | null;
   telefone: string | null;
   staffNumber: string | null;
-  role: Role;
-  buildingId: string | null;
-  buildingNome: string | null;
-  buildings?: { id: string; nome: string }[]; // usado quando role = team_leader
+  buildings: { id: string; nome: string; role: Role; horas: number | null }[];
   createdAt: string | null;
 };
 
