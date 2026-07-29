@@ -162,6 +162,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         </div>
       </div>
 
+      {isEdit && (
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">Status</label>
         <div className="flex flex-wrap gap-2">
@@ -199,6 +200,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           </div>
         )}
       </div>
+      )}
 
       {!status && (
       <>
