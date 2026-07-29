@@ -47,6 +47,7 @@ model Building {
   staff         Staff[]
   teamLeaders   StaffBuilding[]
   slots         BuildingSlot[]
+  covers        BuildingCover[]
 
   @@map("predios")
 }
@@ -81,6 +82,21 @@ model StaffBuilding {
 
   @@id([staffId, buildingId])
   @@map("staff_building")
+}
+
+// ---------- Cover avulso na folha de ponto: staff cobrindo o prédio por um
+// dia, sem criar vínculo (StaffBuilding) real. Só texto — sem FK pra Staff.
+model BuildingCover {
+  id          BigInt   @id @default(autoincrement())
+  buildingId  BigInt   @map("building_id")
+  nome        String?  @db.VarChar(255)
+  staffNumber String?  @map("staff_number") @db.VarChar(255)
+  horas       Int?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@map("building_cover")
 }
 
 // ---------- Observações (tabela física já existente: feedback) ----------

@@ -18,6 +18,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     orderBy: { ordem: "asc" },
   });
 
+  const covers = await prisma.buildingCover.findMany({
+    where: { buildingId },
+    orderBy: { createdAt: "asc" },
+  });
+
   const mapLink = (l: (typeof links)[number]) => ({
     id: l.staff.id.toString(),
     nome: l.staff.nome,
@@ -34,6 +39,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       horasDisponiveis: building.horasDisponiveis,
       workOrder: building.workOrder,
       slots: slots.map((s) => ({ id: s.id.toString(), horas: s.horas })),
+      covers: covers.map((c) => ({
+        id: c.id.toString(),
+        nome: c.nome,
+        staffNumber: c.staffNumber,
+        horas: c.horas,
+      })),
       cleaners: links.filter((l) => l.role === "cleaner").map(mapLink),
       teamLeaders: links.filter((l) => l.role === "team_leader").map(mapLink),
     })

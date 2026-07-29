@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { Printer } from "lucide-react";
+import { Printer, Plus, X } from "lucide-react";
+import { computeOpenSlots, type Slot } from "@/lib/openSlots";
 
 type StaffLine = {
   id: string;
@@ -10,13 +12,14 @@ type StaffLine = {
   horasSemana: number | null;
 };
 
-type Slot = { id: string; horas: number };
+type Cover = { id: string; nome: string | null; staffNumber: string | null; horas: number | null };
 
 type BuildingSection = {
   id: string;
   nome: string;
   workOrder: string | null;
   slots: Slot[];
+  covers: Cover[];
   cleaners: StaffLine[];
 };
 
@@ -29,19 +32,13 @@ type TeamLeader = {
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 const ESTATES_EVENTS_WO = "515736";
+const MIN_COVER_ROWS = 7;
 
-function buildRows(staff: StaffLine[], slots: Slot[]) {
-  const total = Math.max(staff.length, slots.length);
-  const rows: { nome: string | null; staffNumber: string | null; horas: number | null }[] = [];
-  for (let i = 0; i < total; i++) {
-    const s = staff[i];
-    const slot = slots[i];
-    rows.push({
-      nome: s?.nome ?? null,
-      staffNumber: s?.staffNumber ?? null,
-      horas: s?.horasSemana ?? slot?.horas ?? null,
-    });
-  }
+function buildRows(cleaners: StaffLine[], slots: Slot[]) {
+  const rows: { nome: string | null; staffNumber: string | null; horas: number | null }[] = [
+    ...cleaners.map((c) => ({ nome: c.nome, staffNumber: c.staffNumber, horas: c.horasSemana })),
+    ...computeOpenSlots(slots, cleaners).map((s) => ({ nome: null, staffNumber: null, horas: s.horas })),
+  ];
   // maior número de horas primeiro
   rows.sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0));
   return rows;
@@ -89,6 +86,60 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
   const sz = frontTableSizing(totalFrontRows);
   const cell = `border border-ink ${sz.pad}`;
   const signCell = `border border-ink ${sz.pad} ${sz.cellH}`;
+
+  const [coversByBuilding, setCoversByBuilding] = useState<Record<string, Cover[]>>(
+    Object.fromEntries(teamLeader.buildings.map((b) => [b.id, b.covers]))
+  );
+  const covers = teamLeader.buildings.flatMap((b) =>
+    (coversByBuilding[b.id] ?? []).map((c) => ({ buildingId: b.id, buildingNome: b.nome, cover: c }))
+  );
+  const [coverBuildingId, setCoverBuildingId] = useState(teamLeader.buildings[0]?.id ?? "");
+  const [coverNome, setCoverNome] = useState("");
+  const [coverStaffNumber, setCoverStaffNumber] = useState("");
+  const [coverHoras, setCoverHoras] = useState("");
+  const [savingCover, setSavingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
+
+  async function addCover() {
+    if (!coverNome.trim() || !coverBuildingId) return;
+    setSavingCover(true);
+    setCoverError(null);
+    try {
+      const res = await fetch(`/api/buildings/${coverBuildingId}/covers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: coverNome.trim(),
+          staffNumber: coverStaffNumber.trim() || null,
+          horas: coverHoras.trim() === "" ? null : Number(coverHoras),
+        }),
+      });
+      if (!res.ok) throw new Error("Não foi possível adicionar o cover");
+      const created = await res.json();
+      setCoversByBuilding((prev) => ({
+        ...prev,
+        [coverBuildingId]: [...(prev[coverBuildingId] ?? []), created],
+      }));
+      setCoverNome("");
+      setCoverStaffNumber("");
+      setCoverHoras("");
+    } catch (e: any) {
+      setCoverError(e.message);
+    } finally {
+      setSavingCover(false);
+    }
+  }
+
+  async function removeCover(buildingId: string, id: string) {
+    setCoversByBuilding((prev) => ({
+      ...prev,
+      [buildingId]: (prev[buildingId] ?? []).filter((c) => c.id !== id),
+    }));
+    try {
+      await fetch(`/api/buildings/${buildingId}/covers/${id}`, { method: "DELETE" });
+    } catch {
+    }
+  }
 
   return (
     <main className="mx-auto max-w-6xl bg-white px-6 py-10 print:max-w-none print:px-8 print:py-4">
@@ -243,6 +294,50 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
       </table>
 
       <div className="mt-10 break-before-page">
+        <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
+          <select
+            value={coverBuildingId}
+            onChange={(e) => setCoverBuildingId(e.target.value)}
+            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+          >
+            {teamLeader.buildings.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.nome}
+              </option>
+            ))}
+          </select>
+          <input
+            value={coverNome}
+            onChange={(e) => setCoverNome(e.target.value)}
+            placeholder="Nome"
+            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+          />
+          <input
+            value={coverStaffNumber}
+            onChange={(e) => setCoverStaffNumber(e.target.value)}
+            placeholder="Staff number"
+            className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+          />
+          <input
+            type="number"
+            min={0}
+            value={coverHoras}
+            onChange={(e) => setCoverHoras(e.target.value)}
+            placeholder="Horas"
+            className="w-24 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+          />
+          <button
+            type="button"
+            onClick={addCover}
+            disabled={savingCover}
+            className="flex items-center gap-1 rounded-md bg-petrol px-3 py-1.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
+          >
+            <Plus size={14} />
+            Adicionar cover
+          </button>
+          {coverError && <span className="text-xs text-danger">{coverError}</span>}
+        </div>
+
         <table className="w-full border-collapse text-[11px]">
           <thead>
             <tr>
@@ -267,7 +362,34 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             </tr>
           </thead>
           <tbody>
-            <BlankRow n={7} />
+            {covers.map(({ buildingId, buildingNome, cover }) => (
+              <tr key={cover.id}>
+                <td className="border border-ink p-1 h-8 text-center">{buildingNome}</td>
+                <td className="border border-ink p-1 text-center">{cover.horas ?? ""}</td>
+                <td className="border border-ink p-1"></td>
+                <td className="border border-ink p-1">
+                  <span className="flex items-center justify-between gap-2">
+                    {cover.nome ?? ""}
+                    <button
+                      type="button"
+                      onClick={() => removeCover(buildingId, cover.id)}
+                      title="Remover cover"
+                      className="rounded p-0.5 text-ink/30 hover:text-danger print:hidden"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                </td>
+                <td className="border border-ink p-1 text-center">{cover.staffNumber ?? ""}</td>
+                {DAYS.map((d) => (
+                  <>
+                    <td key={d + cover.id + "-in"} className="border border-ink p-1"></td>
+                    <td key={d + cover.id + "-out"} className="border border-ink p-1"></td>
+                  </>
+                ))}
+              </tr>
+            ))}
+            <BlankRow n={Math.max(MIN_COVER_ROWS - covers.length, 1)} />
 
             <tr>
               <td className="border border-ink p-1 font-medium">ESTATES ADDITIONAL</td>

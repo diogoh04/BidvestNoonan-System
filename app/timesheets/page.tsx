@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import Header from "@/components/Header";
 import { ChevronRight, ClipboardList, Users } from "lucide-react";
+import TimesheetBuildingSearch from "./TimesheetBuildingSearch";
 
 async function getBaseUrl() {
   const h = headers();
@@ -17,8 +18,15 @@ async function getTeamLeaders() {
   return res.json();
 }
 
+async function getBuildings() {
+  const base = await getBaseUrl();
+  const res = await fetch(`${base}/api/buildings`, { cache: "no-store" });
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export default async function TimesheetsPage() {
-  const teamLeaders = await getTeamLeaders();
+  const [teamLeaders, buildings] = await Promise.all([getTeamLeaders(), getBuildings()]);
 
   return (
     <>
@@ -26,7 +34,8 @@ export default async function TimesheetsPage() {
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Sign In &amp; Sign Out Book</h1>
         <p className="mt-1 text-sm text-ink/50">
-          Escolha o team leader para gerar a folha com todos os prédios dele.
+          Escolha o team leader para gerar a folha com todos os prédios dele, ou busque direto por
+          prédio (útil quando um prédio tem mais de um team leader).
         </p>
 
         <section className="mt-8">
@@ -58,6 +67,8 @@ export default async function TimesheetsPage() {
             ))}
           </div>
         </section>
+
+        <TimesheetBuildingSearch buildings={buildings} />
       </main>
     </>
   );
