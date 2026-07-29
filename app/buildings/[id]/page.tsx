@@ -47,7 +47,11 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
             <h2 className="mb-3 font-display text-lg font-bold text-petrol">
               Team Leader{building.teamLeaders.length !== 1 ? "s" : ""}
             </h2>
-            <BuildingStaffClient staff={building.teamLeaders} emptyLabel="Nenhum team leader vinculado a este prédio." />
+            <BuildingStaffClient
+              staff={building.teamLeaders}
+              emptyLabel="Nenhum team leader vinculado a este prédio."
+              buildingId={building.id}
+            />
           </section>
 
           <section>

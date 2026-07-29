@@ -10,6 +10,7 @@ type StaffRowProps = {
   staffNumber: string | null;
   telefone: string | null;
   subtitle?: string;
+  buildingId?: string;
   onDeleted?: (id: string) => void;
 };
 
@@ -21,6 +22,7 @@ export default function StaffRow({
   staffNumber,
   telefone,
   subtitle,
+  buildingId,
   onDeleted,
 }: StaffRowProps) {
   const [showPanel, setShowPanel] = useState(false);
@@ -85,7 +87,8 @@ export default function StaffRow({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/staff/${id}`, { method: "DELETE" });
+      const url = buildingId ? `/api/buildings/${buildingId}/staff/${id}` : `/api/staff/${id}`;
+      const res = await fetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Falha ao excluir");
       onDeleted?.(id);
     } catch (e: any) {
@@ -191,7 +194,9 @@ export default function StaffRow({
       {confirmingDelete && (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
           <span className="text-sm text-danger">
-            Excluir {nome}? Essa ação não pode ser desfeita.
+            {buildingId
+              ? `Remover ${nome} deste prédio?`
+              : `Excluir ${nome}? Essa ação não pode ser desfeita.`}
           </span>
           <div className="flex gap-2">
             <button

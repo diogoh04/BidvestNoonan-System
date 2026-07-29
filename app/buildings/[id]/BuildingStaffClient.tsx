@@ -67,6 +67,7 @@ export default function BuildingStaffClient({
               nome={s.nome}
               staffNumber={s.staffNumber}
               telefone={s.telefone}
+              buildingId={buildingId}
               onDeleted={(id) => setList((prev) => prev.filter((p) => p.id !== id))}
             />
           </div>

@@ -21,6 +21,12 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
   const [editValue, setEditValue] = useState("");
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
+  const query = newName.trim().toLowerCase();
+  const filteredBuildings = query
+    ? buildings.filter((b) => b.nome.toLowerCase().includes(query))
+    : buildings;
+  const showAddButton = query !== "" && filteredBuildings.length === 0;
+
   async function addBuilding() {
     if (!newName.trim()) return;
     setAdding(true);
@@ -87,23 +93,25 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addBuilding()}
-          placeholder="Nome do novo prédio"
+          onKeyDown={(e) => e.key === "Enter" && showAddButton && addBuilding()}
+          placeholder="Buscar ou adicionar prédio"
           className="flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
         />
-        <button
-          onClick={addBuilding}
-          disabled={adding}
-          className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
-        >
-          <Plus size={16} />
-          Adicionar prédio
-        </button>
+        {showAddButton && (
+          <button
+            onClick={addBuilding}
+            disabled={adding}
+            className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
+          >
+            <Plus size={16} />
+            Adicionar prédio
+          </button>
+        )}
       </div>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
 
       <div className="mt-6 space-y-2">
-        {buildings.map((b) => (
+        {filteredBuildings.map((b) => (
           <div
             key={b.id}
             className="flex items-center justify-between rounded-md border border-line bg-white px-4 py-3"
