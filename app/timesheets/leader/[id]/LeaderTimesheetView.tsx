@@ -45,6 +45,18 @@ function buildRows(cleaners: StaffLine[], slots: Slot[]) {
   return rows;
 }
 
+// Campo livre pra preencher na tela (data da semana). Não persiste — só pra
+// digitar antes de imprimir/exportar, igual o SignCell abaixo.
+function WeekField() {
+  return (
+    <input
+      type="text"
+      maxLength={2}
+      className="inline-block w-10 border-0 border-b border-ink bg-transparent text-center outline-none focus:bg-petrolLight"
+    />
+  );
+}
+
 // Campo livre pra preencher na tela (número de horas ou um dos códigos HP/AA/S/HU/AU/BH/P45).
 // Não persiste — só pra digitar antes de imprimir/exportar.
 function SignCell({ className }: { className: string }) {
@@ -108,7 +120,12 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
     Object.fromEntries(teamLeader.buildings.map((b) => [b.id, b.covers]))
   );
   const covers = teamLeader.buildings.flatMap((b) =>
-    (coversByBuilding[b.id] ?? []).map((c) => ({ buildingId: b.id, buildingNome: b.nome, cover: c }))
+    (coversByBuilding[b.id] ?? []).map((c) => ({
+      buildingId: b.id,
+      buildingNome: b.nome,
+      buildingWorkOrder: b.workOrder,
+      cover: c,
+    }))
   );
   const [coverBuildingId, setCoverBuildingId] = useState(teamLeader.buildings[0]?.id ?? "");
   const [coverNome, setCoverNome] = useState("");
@@ -186,13 +203,13 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4 text-sm">
         <div className="flex items-center gap-2">
           <span className="font-medium text-ink">WEEK</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
           <span>/</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
           <span>—</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
           <span>/</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
         </div>
 
         <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-xs">
@@ -390,11 +407,11 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             </tr>
           </thead>
           <tbody>
-            {covers.map(({ buildingId, buildingNome, cover }) => (
+            {covers.map(({ buildingId, buildingNome, buildingWorkOrder, cover }) => (
               <tr key={cover.id}>
                 <td className="border border-ink p-1 h-8 text-center">{buildingNome}</td>
                 <td className="border border-ink p-1 text-center">{cover.horas ?? ""}</td>
-                <td className="border border-ink p-1"></td>
+                <td className="border border-ink p-1 text-center">{buildingWorkOrder ?? ""}</td>
                 <td className="border border-ink p-1">
                   <span className="flex items-center justify-between gap-2">
                     {cover.nome ?? ""}

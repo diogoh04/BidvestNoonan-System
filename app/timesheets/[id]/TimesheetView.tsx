@@ -29,9 +29,10 @@ const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 const ESTATES_EVENTS_WO = "515736";
 const MIN_COVER_ROWS = 7;
 
+// Só cleaners + vagas em aberto — o(s) team leader(s) já aparecem na linha
+// "Team Leader" do cabeçalho, não precisam repetir como linha na tabela.
 function buildRows(building: Building) {
   const rows: { nome: string | null; staffNumber: string | null; horas: number | null }[] = [
-    ...building.teamLeaders.map((t) => ({ nome: t.nome, staffNumber: t.staffNumber, horas: t.horasSemana })),
     ...building.cleaners.map((c) => ({ nome: c.nome, staffNumber: c.staffNumber, horas: c.horasSemana })),
     ...computeOpenSlots(building.slots, building.cleaners).map((s) => ({
       nome: null,
@@ -42,6 +43,18 @@ function buildRows(building: Building) {
   // maior número de horas primeiro
   rows.sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0));
   return rows;
+}
+
+// Campo livre pra preencher na tela (data da semana). Não persiste — só pra
+// digitar antes de imprimir/exportar, igual o SignCell abaixo.
+function WeekField() {
+  return (
+    <input
+      type="text"
+      maxLength={2}
+      className="inline-block w-10 border-0 border-b border-ink bg-transparent text-center outline-none focus:bg-petrolLight"
+    />
+  );
 }
 
 // Campo livre pra preencher na tela (número de horas ou um dos códigos HP/AA/S/HU/AU/BH/P45).
@@ -166,13 +179,13 @@ export default function TimesheetView({ building }: { building: Building }) {
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4 text-sm">
         <div className="flex items-center gap-2">
           <span className="font-medium text-ink">WEEK</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
           <span>/</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
           <span>—</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
           <span>/</span>
-          <span className="inline-block w-16 border-b border-ink">&nbsp;</span>
+          <WeekField />
         </div>
 
         <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-xs">
@@ -321,9 +334,9 @@ export default function TimesheetView({ building }: { building: Building }) {
           <tbody>
             {covers.map((c) => (
               <tr key={c.id}>
-                <td className="border border-ink p-1 h-8"></td>
+                <td className="border border-ink p-1 h-8 text-center">{building.nome}</td>
                 <td className="border border-ink p-1 text-center">{c.horas ?? ""}</td>
-                <td className="border border-ink p-1"></td>
+                <td className="border border-ink p-1 text-center">{building.workOrder ?? ""}</td>
                 <td className="border border-ink p-1">
                   <span className="flex items-center justify-between gap-2">
                     {c.nome ?? ""}
