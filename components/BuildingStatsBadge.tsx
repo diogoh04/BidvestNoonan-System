@@ -22,11 +22,11 @@ export default function BuildingStatsBadge({
   return (
     <div className="flex flex-col items-end gap-1 text-right">
       {hoursDelta !== null && (
-        <span className={`text-xs font-medium ${hoursDelta > 0 ? "text-danger" : "text-success"}`}>
-          {hoursDelta > 0
-            ? `Devendo ${hoursDelta}h`
-            : hoursDelta < 0
-            ? `Sobrando ${Math.abs(hoursDelta)}h`
+        <span className={`text-xs font-medium ${hoursDelta < 0 ? "text-danger" : "text-success"}`}>
+          {hoursDelta < 0
+            ? `Devendo ${Math.abs(hoursDelta)}h`
+            : hoursDelta > 0
+            ? `Sobrando ${hoursDelta}h`
             : "Horas OK"}
         </span>
       )}
