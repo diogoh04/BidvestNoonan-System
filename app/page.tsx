@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Building2, ClipboardList, Archive } from "lucide-react";
+import { Users, Building2, ClipboardList, Archive, LayoutDashboard } from "lucide-react";
 import Header from "@/components/Header";
 
 export default function DashboardPage() {
@@ -10,10 +10,10 @@ export default function DashboardPage() {
         <p className="mb-10 font-mono text-xs uppercase tracking-[0.3em] text-ink/40">
           Selecione uma visão
         </p>
-        <div className="grid w-full max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid w-full max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
           <Link
             href="/team-leaders"
-            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-8 py-14 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
           >
             <Users size={40} className="text-petrol" />
             <div>
@@ -26,7 +26,7 @@ export default function DashboardPage() {
 
           <Link
             href="/buildings"
-            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-8 py-14 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
           >
             <Building2 size={40} className="text-petrol" />
             <div>
@@ -39,7 +39,7 @@ export default function DashboardPage() {
 
           <Link
             href="/timesheets"
-            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-8 py-14 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
           >
             <ClipboardList size={40} className="text-petrol" />
             <div>
@@ -54,12 +54,23 @@ export default function DashboardPage() {
 
           <Link
             href="/outros"
-            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-8 py-14 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
           >
             <Archive size={40} className="text-petrol" />
             <div>
               <div className="font-display text-2xl font-bold text-ink">Outros</div>
               <div className="mt-1 text-sm text-ink/50">P45, LE, Staff Blocked e Sick.</div>
+            </div>
+          </Link>
+
+          <Link
+            href="/dashboard"
+            className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+          >
+            <LayoutDashboard size={40} className="text-petrol" />
+            <div>
+              <div className="font-display text-2xl font-bold text-ink">Dashboard</div>
+              <div className="mt-1 text-sm text-ink/50">Visão geral: staff, vagas e horas por prédio</div>
             </div>
           </Link>
         </div>

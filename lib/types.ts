@@ -24,6 +24,30 @@ export type FeedbackDTO = {
   data: string | null;
 };
 
+export type DashboardDTO = {
+  counts: {
+    totalStaff: number;
+    totalCleaners: number;
+    totalTeamLeaders: number;
+  };
+  buildingsOpenSlots: { buildingId: string; nome: string; openSlotsCount: number }[];
+  openSlotsByHours: { horas: number; count: number }[];
+  totalOpenSlots: number;
+  buildingsHoursBalance: {
+    buildingId: string;
+    nome: string;
+    horasDisponiveis: number;
+    horasGastas: number;
+    hoursDelta: number;
+  }[];
+  grandTotal: {
+    horasDisponiveis: number;
+    horasGastas: number;
+    hoursDelta: number;
+    buildingsCounted: number;
+  };
+};
+
 // BigInt não serializa em JSON.stringify por padrão — convertendo recursivamente para string.
 export function toJSONSafe<T>(value: T): T {
   return JSON.parse(
