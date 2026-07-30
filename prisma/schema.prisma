@@ -17,7 +17,7 @@ model Staff {
   id          BigInt   @id @default(autoincrement())
   nome        String?  @db.VarChar(255)
   telefone    String?  @db.VarChar(255)
-  horasSemana Int?     @map("horas_semana")
+  horasSemana Float?   @map("horas_semana")
   staffNumber String?  @map("staff_number") @db.VarChar(255)
 
   // Legado: papel global não é mais usado pela aplicação (ver StaffBuilding.role,
@@ -47,7 +47,7 @@ model Staff {
 model Building {
   id   BigInt @id @default(autoincrement())
   nome String @unique @db.VarChar(255)
-  horasDisponiveis Int? @map("horas_disponiveis")
+  horasDisponiveis Float? @map("horas_disponiveis")
   workOrder String? @map("work_order")
 
   staff         Staff[]
@@ -62,7 +62,7 @@ model Building {
 model BuildingSlot {
   id         BigInt   @id @default(autoincrement())
   buildingId BigInt   @map("building_id")
-  horas      Int
+  horas      Float
   ordem      Int      @default(0)
 
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -75,7 +75,7 @@ model BuildingSlot {
 model StaffBuilding {
   staffId    BigInt   @map("staff_id")
   buildingId BigInt   @map("building_id")
-  horas      Int?
+  horas      Float?
 
   // "cleaner" | "team_leader" — papel deste vínculo específico (staff+prédio).
   // Permite que o mesmo staff seja team_leader em um prédio e cleaner em outro.
@@ -97,7 +97,7 @@ model BuildingCover {
   buildingId  BigInt   @map("building_id")
   nome        String?  @db.VarChar(255)
   staffNumber String?  @map("staff_number") @db.VarChar(255)
-  horas       Int?
+  horas       Float?
   createdAt   DateTime @default(now()) @map("created_at")
 
   building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)

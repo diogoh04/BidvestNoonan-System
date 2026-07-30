@@ -30,10 +30,12 @@ export default function BuildingStaffClient({
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const openSlots = initialSlots ? computeOpenSlots(slots, list) : [];
+  // Maior número de horas primeiro, igual já é feito na folha de ponto.
+  const sortedList = [...list].sort((a, b) => (b.horasSemana ?? 0) - (a.horasSemana ?? 0));
+  const openSlots = initialSlots ? computeOpenSlots(slots, sortedList) : [];
 
   async function saveSlotHours(slotId: string) {
-    const horas = Number(editValue);
+    const horas = Number(editValue.replace(",", "."));
     if (!horas || horas <= 0 || !buildingId) {
       setEditingSlotId(null);
       return;
@@ -58,8 +60,9 @@ export default function BuildingStaffClient({
 
   return (
     <div className="space-y-2">
-      {list.map((s) => (
+      {sortedList.map((s, i) => (
         <div key={s.id} className="flex items-start gap-2">
+          <span className="mt-3 w-5 shrink-0 text-center font-mono text-xs text-ink/40">{i + 1}</span>
           <div className="flex-1">
             <StaffRow
               id={s.id}
@@ -81,18 +84,22 @@ export default function BuildingStaffClient({
         </div>
       ))}
 
-      {openSlots.map((slot) => (
+      {openSlots.map((slot, i) => (
         <div
           key={slot.id}
-          className="flex items-center justify-between rounded-md border border-dashed border-line bg-surface px-4 py-3"
+          className="flex items-center justify-between gap-2 rounded-md border border-dashed border-line bg-surface px-4 py-3"
         >
-          <span className="text-sm text-ink/40">Vaga em aberto</span>
+          <span className="flex items-center gap-2 text-sm text-ink/40">
+            <span className="w-5 shrink-0 text-center font-mono text-xs">{sortedList.length + i + 1}</span>
+            Vaga em aberto
+          </span>
 
           {editingSlotId === slot.id ? (
             <span className="flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1.5 text-xs">
               <input
                 type="number"
                 min={1}
+                step={0.25}
                 autoFocus
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}

@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import StaffRow from "@/components/StaffRow";
 import { Search } from "lucide-react";
 
+const NO_BUILDING = "__sem_predio__";
+
 type Building = { id: string; nome: string };
 type Staff = {
   id: string;
@@ -50,7 +52,11 @@ export default function FilterPage() {
     setSearched(true);
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
-    if (buildingId) params.set("buildingId", buildingId);
+    if (buildingId === NO_BUILDING) {
+      params.set("noBuilding", "1");
+    } else if (buildingId) {
+      params.set("buildingId", buildingId);
+    }
 
     try {
       const res = await fetch(`/api/staff?${params.toString()}`);
@@ -77,6 +83,7 @@ export default function FilterPage() {
             className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
           >
             <option value="">Todos os prédios</option>
+            <option value={NO_BUILDING}>Sem prédio</option>
             {buildings.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.nome}

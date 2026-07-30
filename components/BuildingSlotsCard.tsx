@@ -70,7 +70,7 @@ export default function BuildingSlotsCard({
   }
 
   async function handleAddSubmit() {
-    await addSlots(Number(newHoras), Number(newQuantidade) || 1);
+    await addSlots(Number(newHoras.replace(",", ".")), Number(newQuantidade) || 1);
     setNewHoras("");
     setNewQuantidade("1");
   }
@@ -97,6 +97,7 @@ export default function BuildingSlotsCard({
         <input
           type="number"
           min={1}
+          step={0.25}
           value={newHoras}
           onChange={(e) => setNewHoras(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAddSubmit()}

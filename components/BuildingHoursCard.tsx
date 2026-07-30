@@ -16,7 +16,7 @@ export default function BuildingHoursCard({
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    const parsed = value.trim() === "" ? null : Number(value);
+    const parsed = value.trim() === "" ? null : Number(value.replace(",", "."));
     if (parsed !== null && (isNaN(parsed) || parsed < 0)) return;
 
     setSaving(true);
@@ -43,6 +43,7 @@ export default function BuildingHoursCard({
         <input
           type="number"
           min={0}
+          step={0.25}
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}

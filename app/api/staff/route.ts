@@ -21,13 +21,14 @@ function mapStaff(w: any): StaffDTO {
   };
 }
 
-// GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner&status=p45
+// GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner&status=p45&noBuilding=1
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const buildingId = searchParams.get("buildingId");
   const role = searchParams.get("role");
   const status = searchParams.get("status");
+  const noBuilding = searchParams.get("noBuilding");
 
   const and: any[] = [];
 
@@ -48,7 +49,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (buildingId) {
+  if (noBuilding) {
+    // Staff ativo (sem status especial) e sem nenhum vínculo de prédio.
+    and.push({ buildingId: null, buildingsAsTeamLeader: { none: {} }, status: null });
+  } else if (buildingId) {
     and.push({
       OR: [
         { buildingId: BigInt(buildingId) },

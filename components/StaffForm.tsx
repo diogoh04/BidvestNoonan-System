@@ -260,9 +260,12 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
                 <input
                   type="number"
                   min={0}
+                  step={0.25}
                   value={a.horas ?? ""}
                   onChange={(e) =>
-                    updateAssignment(i, { horas: e.target.value === "" ? null : Number(e.target.value) })
+                    updateAssignment(i, {
+                      horas: e.target.value === "" ? null : Number(e.target.value.replace(",", ".")),
+                    })
                   }
                   placeholder="h/sem"
                   className="w-20 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"

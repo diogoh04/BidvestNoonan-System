@@ -174,7 +174,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
         body: JSON.stringify({
           nome: coverNome.trim(),
           staffNumber: coverStaffNumber.trim() || null,
-          horas: coverHoras.trim() === "" ? null : Number(coverHoras),
+          horas: coverHoras.trim() === "" ? null : Number(coverHoras.replace(",", ".")),
         }),
       });
       if (!res.ok) throw new Error("Não foi possível adicionar o cover");
@@ -395,6 +395,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           <input
             type="number"
             min={0}
+            step={0.25}
             value={coverHoras}
             onChange={(e) => setCoverHoras(e.target.value)}
             placeholder="Horas"
