@@ -59,7 +59,7 @@ export default function DashboardPage() {
             <Archive size={40} className="text-petrol" />
             <div>
               <div className="font-display text-2xl font-bold text-ink">Outros</div>
-              <div className="mt-1 text-sm text-ink/50">P45, LE e Staff Blocked</div>
+              <div className="mt-1 text-sm text-ink/50">P45, LE, Staff Blocked e Sick.</div>
             </div>
           </Link>
         </div>

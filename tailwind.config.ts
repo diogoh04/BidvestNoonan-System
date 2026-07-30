@@ -13,6 +13,7 @@ const config: Config = {
         surface: "#f5f7f7",
         line: "#dde3e3",
         danger: "#a3352b",
+        success: "#3f7a4a",
       },
       fontFamily: {
         display: ["var(--font-display)"],

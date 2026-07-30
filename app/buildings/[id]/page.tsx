@@ -5,6 +5,7 @@ import BuildingStaffClient from "./BuildingStaffClient";
 import BuildingHoursCard from "@/components/BuildingHoursCard";
 import WorkOrderCard from "@/components/WorkOrderCard";
 import BuildingSlotsCard from "@/components/BuildingSlotsCard";
+import BuildingStatsBadge from "@/components/BuildingStatsBadge";
 
 async function getBaseUrl() {
   const h = headers();
@@ -29,13 +30,20 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
     <>
       <Header />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Building</p>
-            <h1 className="font-display text-2xl font-bold text-ink">{building.nome}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Building</p>
+              <h1 className="font-display text-2xl font-bold text-ink">{building.nome}</h1>
+            </div>
+            <BuildingHoursCard buildingId={building.id} initialHours={building.horasDisponiveis} />
+            <WorkOrderCard buildingId={building.id} initialWorkOrder={building.workOrder} />
           </div>
-          <BuildingHoursCard buildingId={building.id} initialHours={building.horasDisponiveis} />
-          <WorkOrderCard buildingId={building.id} initialWorkOrder={building.workOrder} />
+          <BuildingStatsBadge
+            horasDisponiveis={building.horasDisponiveis}
+            cleaners={building.cleaners}
+            slots={building.slots}
+          />
         </div>
 
         <div className="mt-4">
