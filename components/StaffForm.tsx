@@ -7,7 +7,7 @@ import { Plus, Trash2 } from "lucide-react";
 type Building = { id: string; nome: string };
 type Role = "cleaner" | "team_leader";
 type Assignment = { buildingId: string; role: Role; horas: number | null };
-type Status = "p45" | "le" | "blocked" | null;
+type Status = "p45" | "le" | "blocked" | "sick" | null;
 
 export type StaffFormValues = {
   id?: string;
@@ -24,6 +24,7 @@ const STATUS_OPTIONS: { value: Status; label: string }[] = [
   { value: "p45", label: "P45" },
   { value: "le", label: "LE" },
   { value: "blocked", label: "Staff Blocked" },
+  { value: "sick", label: "Sick" },
 ];
 
 export default function StaffForm({ initial }: { initial?: StaffFormValues }) {

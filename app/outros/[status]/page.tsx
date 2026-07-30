@@ -7,6 +7,7 @@ const LABELS: Record<string, string> = {
   p45: "P45",
   le: "LE",
   blocked: "Visa Staff Blocked",
+  sick: "Sick",
 };
 
 async function getBaseUrl() {

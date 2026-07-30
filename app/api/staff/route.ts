@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     and.push({ buildingsAsTeamLeader: { some: { role } } });
   }
 
-  if (status === "p45" || status === "le" || status === "blocked") {
+  if (status === "p45" || status === "le" || status === "blocked" || status === "sick") {
     and.push({ status });
   }
 
@@ -51,14 +51,12 @@ export async function GET(req: NextRequest) {
 
   if (noBuilding) {
     // Staff ativo (sem status especial) e sem nenhum vínculo de prédio.
-    and.push({ buildingId: null, buildingsAsTeamLeader: { none: {} }, status: null });
+    // Não checa o campo legado Staff.buildingId — ele não é mais escrito
+    // por nenhuma rota atual e pode ter lixo de antes do sistema de
+    // vínculos (StaffBuilding), o que excluiria gente sem prédio de verdade.
+    and.push({ buildingsAsTeamLeader: { none: {} }, status: null });
   } else if (buildingId) {
-    and.push({
-      OR: [
-        { buildingId: BigInt(buildingId) },
-        { buildingsAsTeamLeader: { some: { buildingId: BigInt(buildingId) } } },
-      ],
-    });
+    and.push({ buildingsAsTeamLeader: { some: { buildingId: BigInt(buildingId) } } });
   }
 
   const where: any = and.length > 0 ? { AND: and } : {};

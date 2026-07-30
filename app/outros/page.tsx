@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Header from "@/components/Header";
-import { ChevronRight, FileX2, ArrowRightLeft, ShieldAlert } from "lucide-react";
+import { ChevronRight, FileX2, ArrowRightLeft, ShieldAlert, Thermometer } from "lucide-react";
 
 const CATEGORIES = [
   {
@@ -20,6 +20,12 @@ const CATEGORIES = [
     label: "Visa Staff Blocked",
     description: "Staff bloqueado",
     icon: ShieldAlert,
+  },
+  {
+    slug: "sick",
+    label: "Sick",
+    description: "Staff afastado por atestado",
+    icon: Thermometer,
   },
 ];
 

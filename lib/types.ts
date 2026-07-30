@@ -1,6 +1,6 @@
 export type Role = "cleaner" | "team_leader";
 
-export type StaffStatus = "p45" | "le" | "blocked";
+export type StaffStatus = "p45" | "le" | "blocked" | "sick";
 
 export type StaffDTO = {
   id: string;
