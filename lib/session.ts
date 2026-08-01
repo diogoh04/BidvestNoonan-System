@@ -28,6 +28,24 @@ function base64urlToBytes(str: string) {
 
 const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30;
 
+// Achei a causa provável do Team Leader não acha
+// o prédio dele não é bug de query, é estrutural. O payload da sessão
+// só guarda { exp }, sem nenhum identificador de QUEM logou (login é uma
+// senha única compartilhada, não por pessoa). Ou seja: o sistema não tem
+// como saber "quem está usando o app agora" é por isso não dá pra montar
+// um "meu prédio" automático hoje.
+//
+// Duas formas de resolver, pra você escolher:
+//   1) Login por pessoa (cada staff com usuário/senha próprio) vai resolve
+//      de vez, mas é mudança grande na autenticação inteira.
+//   2) Atalho mais simples: depois que a pessoa acha a própria página de
+//      team-leader uma vez, salvar o ID dela num cookie/localStorage do
+//      navegador, e nas próximas visitas redirecionar direto pra lá. Não
+//      é "seguro" de verdade (qualquer um no mesmo navegador veria o
+//      mesmo atalho), mas remove a fricção sem mexer no resto do sistema.
+//
+// A query em app/api/team-leaders/[id]/route.ts já está certa, não
+// precisa mexer nela o gargalo é só "quem é o usuário atual".
 export async function createSessionToken(): Promise<string> {
   const secret = process.env.AUTH_SECRET!;
   const key = await getKey(secret);

@@ -163,6 +163,17 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
   const [savingCover, setSavingCover] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
 
+  // O botão "Exportar PDF" já funciona é o
+  // window.print() nativo do navegador + CSS @media print (dá pra "Salvar
+  // como PDF" no diálogo de impressão). O dimensionamento dinâmico de
+  // fonte/altura de linha (frontTableSizing/backTableSizing) também já
+  // está bem resolvido.
+  //
+  // Se ainda estiver travado nisso, minha suspeita é que o que falta seja
+  // um PDF gerado de verdade no servidor (por ex. pra mandar por e-mail
+  // sozinho, sem precisar do diálogo de impressão) isso sim seria
+  // funcionalidade nova (precisaria de algo tipo Puppeteer ou
+  // @react-pdf/renderer). Me fala se é isso, ou se é outra coisa que travou.
   async function addCover() {
     if (!coverNome.trim() || !coverBuildingId) return;
     setSavingCover(true);
@@ -476,7 +487,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               <td className={backCell}></td>
               {(() => {
                 const total = 13;
-                const per = Math.floor(total / coverItems.length);
+                const per = coverItems.length > 0 ? Math.floor(total / coverItems.length) : total;
                 return coverItems.map((item, idx) => (
                   <td
                     key={idx}
