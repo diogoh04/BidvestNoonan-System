@@ -12,7 +12,7 @@ async function getBaseUrl() {
 
 async function getDashboardData(): Promise<DashboardDTO> {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/dashboard`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/dashboard`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (!res.ok) throw new Error("Falha ao carregar dashboard");
   return res.json();
 }
@@ -22,7 +22,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Header />
+      <Header role="master" />
       <main className="mx-auto max-w-6xl px-6 py-10">
         <p className="mb-6 font-mono text-xs uppercase tracking-[0.3em] text-ink/40">Dashboard</p>
         <DashboardViewLoader data={data} />

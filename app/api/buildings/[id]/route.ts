@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   const buildingId = BigInt(params.id);
+
+  if (hasRole(user, "team_leader")) {
+    if (!user.staffId) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    const owns = await prisma.staffBuilding.findFirst({
+      where: { staffId: BigInt(user.staffId), buildingId, role: "team_leader" },
+    });
+    if (!owns) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  } else if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
 
   const building = await prisma.building.findUnique({ where: { id: buildingId } });
   if (!building) return NextResponse.json({ error: "Prédio não encontrado" }, { status: 404 });
@@ -52,6 +66,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const body = await req.json();
   const data: any = {};
 
@@ -99,6 +118,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const buildingId = BigInt(params.id);
 
   await prisma.staff.updateMany({ where: { buildingId }, data: { buildingId: null } });

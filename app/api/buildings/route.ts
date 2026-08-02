@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildingInputSchema } from "@/lib/validation";
 import { toJSONSafe } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export async function GET() {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const buildings = await prisma.building.findMany({
     orderBy: { nome: "asc" },
     include: { teamLeaders: { include: { staff: true } } },
@@ -22,6 +28,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const body = await req.json();
   const parsed = buildingInputSchema.safeParse(body);
 

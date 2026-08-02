@@ -35,10 +35,18 @@ output that matches the company's existing paper timesheet format.
   scaling font size and row height based on staff count so the layout always
   fits on a single printed page front, regardless of how many people are
   assigned.
-- **Lightweight authentication** — a shared-password login gate implemented
-  with HMAC-signed cookies verified via the Web Crypto API, running entirely
-  in Next.js Edge Middleware (no database session table, no third-party auth
-  provider).
+- **Role-based access (Master / Supervisor / Team Leader)** — per-user login
+  accounts (username + bcrypt-hashed password) instead of a single shared
+  password, with HMAC-signed session cookies carrying the user's id and role,
+  verified via the Web Crypto API. Master keeps full access plus per-building
+  hour-balance control and a user-management screen; Supervisor reviews
+  submitted timesheets and marks them done; Team Leader only sees their own
+  buildings and a digital timesheet flow.
+- **Digital timesheet workflow** — Team Leaders fill in real sign-in/sign-out
+  data per employee per week on screen (persisted in Postgres as a JSON
+  snapshot of that week's roster), submit it, and Supervisors mark it as
+  concluded. The original print-only "Sign In & Sign Out Book" flow remains
+  available to Master as a blank-template utility.
 
 ## Notable Engineering Details
 
@@ -46,11 +54,14 @@ output that matches the company's existing paper timesheet format.
   verified using the native `crypto.subtle` API rather than a Node.js-only
   library, so the same code runs correctly in Vercel's Edge Runtime for
   middleware.
-- **Internal API calls bypass edge auth by design**: Server Components fetch
-  data from the app's own API routes during rendering; since those requests
-  don't carry the browser's cookies, the middleware intentionally scopes
-  authentication to page routes rather than the API layer, avoiding a broken
-  data-fetching pattern.
+- **Internal API calls bypass edge middleware by design, but not
+  authorization**: Server Components fetch data from the app's own API
+  routes during rendering, so those internal fetches explicitly forward the
+  `cookie` header; middleware still only does coarse, role-based page
+  redirects (cheap, no DB/bcrypt work, Edge-safe), while every Route Handler
+  independently checks the caller's role (and, for Team Leaders, building
+  ownership) via `lib/auth.ts` — the real authorization boundary lives at the
+  API layer, not just the page layer.
 - **Adaptive print layout**: rather than a fixed-size table that overflows
   onto extra pages for larger buildings, cell padding, row height, and font
   size scale down in steps based on row count, so a 3-person building and a
@@ -64,33 +75,43 @@ output that matches the company's existing paper timesheet format.
 
 ## Project Structure
 app/
-  page.tsx                    Dashboard
-  login/                      Login screen
-  team-leaders/                List + detail (buildings & cleaners per building)
-  buildings/                   List (create/rename/delete) + detail (staff, slots, hours, WO)
-  filter/                      Search by building, name, or staff number
-  staff/new, staff/[id]/edit   Staff create/edit
-  timesheets/                  Team leader list -> generates the printable sheet
-  api/                         REST route handlers (staff, buildings, team-leaders, slots, auth)
+  page.tsx                    Role-filtered home hub (Master/Supervisor/Team Leader)
+  login/                      Login screen (username + password)
+  team-leaders/                List + detail (buildings & cleaners per building) — Master
+  buildings/                   List (create/rename/delete) + detail (staff, slots, hours, WO) — Master
+  filter/                      Search by building, name, or staff number — Master
+  staff/new, staff/[id]/edit   Staff create/edit — Master
+  timesheets/                  Print-only blank sheet generator — Master
+  my/                          Team Leader's own buildings + digital timesheet editor
+  review/                      Supervisor's submitted-timesheets queue + mark-as-done
+  users/                       Master's user account management (create/edit/deactivate)
+  api/                         REST route handlers (staff, buildings, team-leaders, timesheets, users, auth)
 
 components/                    UI components (forms, cards, staff rows, logout, etc.)
-lib/                           Prisma client, session signing, DTO types, Zod validation
-middleware.ts                  Route protection (Edge Runtime)
+components/timesheets/         Digital timesheet editor (shared by Team Leader fill-in and Supervisor review)
+lib/                           Prisma client, session signing, DTO types, Zod validation, auth helpers
+scripts/seed-user.ts           One-off CLI to create/update a login account (bcrypt hash, no SQL editor support)
+middleware.ts                  Coarse role-based page routing (Edge Runtime)
 prisma/                        Schema + manual migration history
 
 ## Getting Started
-''bash 
+```bash
 # PostgreSQL (Neon) — pooled connection, used by the app at runtime
 DATABASE_URL=
 
 # PostgreSQL (Neon) — direct connection, used for migrations
 DIRECT_URL=
 
-# Shared password required to log in to the app
-APP_PASSWORD=
-
 # Random secret used to sign the session cookie (generate with:
 # python3 -c "import secrets; print(secrets.token_hex(32))")
 AUTH_SECRET=
+```
+
+After running `prisma/manual-migration-7.sql` against the database, create
+the first login account with:
+
+```bash
+npx tsx scripts/seed-user.ts <username> <password> master
+```
 
 

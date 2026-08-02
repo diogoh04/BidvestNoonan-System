@@ -16,7 +16,7 @@ async function getBaseUrl() {
 
 async function getBuilding(id: string) {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/buildings/${id}`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/buildings/${id}`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Falha ao carregar prédio");
   return res.json();
@@ -28,7 +28,7 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
 
   return (
     <>
-      <Header />
+      <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">

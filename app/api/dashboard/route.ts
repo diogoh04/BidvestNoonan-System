@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeOpenSlots } from "@/lib/openSlots";
 import { toJSONSafe } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const [totalStaff, totalCleaners, totalTeamLeaders, buildings] = await Promise.all([
     prisma.staff.count(),
     prisma.staff.count({ where: { buildingsAsTeamLeader: { some: { role: "cleaner" } } } }),

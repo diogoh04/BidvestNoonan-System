@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { staffInputSchema } from "@/lib/validation";
 import { toJSONSafe, StaffDTO } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 function mapStaff(w: any): StaffDTO {
   return {
@@ -23,6 +24,11 @@ function mapStaff(w: any): StaffDTO {
 
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const staff = await prisma.staff.findUnique({
     where: { id: BigInt(params.id) },
     include: {
@@ -46,6 +52,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const body = await req.json();
   const parsed = staffInputSchema.safeParse(body);
 
@@ -88,6 +99,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   await prisma.staff.delete({ where: { id: BigInt(params.id) } });
   return NextResponse.json({ ok: true });
 }

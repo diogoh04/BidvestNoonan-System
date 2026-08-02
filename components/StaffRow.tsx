@@ -13,6 +13,9 @@ type StaffRowProps = {
   subtitle?: string;
   buildingId?: string;
   onDeleted?: (id: string) => void;
+  // Team Leader vê e comenta, mas não edita/exclui staff (isso é admin,
+  // exclusivo do Master).
+  canManage?: boolean;
 };
 
 type Observation = { id: string; texto: string | null; data: string | null };
@@ -25,6 +28,7 @@ export default function StaffRow({
   subtitle,
   buildingId,
   onDeleted,
+  canManage = true,
 }: StaffRowProps) {
   const [showPanel, setShowPanel] = useState(false);
   const [obsText, setObsText] = useState("");
@@ -134,20 +138,24 @@ export default function StaffRow({
           >
             <MessageSquarePlus size={18} />
           </button>
-          <Link
-            href={`/staff/${id}/edit`}
-            title="Editar"
-            className="rounded-md p-2 text-ink/60 transition hover:bg-petrolLight hover:text-petrol"
-          >
-            <Pencil size={18} />
-          </Link>
-          <button
-            title="Excluir"
-            onClick={() => setConfirmingDelete(true)}
-            className="rounded-md p-2 text-ink/60 transition hover:bg-red-50 hover:text-danger"
-          >
-            <Trash2 size={18} />
-          </button>
+          {canManage && (
+            <>
+              <Link
+                href={`/staff/${id}/edit`}
+                title="Editar"
+                className="rounded-md p-2 text-ink/60 transition hover:bg-petrolLight hover:text-petrol"
+              >
+                <Pencil size={18} />
+              </Link>
+              <button
+                title="Excluir"
+                onClick={() => setConfirmingDelete(true)}
+                className="rounded-md p-2 text-ink/60 transition hover:bg-red-50 hover:text-danger"
+              >
+                <Trash2 size={18} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -194,7 +202,9 @@ export default function StaffRow({
                     <button
                       title="Excluir observação"
                       onClick={() => deleteObservation(obs.id)}
-                      className="shrink-0 rounded p-1 text-ink/30 transition hover:bg-red-50 hover:text-danger"
+                      className={`shrink-0 rounded p-1 text-ink/30 transition hover:bg-red-50 hover:text-danger ${
+                        canManage ? "" : "hidden"
+                      }`}
                     >
                       <X size={14} />
                     </button>

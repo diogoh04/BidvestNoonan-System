@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const teamLeader = await prisma.staff.findUnique({
     where: { id: BigInt(params.id) },
     include: { buildingsAsTeamLeader: { include: { building: true } } },

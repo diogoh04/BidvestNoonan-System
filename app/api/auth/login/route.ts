@@ -1,16 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 import { createSessionToken } from "@/lib/session";
+import type { AppRole } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const password = body.password;
+  const username = typeof body.username === "string" ? body.username.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
 
-  if (!password || password !== process.env.APP_PASSWORD) {
-    return NextResponse.json({ error: "Senha incorreta" }, { status: 401 });
+  if (!username || !password) {
+    return NextResponse.json({ error: "Usuário e senha são obrigatórios" }, { status: 401 });
   }
 
-  const token = await createSessionToken();
-  const res = NextResponse.json({ ok: true });
+  const user = await prisma.user.findUnique({ where: { username } });
+  if (!user || !user.active) {
+    return NextResponse.json({ error: "Usuário ou senha incorretos" }, { status: 401 });
+  }
+
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) {
+    return NextResponse.json({ error: "Usuário ou senha incorretos" }, { status: 401 });
+  }
+
+  const token = await createSessionToken({
+    userId: user.id.toString(),
+    role: user.role as AppRole,
+    staffId: user.staffId ? user.staffId.toString() : null,
+  });
+
+  const res = NextResponse.json({ ok: true, role: user.role });
   res.cookies.set("session", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

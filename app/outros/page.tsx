@@ -32,7 +32,7 @@ const CATEGORIES = [
 export default function OutrosPage() {
   return (
     <>
-      <Header />
+      <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Outros</h1>
         <p className="mt-1 text-sm text-ink/50">

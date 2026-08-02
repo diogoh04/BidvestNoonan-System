@@ -12,7 +12,7 @@ async function getBaseUrl() {
 
 async function getTeamLeader(id: string) {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/team-leaders/${id}`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/team-leaders/${id}`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Falha ao carregar team leader");
   return res.json();
@@ -25,7 +25,7 @@ export default async function LeaderTimesheetPage({ params }: { params: { id: st
   return (
     <>
       <div className="print:hidden">
-        <Header />
+        <Header role="master" />
       </div>
       <LeaderTimesheetView teamLeader={teamLeader} />
     </>

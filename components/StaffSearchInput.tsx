@@ -9,7 +9,7 @@ export default function StaffSearchInput({
   placeholder = "Buscar staff...",
   className,
 }: {
-  onSelect: (staff: { nome: string; staffNumber: string | null }) => void;
+  onSelect: (staff: { id: string; nome: string; staffNumber: string | null }) => void;
   placeholder?: string;
   className?: string;
 }) {
@@ -39,7 +39,7 @@ export default function StaffSearchInput({
 
   function pick(staff: StaffResult) {
     if (!staff.nome) return;
-    onSelect({ nome: staff.nome, staffNumber: staff.staffNumber });
+    onSelect({ id: staff.id, nome: staff.nome, staffNumber: staff.staffNumber });
     setQuery("");
     setResults([]);
     setOpen(false);

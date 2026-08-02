@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { staffInputSchema } from "@/lib/validation";
 import { toJSONSafe, StaffDTO } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 function mapStaff(w: any): StaffDTO {
   return {
@@ -23,8 +24,35 @@ function mapStaff(w: any): StaffDTO {
 
 // GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner&status=p45&noBuilding=1
 export async function GET(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
+
+  // Team Leader só usa a busca (autocomplete de cover na folha de ponto) —
+  // devolve um formato reduzido, sem dados de outros vínculos/observações.
+  if (hasRole(user, "team_leader")) {
+    if (!q) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    const staff = await prisma.staff.findMany({
+      where: {
+        OR: [
+          { nome: { contains: q, mode: "insensitive" } },
+          { staffNumber: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { nome: "asc" },
+      take: 20,
+    });
+    return NextResponse.json(
+      toJSONSafe(staff.map((s) => ({ id: s.id.toString(), nome: s.nome, staffNumber: s.staffNumber })))
+    );
+  }
+
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const buildingId = searchParams.get("buildingId");
   const role = searchParams.get("role");
   const status = searchParams.get("status");
@@ -72,6 +100,11 @@ export async function GET(req: NextRequest) {
 
 // POST /api/staff  - cadastra cleaner ou team leader
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const body = await req.json();
   const parsed = staffInputSchema.safeParse(body);
 

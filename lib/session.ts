@@ -1,4 +1,13 @@
+import type { AppRole } from "./types";
+
 const encoder = new TextEncoder();
+
+export type SessionPayload = {
+  userId: string;
+  role: AppRole;
+  staffId: string | null;
+  exp: number;
+};
 
 async function getKey(secret: string) {
   return crypto.subtle.importKey(
@@ -28,31 +37,40 @@ function base64urlToBytes(str: string) {
 
 const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30;
 
-export async function createSessionToken(): Promise<string> {
+export async function createSessionToken(user: {
+  userId: string;
+  role: AppRole;
+  staffId: string | null;
+}): Promise<string> {
   const secret = process.env.AUTH_SECRET!;
   const key = await getKey(secret);
-  const payload = JSON.stringify({ exp: Date.now() + THIRTY_DAYS_MS });
-  const payloadB64 = base64url(encoder.encode(payload));
+  const payload: SessionPayload = { ...user, exp: Date.now() + THIRTY_DAYS_MS };
+  const payloadB64 = base64url(encoder.encode(JSON.stringify(payload)));
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadB64));
   return `${payloadB64}.${base64url(sig)}`;
 }
 
-export async function verifySessionToken(token: string | undefined | null): Promise<boolean> {
-  if (!token) return false;
+export async function verifySessionToken(
+  token: string | undefined | null
+): Promise<SessionPayload | null> {
+  if (!token) return null;
   const [payloadB64, sigB64] = token.split(".");
-  if (!payloadB64 || !sigB64) return false;
+  if (!payloadB64 || !sigB64) return null;
 
   const secret = process.env.AUTH_SECRET!;
   const key = await getKey(secret);
   const expectedSig = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadB64));
   const expectedSigB64 = base64url(expectedSig);
-  if (expectedSigB64 !== sigB64) return false;
+  if (expectedSigB64 !== sigB64) return null;
 
   try {
     const payload = JSON.parse(new TextDecoder().decode(base64urlToBytes(payloadB64)));
-    if (typeof payload.exp !== "number" || Date.now() > payload.exp) return false;
-    return true;
+    if (typeof payload.exp !== "number" || Date.now() > payload.exp) return null;
+    // Tokens antigos (formato { exp } sem userId/role) devem ser tratados
+    // como inválidos — força relogin no dia da troca do esquema de auth.
+    if (typeof payload.userId !== "string" || typeof payload.role !== "string") return null;
+    return payload as SessionPayload;
   } catch {
-    return false;
+    return null;
   }
 }

@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { feedbackInputSchema } from "@/lib/validation";
 import { toJSONSafe } from "@/lib/types";
+import { getCurrentUser, hasRole, teamLeaderCanAccessStaff } from "@/lib/auth";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function authorize(req: NextRequest, staffId: bigint) {
+  const user = await getCurrentUser();
+  if (!user) return { user: null, ok: false };
+  if (hasRole(user, "master")) return { user, ok: true };
+  if (hasRole(user, "team_leader")) return { user, ok: await teamLeaderCanAccessStaff(user, staffId) };
+  return { user, ok: false };
+}
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const { ok } = await authorize(req, BigInt(params.id));
+  if (!ok) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+
   const observations = await prisma.feedback.findMany({
     where: { workerId: BigInt(params.id) },
     orderBy: { data: "desc" },
@@ -21,6 +33,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const { ok } = await authorize(req, BigInt(params.id));
+  if (!ok) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+
   const body = await req.json();
   const parsed = feedbackInputSchema.safeParse(body);
 

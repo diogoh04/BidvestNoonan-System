@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TIMESHEET_DAYS } from "./types";
 
 export const staffInputSchema = z
   .object({
@@ -44,4 +45,96 @@ export const feedbackInputSchema = z.object({
 
 export const buildingInputSchema = z.object({
   nome: z.string().trim().min(1, "Nome do prédio é obrigatório"),
+});
+
+// Reaproveitado pelo cadastro de conta em /register (registerInputSchema)
+// além do formulário de usuário do Master (userBaseSchema).
+export const usernameSchema = z
+  .string()
+  .trim()
+  .min(3, "Usuário precisa de pelo menos 3 caracteres")
+  .regex(/^[a-z0-9._-]+$/i, "Use apenas letras, números, ponto, hífen ou underscore");
+
+export const passwordSchema = z.string().min(6, "Senha precisa de pelo menos 6 caracteres");
+
+// Schema base (ZodObject puro) usado tanto na criação (com superRefine
+// abaixo) quanto na edição (via .partial(), que não existe em cima de um
+// ZodEffects/superRefine — por isso fica separado).
+export const userBaseSchema = z.object({
+  username: usernameSchema,
+  // Obrigatória na criação; opcional na edição (deixar em branco = não trocar senha)
+  password: passwordSchema.optional(),
+  role: z.enum(["master", "supervisor", "team_leader"]),
+  staffId: z.string().nullable().optional(),
+  active: z.boolean().optional(),
+});
+
+// Autocadastro em /register — sempre cria com role "pending" (o Master
+// define o papel real depois em /users), então não recebe role/staffId.
+export const registerInputSchema = z.object({
+  username: usernameSchema,
+  password: passwordSchema,
+});
+
+function checkStaffLink(data: { role?: string; staffId?: string | null }, ctx: z.RefinementCtx) {
+  if (data.role === "team_leader" && !data.staffId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Selecione o staff (team leader) vinculado a esta conta",
+      path: ["staffId"],
+    });
+  }
+  if (data.role && data.role !== "team_leader" && data.staffId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Vínculo com staff só se aplica a contas de team leader",
+      path: ["staffId"],
+    });
+  }
+}
+
+export const userInputSchema = userBaseSchema.superRefine(checkStaffLink);
+
+// Edição: todos os campos opcionais (envia só o que muda), mas ainda
+// valida a consistência papel/staffId quando role é enviado.
+export const userUpdateSchema = userBaseSchema.partial().superRefine(checkStaffLink);
+
+export type UserInput = z.infer<typeof userInputSchema>;
+
+const timesheetDayValueSchema = z.object({
+  in: z.string().trim().max(5).nullable(),
+  out: z.string().trim().max(5).nullable(),
+});
+
+const timesheetDaysSchema = z.object(
+  Object.fromEntries(TIMESHEET_DAYS.map((d) => [d, timesheetDayValueSchema])) as Record<
+    (typeof TIMESHEET_DAYS)[number],
+    typeof timesheetDayValueSchema
+  >
+);
+
+export const timesheetRowSchema = z.object({
+  kind: z.enum(["staff", "openSlot", "cover"]),
+  refId: z.string().nullable(),
+  nome: z.string().nullable(),
+  staffNumber: z.string().nullable(),
+  horas: z.number().nullable(),
+  days: timesheetDaysSchema,
+});
+
+export const timesheetEntriesSchema = z.object({
+  rows: z.array(timesheetRowSchema),
+});
+
+export const timesheetCreateSchema = z.object({
+  buildingId: z.string(),
+  weekStart: z.string(), // "YYYY-MM-DD", deve ser uma segunda-feira
+  // Se enviado e a folha ainda não existir, clona as linhas dessa semana
+  // anterior (zerando os horários) em vez de fotografar o estado atual.
+  copyFromWeekStart: z.string().optional(),
+});
+
+export const timesheetPatchSchema = z.object({
+  entries: timesheetEntriesSchema.optional(),
+  status: z.enum(["draft", "submitted", "done"]).optional(),
 });

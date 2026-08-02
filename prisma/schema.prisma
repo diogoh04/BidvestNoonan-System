@@ -39,6 +39,7 @@ model Staff {
 
   observations Feedback[]
   buildingsAsTeamLeader StaffBuilding[]
+  loginAccount User?
 
   @@map("worker")
 }
@@ -54,6 +55,7 @@ model Building {
   teamLeaders   StaffBuilding[]
   slots         BuildingSlot[]
   covers        BuildingCover[]
+  timesheets    Timesheet[]
 
   @@map("predios")
 }
@@ -115,4 +117,68 @@ model Feedback {
   staff    Staff?    @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@map("feedback")
+}
+
+// ---------- Conta de login do app (tabela nova: app_user) ----------
+// Separado de Staff (que é o cadastro de funcionário gerenciado, não uma
+// conta de acesso). "role" aqui é o papel de ACESSO ao app (master/
+// supervisor/team_leader/pending) — não confundir com StaffBuilding.role,
+// que é o papel de trabalho da pessoa no prédio (cleaner/team_leader).
+// "pending" = conta criada pela própria pessoa em /register, ainda sem
+// papel definido, até o Master aprovar em /users.
+model User {
+  id           BigInt   @id @default(autoincrement())
+  username     String   @unique @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         String   @db.VarChar(20)
+  active       Boolean  @default(true)
+
+  // Só preenchido quando role = "team_leader": vincula a conta ao Staff que
+  // já tem os vínculos StaffBuilding (role="team_leader") existentes, para
+  // não duplicar a informação de quais prédios a pessoa atende.
+  staffId      BigInt?  @unique @map("staff_id")
+  staff        Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  timesheetsCreated   Timesheet[] @relation("TimesheetCreatedBy")
+  timesheetsSubmitted Timesheet[] @relation("TimesheetSubmittedBy")
+  timesheetsReviewed  Timesheet[] @relation("TimesheetReviewedBy")
+
+  @@map("app_user")
+}
+
+// ---------- Folha de ponto digital (tabela nova: timesheet) ----------
+// Uma linha por prédio+semana. "entries" guarda o snapshot das linhas
+// (cleaners/vagas em aberto/covers) tirado no momento da criação, editado
+// depois só dentro do próprio JSON — não é re-derivado do estado ao vivo de
+// StaffBuilding/BuildingSlot/BuildingCover em cada leitura.
+model Timesheet {
+  id         BigInt   @id @default(autoincrement())
+  buildingId BigInt   @map("building_id")
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  weekStart  DateTime @map("week_start") @db.Date
+
+  status     String   @default("draft") @db.VarChar(20)
+
+  entries    Json     @default("{\"rows\":[]}")
+
+  createdByUserId   BigInt?   @map("created_by_user_id")
+  createdByUser     User?     @relation("TimesheetCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  submittedByUserId BigInt?   @map("submitted_by_user_id")
+  submittedByUser   User?     @relation("TimesheetSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  submittedAt       DateTime? @map("submitted_at")
+
+  reviewedByUserId  BigInt?   @map("reviewed_by_user_id")
+  reviewedByUser    User?     @relation("TimesheetReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime? @map("reviewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([buildingId, weekStart])
+  @@map("timesheet")
 }

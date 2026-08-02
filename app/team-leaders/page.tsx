@@ -12,7 +12,7 @@ async function getBaseUrl() {
 
 async function getTeamLeaders() {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/team-leaders`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/team-leaders`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (!res.ok) return [];
   return res.json();
 }
@@ -22,7 +22,7 @@ export default async function TeamLeadersPage() {
 
   return (
     <>
-      <Header />
+      <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Team Leaders</h1>
         <p className="mt-1 text-sm text-ink/50">

@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const user = await getCurrentUser();
+  if (!hasRole(user, "master")) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
   const teamLeaders = await prisma.staff.findMany({
     where: { buildingsAsTeamLeader: { some: { role: "team_leader" } } },
     orderBy: { nome: "asc" },
