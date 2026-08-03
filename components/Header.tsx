@@ -29,13 +29,13 @@ export default function Header({ role }: { role: AppRole }) {
               <span className="hidden sm:inline">Usuários</span>
             </Link>
           )}
-          {role === "supervisor" && (
+          {(role === "supervisor" || role === "master") && (
             <Link
               href="/review"
               className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
             >
               <ClipboardList size={16} />
-              <span className="hidden sm:inline">Folhas para revisar</span>
+              <span className="hidden sm:inline">Folhas de Ponto</span>
             </Link>
           )}
           {role === "team_leader" && (

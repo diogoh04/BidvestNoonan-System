@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
+import { getCurrentUser } from "@/lib/auth";
 import ReviewWeekLeaderClient from "./ReviewWeekLeaderClient";
 import type { TimesheetDTO } from "@/lib/types";
 
@@ -27,14 +28,18 @@ export default async function ReviewWeekLeaderPage({
 }: {
   params: { weekStart: string; userId: string };
 }) {
+  const user = await getCurrentUser();
   const timesheets = await getTimesheets(params.weekStart, params.userId);
   if (timesheets.length === 0) notFound();
 
   return (
     <>
-      <Header role="supervisor" />
+      <Header role={user?.role ?? "supervisor"} />
       <main className="mx-auto max-w-6xl px-6 py-10 print:max-w-none print:px-4 print:py-2">
-        <ReviewWeekLeaderClient teamLeaderNome={timesheets[0].submittedByNome} initialTimesheets={timesheets} />
+        <ReviewWeekLeaderClient
+          teamLeaderNome={timesheets[0].submittedByNome ?? "Conta removida"}
+          initialTimesheets={timesheets}
+        />
       </main>
     </>
   );

@@ -19,8 +19,17 @@ function mapTimesheet(t: any): TimesheetDTO {
     submittedAt: t.submittedAt ? t.submittedAt.toISOString() : null,
     reviewedByNome: t.reviewedByUser?.staff?.nome ?? t.reviewedByUser?.username ?? null,
     reviewedAt: t.reviewedAt ? t.reviewedAt.toISOString() : null,
+    deletedAt: t.deletedAt ? t.deletedAt.toISOString() : null,
+    deletedByNome: t.deletedByUser?.staff?.nome ?? t.deletedByUser?.username ?? null,
   };
 }
+
+const timesheetInclude = {
+  building: true,
+  submittedByUser: { include: { staff: true } },
+  reviewedByUser: { include: { staff: true } },
+  deletedByUser: { include: { staff: true } },
+} as const;
 
 // GET /api/timesheets?buildingId=&weekStart=&status=
 export async function GET(req: NextRequest) {
@@ -32,6 +41,7 @@ export async function GET(req: NextRequest) {
   const weekStart = searchParams.get("weekStart");
   const status = searchParams.get("status");
   const submittedByUserId = searchParams.get("submittedByUserId");
+  const deletedParam = searchParams.get("deleted");
 
   const and: any[] = [];
 
@@ -53,7 +63,10 @@ export async function GET(req: NextRequest) {
     }
   } else if (hasRole(user, "master", "supervisor")) {
     if (buildingIdParam) and.push({ buildingId: BigInt(buildingIdParam) });
-    if (submittedByUserId) and.push({ submittedByUserId: BigInt(submittedByUserId) });
+    // "none" = folhas cuja conta de quem enviou foi excluída depois (o
+    // vínculo vira null, mas a folha em si continua existindo).
+    if (submittedByUserId === "none") and.push({ submittedByUserId: null });
+    else if (submittedByUserId) and.push({ submittedByUserId: BigInt(submittedByUserId) });
   } else {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
@@ -61,11 +74,19 @@ export async function GET(req: NextRequest) {
   if (weekStart) and.push({ weekStart: new Date(weekStart + "T00:00:00Z") });
   if (status === "draft" || status === "submitted" || status === "done") and.push({ status });
 
+  // Team Leader nunca vê a lixeira; Master/Supervisor só quando pedem
+  // explicitamente (?deleted=1), na tela /review/excluidas.
+  if (hasRole(user, "master", "supervisor") && deletedParam === "1") {
+    and.push({ deletedAt: { not: null } });
+  } else {
+    and.push({ deletedAt: null });
+  }
+
   const where = and.length > 0 ? { AND: and } : {};
 
   const timesheets = await prisma.timesheet.findMany({
     where,
-    include: { building: true, submittedByUser: { include: { staff: true } }, reviewedByUser: { include: { staff: true } } },
+    include: timesheetInclude,
     orderBy: [{ weekStart: "desc" }, { building: { nome: "asc" } }],
   });
 
@@ -100,10 +121,10 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.timesheet.findUnique({
     where: { buildingId_weekStart: { buildingId, weekStart } },
-    include: { building: true, submittedByUser: { include: { staff: true } }, reviewedByUser: { include: { staff: true } } },
+    include: timesheetInclude,
   });
 
-  if (existing) {
+  if (existing && !existing.deletedAt) {
     return NextResponse.json(toJSONSafe(mapTimesheet(existing)));
   }
 
@@ -120,15 +141,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const created = await prisma.timesheet.create({
-    data: {
-      buildingId,
-      weekStart,
-      entries: entries as any,
-      createdByUserId: BigInt(user.userId),
-    },
-    include: { building: true, submittedByUser: { include: { staff: true } }, reviewedByUser: { include: { staff: true } } },
-  });
+  // A constraint única é building_id+week_start, então uma folha excluída
+  // ocupa a vaga da semana — "criar" nessa semana revive a linha excluída
+  // como rascunho novo (o conteúdo antigo, excluído de propósito, não
+  // volta; só a semana fica disponível de novo) em vez de tentar inserir
+  // outra linha e colidir com a constraint.
+  const freshData = {
+    entries: entries as any,
+    createdByUserId: BigInt(user.userId),
+    status: "draft",
+    submittedByUserId: null,
+    submittedAt: null,
+    reviewedByUserId: null,
+    reviewedAt: null,
+    deletedAt: null,
+    deletedByUserId: null,
+  };
 
-  return NextResponse.json(toJSONSafe(mapTimesheet(created)), { status: 201 });
+  const saved = existing
+    ? await prisma.timesheet.update({ where: { id: existing.id }, data: freshData, include: timesheetInclude })
+    : await prisma.timesheet.create({
+        data: { buildingId, weekStart, ...freshData },
+        include: timesheetInclude,
+      });
+
+  return NextResponse.json(toJSONSafe(mapTimesheet(saved)), { status: existing ? 200 : 201 });
 }

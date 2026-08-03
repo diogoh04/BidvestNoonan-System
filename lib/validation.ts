@@ -137,4 +137,7 @@ export const timesheetCreateSchema = z.object({
 export const timesheetPatchSchema = z.object({
   entries: timesheetEntriesSchema.optional(),
   status: z.enum(["draft", "submitted", "done"]).optional(),
+  // Só Master/Supervisor, só numa folha já excluída — ver PATCH em
+  // /api/timesheets/[id].
+  restore: z.literal(true).optional(),
 });

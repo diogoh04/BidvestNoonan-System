@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import Header from "@/components/Header";
+import { getCurrentUser } from "@/lib/auth";
 import { formatWeekRange } from "@/lib/week";
 import type { TimesheetDTO } from "@/lib/types";
 
@@ -23,6 +25,7 @@ async function getSubmittedTimesheets(): Promise<TimesheetDTO[]> {
 }
 
 export default async function ReviewPage() {
+  const user = await getCurrentUser();
   const timesheets = await getSubmittedTimesheets();
 
   const byWeek = new Map<string, TimesheetDTO[]>();
@@ -33,15 +36,26 @@ export default async function ReviewPage() {
 
   return (
     <>
-      <Header role="supervisor" />
+      <Header role={user?.role ?? "supervisor"} />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Folhas de Ponto</h1>
-        <p className="mt-1 text-sm text-ink/50">Selecione uma semana pra ver quem já enviou.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink">Folhas de Ponto</h1>
+            <p className="mt-1 text-sm text-ink/50">Selecione uma semana pra ver quem já enviou.</p>
+          </div>
+          <Link
+            href="/review/excluidas"
+            className="flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol"
+          >
+            <Trash2 size={16} />
+            Ver excluídas
+          </Link>
+        </div>
 
         <div className="mt-6 space-y-2">
           {weeks.map(([weekStart, items]) => {
             const pending = items.filter((t) => t.status === "submitted").length;
-            const teamLeaders = new Set(items.map((t) => t.submittedByUserId).filter(Boolean));
+            const teamLeaders = new Set(items.map((t) => t.submittedByUserId ?? "none"));
             return (
               <Link
                 key={weekStart}

@@ -145,6 +145,7 @@ model User {
   timesheetsCreated   Timesheet[] @relation("TimesheetCreatedBy")
   timesheetsSubmitted Timesheet[] @relation("TimesheetSubmittedBy")
   timesheetsReviewed  Timesheet[] @relation("TimesheetReviewedBy")
+  timesheetsDeleted   Timesheet[] @relation("TimesheetDeletedBy")
 
   @@map("app_user")
 }
@@ -175,6 +176,13 @@ model Timesheet {
   reviewedByUserId  BigInt?   @map("reviewed_by_user_id")
   reviewedByUser    User?     @relation("TimesheetReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   reviewedAt        DateTime? @map("reviewed_at")
+
+  // Exclusão vira "mover pra lixeira": a linha continua existindo, só some
+  // das telas normais (GET /api/timesheets filtra deletedAt=null por
+  // padrão). Dá pra restaurar em /review/excluidas.
+  deletedAt         DateTime? @map("deleted_at")
+  deletedByUserId   BigInt?   @map("deleted_by_user_id")
+  deletedByUser     User?     @relation("TimesheetDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

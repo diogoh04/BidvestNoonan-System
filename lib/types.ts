@@ -51,6 +51,8 @@ export type TimesheetDTO = {
   submittedAt: string | null;
   reviewedByNome: string | null;
   reviewedAt: string | null;
+  deletedAt: string | null;
+  deletedByNome: string | null;
 };
 
 export type StaffDTO = {

@@ -18,13 +18,22 @@ function mapTimesheet(t: any): TimesheetDTO {
     submittedAt: t.submittedAt ? t.submittedAt.toISOString() : null,
     reviewedByNome: t.reviewedByUser?.staff?.nome ?? t.reviewedByUser?.username ?? null,
     reviewedAt: t.reviewedAt ? t.reviewedAt.toISOString() : null,
+    deletedAt: t.deletedAt ? t.deletedAt.toISOString() : null,
+    deletedByNome: t.deletedByUser?.staff?.nome ?? t.deletedByUser?.username ?? null,
   };
 }
+
+const timesheetInclude = {
+  building: true,
+  submittedByUser: { include: { staff: true } },
+  reviewedByUser: { include: { staff: true } },
+  deletedByUser: { include: { staff: true } },
+} as const;
 
 async function loadWithOwnership(id: bigint, user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>) {
   const timesheet = await prisma.timesheet.findUnique({
     where: { id },
-    include: { building: true, submittedByUser: { include: { staff: true } }, reviewedByUser: { include: { staff: true } } },
+    include: timesheetInclude,
   });
   if (!timesheet) return { timesheet: null, allowed: false };
 
@@ -69,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { entries, status } = parsed.data;
+  const { entries, status, restore } = parsed.data;
 
   const data: Record<string, unknown> = {};
 
@@ -93,6 +102,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         { status: 403 }
       );
     }
+    if (restore) {
+      if (!timesheet.deletedAt) {
+        return NextResponse.json({ error: "Folha não está na lixeira" }, { status: 409 });
+      }
+      data.deletedAt = null;
+      data.deletedByUserId = null;
+    }
     if (status) {
       if (status !== "done" || timesheet.status !== "submitted") {
         return NextResponse.json({ error: "Transição de status inválida" }, { status: 400 });
@@ -110,15 +126,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const updated = await prisma.timesheet.update({
     where: { id: timesheet.id },
     data,
-    include: { building: true, submittedByUser: { include: { staff: true } }, reviewedByUser: { include: { staff: true } } },
+    include: timesheetInclude,
   });
 
   return NextResponse.json(toJSONSafe(mapTimesheet(updated)));
 }
 
-// DELETE — Team Leader só apaga a folha do próprio prédio enquanto ela
-// ainda não foi concluída pelo supervisor (preserva o histórico já
-// revisado); Master pode apagar em qualquer status.
+// DELETE — na verdade move pra lixeira (deletedAt/deletedByUserId), nunca
+// apaga a linha de fato: dá pra restaurar depois em /review/excluidas se
+// foi excluída sem querer. Team Leader só na folha do próprio prédio
+// enquanto ela ainda não foi concluída pelo supervisor (preserva o
+// histórico já revisado); Master e Supervisor podem em qualquer status.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -130,10 +148,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (hasRole(user, "team_leader") && timesheet.status === "done") {
     return NextResponse.json({ error: "Folha já concluída pelo supervisor não pode ser excluída" }, { status: 409 });
   }
-  if (hasRole(user, "supervisor")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
-  }
 
-  await prisma.timesheet.delete({ where: { id: timesheet.id } });
+  await prisma.timesheet.update({
+    where: { id: timesheet.id },
+    data: { deletedAt: new Date(), deletedByUserId: BigInt(user.userId) },
+  });
   return NextResponse.json({ ok: true });
 }
