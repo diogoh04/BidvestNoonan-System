@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const teamLeader = await prisma.staff.findUnique({
     where: { id: BigInt(params.id) },
-    include: { buildingsAsTeamLeader: { include: { building: true } } },
+    include: { buildingsAsTeamLeader: { include: { building: true } }, loginAccount: true },
   });
 
   const leaderLinks = teamLeader?.buildingsAsTeamLeader.filter((l) => l.role === "team_leader") ?? [];
@@ -43,6 +43,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       nome: teamLeader.nome,
       staffNumber: teamLeader.staffNumber,
       telefone: teamLeader.telefone,
+      loginAccount: teamLeader.loginAccount
+        ? {
+            id: teamLeader.loginAccount.id.toString(),
+            username: teamLeader.loginAccount.username,
+            active: teamLeader.loginAccount.active,
+          }
+        : null,
       buildings: leaderLinks.map((l) => ({
         id: l.building.id.toString(),
         nome: l.building.nome,

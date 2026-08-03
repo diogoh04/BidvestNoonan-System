@@ -26,7 +26,7 @@ export default async function MyTimesheetsPage() {
   return (
     <>
       <Header role="team_leader" />
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Minhas Folhas de Ponto</h1>
         <p className="mt-1 text-sm text-ink/50">Histórico por semana, com todos os seus prédios juntos.</p>
 

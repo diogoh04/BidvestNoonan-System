@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import StaffRowClient from "./StaffListClient";
 import BuildingHoursCard from "@/components/BuildingHoursCard";
+import ResetPasswordCard from "./ResetPasswordCard";
 
 async function getBaseUrl() {
   const h = headers();
@@ -26,10 +27,14 @@ export default async function TeamLeaderDetailPage({ params }: { params: { id: s
   return (
     <>
       <Header role="master" />
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
         <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Team Leader</p>
         <h1 className="font-display text-2xl font-bold text-ink">{teamLeader.nome}</h1>
         <p className="mt-1 font-mono text-xs text-ink/50">#{teamLeader.staffNumber || "s/n"}</p>
+
+        <div className="mt-4">
+          <ResetPasswordCard teamLeaderId={teamLeader.id} loginAccount={teamLeader.loginAccount} />
+        </div>
 
         <div className="mt-8 space-y-8">
           {teamLeader.buildings.length === 0 && (

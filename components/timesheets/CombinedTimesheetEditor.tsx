@@ -27,20 +27,24 @@ function emptyDays(): TimesheetRow["days"] {
   return Object.fromEntries(TIMESHEET_DAYS.map((d) => [d, { in: null, out: null }])) as TimesheetRow["days"];
 }
 
+// Na tela, tamanho fixo e confortável pra usar no celular (a tabela rola
+// na horizontal em vez de encolher). Na impressão, encolhe conforme o
+// número de linhas pra caber numa página só — daí os pares de classe
+// base + print:.
 function frontTableSizing(rowCount: number) {
-  if (rowCount <= 10) return { text: "text-xs", pad: "p-1", cellH: "h-8" };
-  if (rowCount <= 16) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
-  if (rowCount <= 24) return { text: "text-[9px]", pad: "p-0.5", cellH: "h-5" };
-  if (rowCount <= 32) return { text: "text-[8px]", pad: "p-[2px]", cellH: "h-4" };
-  if (rowCount <= 45) return { text: "text-[7px]", pad: "p-px", cellH: "h-3" };
-  return { text: "text-[6px]", pad: "p-0", cellH: "h-3" };
+  if (rowCount <= 10) return { text: "text-xs print:text-xs", pad: "p-1.5 print:p-1", cellH: "h-9 print:h-8" };
+  if (rowCount <= 16) return { text: "text-xs print:text-[10px]", pad: "p-1.5 print:p-0.5", cellH: "h-9 print:h-6" };
+  if (rowCount <= 24) return { text: "text-xs print:text-[9px]", pad: "p-1.5 print:p-0.5", cellH: "h-9 print:h-5" };
+  if (rowCount <= 32) return { text: "text-xs print:text-[8px]", pad: "p-1.5 print:p-[2px]", cellH: "h-9 print:h-4" };
+  if (rowCount <= 45) return { text: "text-xs print:text-[7px]", pad: "p-1.5 print:p-px", cellH: "h-9 print:h-3" };
+  return { text: "text-xs print:text-[6px]", pad: "p-1.5 print:p-0", cellH: "h-9 print:h-3" };
 }
 
 function backTableSizing(rowCount: number) {
-  if (rowCount <= 19) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
-  if (rowCount <= 24) return { text: "text-[9px]", pad: "p-[2px]", cellH: "h-5" };
-  if (rowCount <= 32) return { text: "text-[8px]", pad: "p-0", cellH: "h-4" };
-  return { text: "text-[7px]", pad: "p-0", cellH: "h-3" };
+  if (rowCount <= 19) return { text: "text-xs print:text-[10px]", pad: "p-1 print:p-0.5", cellH: "h-8 print:h-6" };
+  if (rowCount <= 24) return { text: "text-xs print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-8 print:h-5" };
+  if (rowCount <= 32) return { text: "text-xs print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-8 print:h-4" };
+  return { text: "text-xs print:text-[7px]", pad: "p-1 print:p-0", cellH: "h-8 print:h-3" };
 }
 
 function BlankRow({ n, cell, signCell, textClass }: { n: number; cell: string; signCell: string; textClass: string }) {
@@ -88,20 +92,20 @@ function SignCell({
 }) {
   return (
     <td className={className}>
-      <div className="flex h-full items-stretch justify-center gap-0.5">
+      <div className="flex h-full items-stretch justify-center">
         <input
           value={value.in ?? ""}
           onChange={(e) => onChangeIn(e.target.value)}
           disabled={!editable}
           maxLength={5}
-          className={`h-full w-1/2 border-none bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight disabled:text-ink/60 ${textClass}`}
+          className={`h-full w-1/2 border-0 border-r border-ink/40 bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight disabled:text-ink/60 ${textClass}`}
         />
         <input
           value={value.out ?? ""}
           onChange={(e) => onChangeOut(e.target.value)}
           disabled={!editable}
           maxLength={5}
-          className={`h-full w-1/2 border-none bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight disabled:text-ink/60 ${textClass}`}
+          className={`h-full w-1/2 border-0 bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight disabled:text-ink/60 ${textClass}`}
         />
       </div>
     </td>
@@ -233,7 +237,7 @@ export default function CombinedTimesheetEditor({
   const anyEditable = timesheets.some(isEditable);
 
   return (
-    <main className="mx-auto max-w-6xl bg-white px-6 py-10 print:max-w-none print:px-8 print:py-4">
+    <main className="mx-auto max-w-6xl bg-white px-3 py-6 sm:px-6 sm:py-10 print:max-w-none print:px-8 print:py-4">
       <div className="mb-6 flex items-center justify-between gap-3 print:hidden">
         <div className="flex flex-wrap gap-2">
           {timesheets.map((t) => (
@@ -286,7 +290,10 @@ export default function CombinedTimesheetEditor({
         <span className="inline-block min-w-[220px] border-b border-ink px-2">{teamLeaderNome ?? " "}</span>
       </div>
 
-      <table className={`mt-6 w-full border-collapse print:mt-2 ${sz.text}`}>
+      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Deslize a tabela para o lado para ver todos os dias →</p>
+
+      <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
+      <table className={`w-full border-collapse print:mt-2 ${sz.text}`}>
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>
@@ -302,8 +309,11 @@ export default function CombinedTimesheetEditor({
           </tr>
           <tr>
             {DAYS.map((d) => (
-              <th key={d} className={`${cell} text-center font-normal`}>
-                SIGN IN / OUT
+              <th key={d} className={`${cell} p-0 text-center font-normal`}>
+                <div className="flex items-stretch justify-center">
+                  <span className="w-1/2 border-r border-ink/40 py-0.5">IN</span>
+                  <span className="w-1/2 py-0.5">OUT</span>
+                </div>
               </th>
             ))}
           </tr>
@@ -387,6 +397,7 @@ export default function CombinedTimesheetEditor({
           })}
         </tbody>
       </table>
+      </div>
 
       <div className="mt-10 print:mt-0 break-before-page">
         {!readOnly && (
@@ -439,6 +450,9 @@ export default function CombinedTimesheetEditor({
         </div>
         )}
 
+        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Deslize a tabela para o lado para ver todos os dias →</p>
+
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
         <table className={`w-full border-collapse ${backSz.text}`}>
           <thead>
             <tr>
@@ -455,8 +469,11 @@ export default function CombinedTimesheetEditor({
             </tr>
             <tr>
               {DAYS.map((d) => (
-                <th key={d} className={`${backCell} text-center font-normal`}>
-                  IN / OUT
+                <th key={d} className={`${backCell} p-0 text-center font-normal`}>
+                  <div className="flex items-stretch justify-center">
+                    <span className="w-1/2 border-r border-ink/40 py-0.5">IN</span>
+                    <span className="w-1/2 bg-ink/[0.035] py-0.5">OUT</span>
+                  </div>
                 </th>
               ))}
             </tr>
@@ -541,6 +558,7 @@ export default function CombinedTimesheetEditor({
             <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} />
           </tbody>
         </table>
+        </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-danger print:hidden">{error}</p>}

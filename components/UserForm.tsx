@@ -59,7 +59,8 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
           body?.error?.formErrors?.[0] ||
             body?.error?.fieldErrors?.staffId?.[0] ||
             body?.error?.fieldErrors?.username?.[0] ||
-            body?.error ||
+            body?.error?.fieldErrors?.password?.[0] ||
+            (typeof body?.error === "string" ? body.error : null) ||
             "Não foi possível salvar. Confira os campos."
         );
       }

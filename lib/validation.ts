@@ -53,7 +53,7 @@ export const usernameSchema = z
   .string()
   .trim()
   .min(3, "Usuário precisa de pelo menos 3 caracteres")
-  .regex(/^[a-z0-9._-]+$/i, "Use apenas letras, números, ponto, hífen ou underscore");
+  .regex(/^[a-z0-9._ -]+$/i, "Use apenas letras, números, espaço, ponto, hífen ou underscore");
 
 export const passwordSchema = z.string().min(6, "Senha precisa de pelo menos 6 caracteres");
 

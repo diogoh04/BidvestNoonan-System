@@ -28,7 +28,7 @@ export default async function MyBuildingsPage() {
   return (
     <>
       <Header role="team_leader" />
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold text-ink">Meus Prédios</h1>

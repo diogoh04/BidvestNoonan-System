@@ -16,10 +16,10 @@ export default function LogoutButton() {
     <button
       onClick={handleLogout}
       title="Sair"
-      className="flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink transition hover:border-danger hover:text-danger"
+      className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-danger hover:text-danger sm:gap-2 sm:px-3 sm:py-2"
     >
       <LogOut size={16} />
-      Logout
+      <span className="hidden sm:inline">Logout</span>
     </button>
   );
 }
