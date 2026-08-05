@@ -77,7 +77,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     where: { id: staffId },
     data: {
       nome: data.nome,
-      staffNumber: data.staffNumber,
+      staffNumber: data.staffNumber || null,
       telefone: data.telefone || null,
       status: data.status ?? null,
       blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,

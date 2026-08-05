@@ -75,11 +75,18 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     }
   }
 
+  // Um vínculo é identificado por prédio+papel — o mesmo prédio pode
+  // aparecer duas vezes (uma como cleaner, outra como team leader).
   function addAssignment() {
-    const used = new Set(assignments.map((a) => a.buildingId));
-    const next = buildings.find((b) => !used.has(b.id));
-    if (!next) return;
-    setAssignments((prev) => [...prev, { buildingId: next.id, role: "cleaner", horas: null }]);
+    const used = new Set(assignments.map((a) => `${a.buildingId}:${a.role}`));
+    for (const b of buildings) {
+      for (const r of ["cleaner", "team_leader"] as Role[]) {
+        if (!used.has(`${b.id}:${r}`)) {
+          setAssignments((prev) => [...prev, { buildingId: b.id, role: r, horas: null }]);
+          return;
+        }
+      }
+    }
   }
 
   function updateAssignment(index: number, patch: Partial<Assignment>) {
@@ -90,7 +97,9 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     setAssignments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const hasBuildingAvailable = assignments.length < buildings.length;
+  // Cada prédio comporta até 2 vínculos (cleaner + team leader).
+  const usedCombos = new Set(assignments.map((a) => `${a.buildingId}:${a.role}`));
+  const hasBuildingAvailable = usedCombos.size < buildings.length * 2;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,11 +154,12 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">Staff Number</label>
+          <label className="mb-1 block text-sm font-medium text-ink">
+            Staff Number{" "}
+          </label>
           <input
             value={staffNumber}
             onChange={(e) => setStaffNumber(e.target.value)}
-            required
             className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
           />
         </div>
@@ -208,9 +218,6 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">
           Prédios{" "}
-          <span className="font-normal text-ink/40">
-            (opcional — pode cadastrar sem prédio, ou em vários, com papéis diferentes em cada um)
-          </span>
         </label>
 
         <div className="space-y-2">
@@ -219,8 +226,16 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           )}
 
           {assignments.map((a, i) => {
+            // Combos (prédio+papel) já usados por OUTRA linha — só esses
+            // ficam de fora; o mesmo prédio pode aparecer de novo numa
+            // linha com o papel oposto (cleaner + team leader juntos).
+            const otherCombos = new Set(
+              assignments.filter((_, j) => j !== i).map((x) => `${x.buildingId}:${x.role}`)
+            );
             const usedElsewhere = new Set(
-              assignments.filter((_, j) => j !== i).map((x) => x.buildingId)
+              assignments
+                .filter((x, j) => j !== i && x.role === a.role)
+                .map((x) => x.buildingId)
             );
             const options = buildings.filter((b) => b.id === a.buildingId || !usedElsewhere.has(b.id));
 
@@ -242,20 +257,25 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
                 </select>
 
                 <div className="flex gap-1">
-                  {(["cleaner", "team_leader"] as Role[]).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => updateAssignment(i, { role: r })}
-                      className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
-                        a.role === r
-                          ? "border-petrol bg-petrol text-white"
-                          : "border-line bg-white text-ink hover:border-petrol"
-                      }`}
-                    >
-                      {r === "cleaner" ? "Cleaner" : "Team Leader"}
-                    </button>
-                  ))}
+                  {(["cleaner", "team_leader"] as Role[]).map((r) => {
+                    const conflict = r !== a.role && otherCombos.has(`${a.buildingId}:${r}`);
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        disabled={conflict}
+                        title={conflict ? "Já existe um vínculo com este papel neste prédio" : undefined}
+                        onClick={() => updateAssignment(i, { role: r })}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                          a.role === r
+                            ? "border-petrol bg-petrol text-white"
+                            : "border-line bg-white text-ink hover:border-petrol disabled:cursor-not-allowed disabled:opacity-40"
+                        }`}
+                      >
+                        {r === "cleaner" ? "Cleaner" : "Team Leader"}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <input

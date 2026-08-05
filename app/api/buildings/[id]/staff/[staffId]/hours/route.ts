@@ -14,17 +14,25 @@ export async function PATCH(
 
   const body = await req.json();
   const horas = body.horasSemana;
+  const role = body.role;
 
   if (horas !== null && (typeof horas !== "number" || horas < 0)) {
     return NextResponse.json({ error: "Horas inválidas" }, { status: 400 });
   }
 
+  // O mesmo staff pode ter dois vínculos no mesmo prédio (cleaner e team
+  // leader), cada um com suas próprias horas — precisa saber qual dos dois.
+  if (role !== "cleaner" && role !== "team_leader") {
+    return NextResponse.json({ error: "Papel (role) inválido ou ausente" }, { status: 400 });
+  }
+
   try {
     const updated = await prisma.staffBuilding.update({
       where: {
-        staffId_buildingId: {
+        staffId_buildingId_role: {
           staffId: BigInt(params.staffId),
           buildingId: BigInt(params.id),
+          role,
         },
       },
       data: { horas },

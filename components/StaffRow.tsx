@@ -12,6 +12,9 @@ type StaffRowProps = {
   telefone: string | null;
   subtitle?: string;
   buildingId?: string;
+  // Papel deste vínculo específico ("cleaner" | "team_leader") — necessário
+  // pro DELETE quando o staff tem dois vínculos no mesmo prédio.
+  role?: "cleaner" | "team_leader";
   onDeleted?: (id: string) => void;
   // Team Leader vê e comenta, mas não edita/exclui staff (isso é admin,
   // exclusivo do Master).
@@ -27,6 +30,7 @@ export default function StaffRow({
   telefone,
   subtitle,
   buildingId,
+  role,
   onDeleted,
   canManage = true,
 }: StaffRowProps) {
@@ -92,7 +96,12 @@ export default function StaffRow({
     setSaving(true);
     setError(null);
     try {
-      const url = buildingId ? `/api/buildings/${buildingId}/staff/${id}` : `/api/staff/${id}`;
+      const url =
+        buildingId && role
+          ? `/api/buildings/${buildingId}/staff/${id}?role=${role}`
+          : buildingId
+            ? `/api/buildings/${buildingId}/staff/${id}`
+            : `/api/staff/${id}`;
       const res = await fetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Falha ao excluir");
       onDeleted?.(id);

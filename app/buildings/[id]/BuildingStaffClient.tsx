@@ -19,11 +19,16 @@ export default function BuildingStaffClient({
   emptyLabel,
   slots: initialSlots,
   buildingId,
+  role,
 }: {
   staff: StaffItem[];
   emptyLabel: string;
   slots?: Slot[];
   buildingId?: string;
+  // Papel deste vínculo nesta lista ("cleaner" | "team_leader") — necessário
+  // pra editar/remover o vínculo certo quando o staff aparece nas duas
+  // listas (cleaner E team leader) do mesmo prédio.
+  role?: "cleaner" | "team_leader";
 }) {
   const [list, setList] = useState(staff);
   const [slots, setSlots] = useState(initialSlots ?? []);
@@ -70,6 +75,7 @@ export default function BuildingStaffClient({
               staffNumber={s.staffNumber}
               telefone={s.telefone}
               buildingId={buildingId}
+              role={role}
               onDeleted={(id) => setList((prev) => prev.filter((p) => p.id !== id))}
             />
           </div>
@@ -77,6 +83,7 @@ export default function BuildingStaffClient({
             staffId={s.id}
             initialHours={s.horasSemana ?? null}
             buildingId={buildingId}
+            role={role}
             onSaved={(horas) =>
               setList((prev) => prev.map((p) => (p.id === s.id ? { ...p, horasSemana: horas } : p)))
             }

@@ -7,11 +7,15 @@ export default function StaffHoursCard({
   staffId,
   initialHours,
   buildingId,
+  role,
   onSaved,
 }: {
   staffId: string;
   initialHours: number | null;
   buildingId?: string;
+  // Papel deste vínculo ("cleaner" | "team_leader") — necessário quando o
+  // staff tem dois vínculos no mesmo prédio, cada um com suas horas.
+  role?: "cleaner" | "team_leader";
   onSaved?: (horas: number | null) => void;
 }) {
   const [hours, setHours] = useState(initialHours);
@@ -32,7 +36,7 @@ export default function StaffHoursCard({
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ horasSemana: parsed }),
+        body: JSON.stringify({ horasSemana: parsed, role }),
       });
       if (!res.ok) throw new Error();
       setHours(parsed);

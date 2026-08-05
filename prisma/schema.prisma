@@ -80,7 +80,9 @@ model StaffBuilding {
   horas      Float?
 
   // "cleaner" | "team_leader" — papel deste vínculo específico (staff+prédio).
-  // Permite que o mesmo staff seja team_leader em um prédio e cleaner em outro.
+  // Permite que o mesmo staff seja team_leader em um prédio e cleaner em
+  // outro — e também as duas coisas no MESMO prédio ao mesmo tempo, já que a
+  // chave primária inclui role (dois vínculos: um cleaner, um team_leader).
   role       String   @default("cleaner") @db.VarChar(20)
 
   staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
@@ -88,7 +90,7 @@ model StaffBuilding {
 
   createdAt  DateTime @default(now()) @map("created_at")
 
-  @@id([staffId, buildingId])
+  @@id([staffId, buildingId, role])
   @@map("staff_building")
 }
 

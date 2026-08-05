@@ -59,6 +59,7 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
               staff={building.teamLeaders}
               emptyLabel="Nenhum team leader vinculado a este prédio."
               buildingId={building.id}
+              role="team_leader"
             />
           </section>
 
@@ -68,7 +69,8 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
                 staff={building.cleaners}
                 emptyLabel="Nenhum cleaner alocado neste prédio."
                 slots={building.slots}
-                buildingId={building.id}/>
+                buildingId={building.id}
+                role="cleaner"/>
           </section>
         </div>
       </main>

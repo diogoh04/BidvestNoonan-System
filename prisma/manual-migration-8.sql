@@ -10,3 +10,4 @@ ALTER TABLE "app_user"
   ADD CONSTRAINT "app_user_role_check" CHECK ("role" IN ('master', 'supervisor', 'team_leader', 'pending'));
 
 COMMIT;
+

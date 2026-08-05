@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   const created = await prisma.staff.create({
     data: {
       nome: data.nome,
-      staffNumber: data.staffNumber,
+      staffNumber: data.staffNumber || null,
       telefone: data.telefone || null,
       status: data.status ?? null,
       blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,

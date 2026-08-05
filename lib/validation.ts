@@ -4,11 +4,14 @@ import { TIMESHEET_DAYS } from "./types";
 export const staffInputSchema = z
   .object({
     nome: z.string().trim().min(1, "Nome é obrigatório"),
-    staffNumber: z.string().trim().min(1, "Staff number é obrigatório"),
+    // Opcional: em alguns casos o staff number ainda não saiu quando a
+    // pessoa é contratada, e é preenchido depois (editando o cadastro).
+    staffNumber: z.string().trim().optional().nullable(),
     telefone: z.string().trim().optional().nullable(),
-    // Um vínculo por prédio: papel (cleaner/team_leader) e horas são
-    // independentes por prédio, permitindo que o mesmo staff seja team
-    // leader em um prédio e cleaner em outro.
+    // Um vínculo por prédio+papel: horas são independentes por vínculo,
+    // permitindo que o mesmo staff seja team leader em um prédio e cleaner
+    // em outro — e também team leader E cleaner no mesmo prédio ao mesmo
+    // tempo (dois vínculos, um por papel).
     assignments: z
       .array(
         z.object({
@@ -26,14 +29,15 @@ export const staffInputSchema = z
   .superRefine((data, ctx) => {
     const seen = new Set<string>();
     for (const [i, a] of data.assignments.entries()) {
-      if (seen.has(a.buildingId)) {
+      const key = `${a.buildingId}:${a.role}`;
+      if (seen.has(key)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Prédio duplicado na lista de vínculos",
+          message: "Vínculo duplicado (mesmo prédio e papel) na lista",
           path: ["assignments", i, "buildingId"],
         });
       }
-      seen.add(a.buildingId);
+      seen.add(key);
     }
   });
 

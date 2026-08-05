@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string; staffId: string } }
 ) {
   const user = await getCurrentUser();
@@ -11,12 +11,20 @@ export async function DELETE(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
+  // O mesmo staff pode ter dois vínculos no mesmo prédio (cleaner e team
+  // leader) — precisa saber qual dos dois remover.
+  const role = new URL(req.url).searchParams.get("role");
+  if (role !== "cleaner" && role !== "team_leader") {
+    return NextResponse.json({ error: "Papel (role) inválido ou ausente" }, { status: 400 });
+  }
+
   try {
     await prisma.staffBuilding.delete({
       where: {
-        staffId_buildingId: {
+        staffId_buildingId_role: {
           staffId: BigInt(params.staffId),
           buildingId: BigInt(params.id),
+          role,
         },
       },
     });
