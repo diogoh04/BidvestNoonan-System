@@ -6,7 +6,7 @@ import { getCurrentUser, hasRole } from "@/lib/auth";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const covers = await prisma.buildingCover.findMany({
@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const horas = body.horas;
 
   if (!nome) {
-    return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
   if (horas != null && (typeof horas !== "number" || horas <= 0)) {
-    return NextResponse.json({ error: "Horas inválidas" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
   }
 
   const created = await prisma.buildingCover.create({

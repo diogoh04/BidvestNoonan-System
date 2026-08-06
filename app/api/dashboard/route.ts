@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const [totalStaff, totalCleaners, totalTeamLeaders, buildings] = await Promise.all([
@@ -45,18 +45,47 @@ export async function GET() {
     };
   });
 
+  // Agrupamento por tamanho de hora dentro de cada prédio — vira o detalhe do
+  // tooltip do gráfico "vagas em aberto por prédio" (1 vaga de 20h, 2 de 15h...).
+  function groupByHours(slots: { horas: number }[]) {
+    const map = new Map<number, number>();
+    for (const s of slots) map.set(s.horas, (map.get(s.horas) ?? 0) + 1);
+    return Array.from(map.entries())
+      .map(([horas, count]) => ({ horas, count }))
+      .sort((a, b) => b.horas - a.horas);
+  }
+
   const buildingsOpenSlots = perBuilding
     .filter((b) => b.openSlots.length > 0)
-    .map((b) => ({ buildingId: b.buildingId, nome: b.nome, openSlotsCount: b.openSlots.length }));
+    .map((b) => ({
+      buildingId: b.buildingId,
+      nome: b.nome,
+      openSlotsCount: b.openSlots.length,
+      breakdown: groupByHours(b.openSlots),
+    }));
 
-  const bucketMap = new Map<number, number>();
+  // Mesmo agrupamento, mas invertido: por tamanho de hora, quais prédios têm
+  // vaga aberta desse tamanho — vira o detalhe do tooltip do gráfico "vagas em
+  // aberto por tamanho de hora".
+  const bucketMap = new Map<number, { count: number; buildings: Map<string, { nome: string; count: number }> }>();
   for (const b of perBuilding) {
     for (const slot of b.openSlots) {
-      bucketMap.set(slot.horas, (bucketMap.get(slot.horas) ?? 0) + 1);
+      const bucket = bucketMap.get(slot.horas) ?? { count: 0, buildings: new Map() };
+      bucket.count += 1;
+      const entry = bucket.buildings.get(b.buildingId) ?? { nome: b.nome, count: 0 };
+      entry.count += 1;
+      bucket.buildings.set(b.buildingId, entry);
+      bucketMap.set(slot.horas, bucket);
     }
   }
   const openSlotsByHours = Array.from(bucketMap.entries())
-    .map(([horas, count]) => ({ horas, count }))
+    .map(([horas, { count, buildings }]) => ({
+      horas,
+      count,
+      buildings: Array.from(buildings.entries())
+        .map(([buildingId, b]) => ({ buildingId, nome: b.nome, count: b.count }))
+        .sort((a, b) => b.count - a.count),
+    }))
     .sort((a, b) => a.horas - b.horas);
   const totalOpenSlots = openSlotsByHours.reduce((sum, b) => sum + b.count, 0);
 
@@ -65,13 +94,17 @@ export async function GET() {
   const buildingsWithLimit = perBuilding.filter(
     (b): b is typeof b & { horasDisponiveis: number; hoursDelta: number } => b.horasDisponiveis != null
   );
-  const buildingsHoursBalance = buildingsWithLimit.map((b) => ({
-    buildingId: b.buildingId,
-    nome: b.nome,
-    horasDisponiveis: b.horasDisponiveis,
-    horasGastas: b.horasGastas,
-    hoursDelta: b.hoursDelta,
-  }));
+  // O balanço total (abaixo) soma TODOS os prédios com limite configurado; só a
+  // lista exibida no gráfico corta os que já estão zerados (nada a mostrar ali).
+  const buildingsHoursBalance = buildingsWithLimit
+    .filter((b) => b.hoursDelta !== 0)
+    .map((b) => ({
+      buildingId: b.buildingId,
+      nome: b.nome,
+      horasDisponiveis: b.horasDisponiveis,
+      horasGastas: b.horasGastas,
+      hoursDelta: b.hoursDelta,
+    }));
   const totalHorasDisponiveis = buildingsWithLimit.reduce((sum, b) => sum + b.horasDisponiveis, 0);
   const totalHorasGastas = buildingsWithLimit.reduce((sum, b) => sum + b.horasGastas, 0);
   const grandTotal = {

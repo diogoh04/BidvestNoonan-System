@@ -37,7 +37,7 @@ export default async function ReviewWeekLeaderPage({
       <Header role={user?.role ?? "supervisor"} />
       <main className="mx-auto max-w-6xl px-6 py-10 print:max-w-none print:px-4 print:py-2">
         <ReviewWeekLeaderClient
-          teamLeaderNome={timesheets[0].submittedByNome ?? "Conta removida"}
+          teamLeaderNome={timesheets[0].submittedByNome ?? "Removed account"}
           initialTimesheets={timesheets}
         />
       </main>

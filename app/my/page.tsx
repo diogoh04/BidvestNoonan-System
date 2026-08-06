@@ -31,9 +31,9 @@ export default async function MyBuildingsPage() {
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Meus Prédios</h1>
+            <h1 className="font-display text-2xl font-bold text-ink">My Buildings</h1>
             <p className="mt-1 text-sm text-ink/50">
-              {buildings.length} prédio(s) sob sua responsabilidade.
+              {buildings.length} building(s) under your responsibility.
             </p>
           </div>
           <Link
@@ -41,14 +41,14 @@ export default async function MyBuildingsPage() {
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
           >
             <ClipboardList size={16} />
-            Lançar folha de ponto
+            Log timesheet
           </Link>
         </div>
 
         <div className="mt-8 space-y-8">
           {buildings.length === 0 && (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-              Nenhum prédio vinculado à sua conta ainda.
+              No building assigned to your account yet.
             </p>
           )}
 
@@ -60,7 +60,7 @@ export default async function MyBuildingsPage() {
               </div>
 
               {b.cleaners.length === 0 ? (
-                <p className="text-sm text-ink/40">Nenhum cleaner alocado neste prédio.</p>
+                <p className="text-sm text-ink/40">No cleaner assigned to this building.</p>
               ) : (
                 <div className="space-y-2">
                   {b.cleaners.map((s: any) => (

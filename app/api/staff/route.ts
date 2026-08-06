@@ -25,7 +25,7 @@ function mapStaff(w: any): StaffDTO {
 // GET /api/staff?q=nome ou staff number&buildingId=123&role=cleaner&status=p45&noBuilding=1
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   // Team Leader só usa a busca (autocomplete de cover na folha de ponto) —
   // devolve um formato reduzido, sem dados de outros vínculos/observações.
   if (hasRole(user, "team_leader")) {
-    if (!q) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    if (!q) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const staff = await prisma.staff.findMany({
       where: {
         OR: [
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const buildingId = searchParams.get("buildingId");
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();

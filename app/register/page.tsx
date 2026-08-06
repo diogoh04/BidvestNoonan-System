@@ -18,7 +18,7 @@ export default function RegisterPage() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("As senhas não conferem");
+      setError("Passwords don't match");
       return;
     }
 
@@ -35,7 +35,7 @@ export default function RegisterPage() {
           body?.error?.fieldErrors?.username?.[0] ||
             body?.error?.fieldErrors?.password?.[0] ||
             (typeof body?.error === "string" ? body.error : null) ||
-            "Não foi possível criar a conta"
+            "Could not create the account"
         );
         return;
       }
@@ -58,9 +58,9 @@ export default function RegisterPage() {
             className="h-12 w-auto object-contain"
           />
         </div>
-        <h1 className="mb-1 text-center font-display text-lg font-bold text-ink">Criar conta</h1>
+        <h1 className="mb-1 text-center font-display text-lg font-bold text-ink">Create account</h1>
         <p className="mb-6 text-center text-sm text-ink/50">
-          Depois de criada, um Master precisa aprovar e definir seu papel de acesso.
+          Once created, a Master needs to approve it and set your access role.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -68,7 +68,7 @@ export default function RegisterPage() {
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Usuário"
+            placeholder="Username"
             autoFocus
             autoCapitalize="none"
             autoCorrect="off"
@@ -78,14 +78,14 @@ export default function RegisterPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Senha"
+            placeholder="Password"
             className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
           />
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirmar senha"
+            placeholder="Confirm password"
             className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
           />
           {error && <p className="text-sm text-danger">{error}</p>}
@@ -94,14 +94,14 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
-            {loading ? "Criando..." : "Criar conta"}
+            {loading ? "Creating..." : "Create account"}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-ink/50">
-          Já tem conta?{" "}
+          Already have an account?{" "}
           <Link href="/login" className="text-petrol hover:underline">
-            Entrar
+            Sign in
           </Link>
         </p>
       </div>

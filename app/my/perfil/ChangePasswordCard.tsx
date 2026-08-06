@@ -14,7 +14,7 @@ export default function ChangePasswordCard() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("As senhas não coincidem.");
+      setError("Passwords don't match.");
       return;
     }
     setSaving(true);
@@ -27,7 +27,7 @@ export default function ChangePasswordCard() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error?.fieldErrors?.password?.[0] || "Não foi possível redefinir a senha.");
+        throw new Error(body?.error?.fieldErrors?.password?.[0] || "Could not reset the password.");
       }
       setPassword("");
       setConfirm("");
@@ -44,7 +44,7 @@ export default function ChangePasswordCard() {
   return (
     <div className="rounded-md border border-line bg-white px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm font-medium text-ink">Senha</span>
+        <span className="text-sm font-medium text-ink">Password</span>
         {!open && (
           <button
             type="button"
@@ -55,13 +55,13 @@ export default function ChangePasswordCard() {
             className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol"
           >
             <KeyRound size={14} />
-            Redefinir senha
+            Reset password
           </button>
         )}
         {done && (
           <span className="flex items-center gap-1 text-sm text-success">
             <Check size={14} />
-            Senha redefinida
+            Password reset
           </span>
         )}
       </div>
@@ -72,7 +72,7 @@ export default function ChangePasswordCard() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Nova senha"
+            placeholder="New password"
             required
             minLength={6}
             autoFocus
@@ -82,7 +82,7 @@ export default function ChangePasswordCard() {
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Confirmar senha"
+            placeholder="Confirm password"
             required
             minLength={6}
             className="min-w-0 flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
@@ -93,7 +93,7 @@ export default function ChangePasswordCard() {
               disabled={saving}
               className="rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
             >
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? "Saving..." : "Save"}
             </button>
             <button
               type="button"
@@ -105,7 +105,7 @@ export default function ChangePasswordCard() {
               }}
               className="rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"
             >
-              Cancelar
+              Cancel
             </button>
           </div>
           {error && <p className="w-full text-sm text-danger">{error}</p>}

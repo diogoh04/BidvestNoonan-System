@@ -6,9 +6,9 @@ import { formatWeekRange } from "@/lib/week";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<TimesheetStatus, string> = {
-  draft: "Rascunho",
-  submitted: "Enviado",
-  done: "Concluído",
+  draft: "Draft",
+  submitted: "Submitted",
+  done: "Done",
 };
 
 const STATUS_CLASS: Record<TimesheetStatus, string> = {
@@ -19,7 +19,7 @@ const STATUS_CLASS: Record<TimesheetStatus, string> = {
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  return new Date(iso).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" });
 }
 
 export default function ExcluidasListClient({ initialTimesheets }: { initialTimesheets: TimesheetDTO[] }) {
@@ -38,7 +38,7 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error || "Não foi possível restaurar a folha");
+        throw new Error(body?.error || "Could not restore the timesheet");
       }
       setTimesheets((prev) => prev.filter((t) => t.id !== id));
     } catch (e: any) {
@@ -53,7 +53,7 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
   const byLeader = new Map<string, { username: string; items: TimesheetDTO[] }>();
   for (const t of timesheets) {
     const key = t.submittedByUserId ?? "none";
-    const entry = byLeader.get(key) ?? { username: t.submittedByNome ?? "Conta removida", items: [] };
+    const entry = byLeader.get(key) ?? { username: t.submittedByNome ?? "Removed account", items: [] };
     entry.items.push(t);
     byLeader.set(key, entry);
   }
@@ -84,7 +84,7 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-ink/50">
-                    Semana {formatWeekRange(t.weekStart)} · Excluído por {t.deletedByNome ?? "—"} em{" "}
+                    Week {formatWeekRange(t.weekStart)} · Deleted by {t.deletedByNome ?? "—"} on{" "}
                     {formatDateTime(t.deletedAt)}
                   </div>
                 </div>
@@ -95,7 +95,7 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
                   className="flex shrink-0 items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
                 >
                   <RotateCcw size={14} />
-                  Restaurar
+                  Restore
                 </button>
               </div>
             ))}
@@ -103,7 +103,7 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
         </div>
       ))}
 
-      {leaders.length === 0 && <p className="text-sm text-ink/40">Nenhuma folha excluída.</p>}
+      {leaders.length === 0 && <p className="text-sm text-ink/40">No timesheet deleted.</p>}
     </div>
   );
 }

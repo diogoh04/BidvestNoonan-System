@@ -14,7 +14,7 @@ async function getStaff(id: string) {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/staff/${id}`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error("Falha ao carregar staff");
+  if (!res.ok) throw new Error("Failed to load staff");
   return res.json();
 }
 
@@ -26,7 +26,7 @@ export default async function EditStaffPage({ params }: { params: { id: string }
     <>
       <Header role="master" />
       <main className="mx-auto max-w-xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Editar Staff</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Edit Staff</h1>
         <p className="mt-1 text-sm text-ink/50">{staff.nome}</p>
         <div className="mt-6">
           <StaffForm

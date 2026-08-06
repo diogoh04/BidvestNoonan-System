@@ -40,15 +40,15 @@ export default async function ReviewPage() {
       <main className="mx-auto max-w-3xl px-6 py-10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Folhas de Ponto</h1>
-            <p className="mt-1 text-sm text-ink/50">Selecione uma semana pra ver quem já enviou.</p>
+            <h1 className="font-display text-2xl font-bold text-ink">Timesheets</h1>
+            <p className="mt-1 text-sm text-ink/50">Select a week to see who has submitted.</p>
           </div>
           <Link
             href="/review/excluidas"
             className="flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol"
           >
             <Trash2 size={16} />
-            Ver excluídas
+            View deleted
           </Link>
         </div>
 
@@ -63,22 +63,22 @@ export default async function ReviewPage() {
                 className="flex items-center justify-between rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
               >
                 <div>
-                  <div className="font-medium text-ink">Semana {formatWeekRange(weekStart)}</div>
+                  <div className="font-medium text-ink">Week {formatWeekRange(weekStart)}</div>
                   <div className="text-xs text-ink/40">{teamLeaders.size} team leader(s)</div>
                 </div>
                 {pending > 0 ? (
                   <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                    {pending} pendente(s)
+                    {pending} pending
                   </span>
                 ) : (
                   <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">
-                    Tudo concluído
+                    All done
                   </span>
                 )}
               </Link>
             );
           })}
-          {weeks.length === 0 && <p className="text-sm text-ink/40">Nenhuma folha enviada ainda.</p>}
+          {weeks.length === 0 && <p className="text-sm text-ink/40">No timesheet submitted yet.</p>}
         </div>
       </main>
     </>

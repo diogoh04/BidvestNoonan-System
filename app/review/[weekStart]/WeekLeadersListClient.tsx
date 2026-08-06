@@ -23,7 +23,7 @@ export default function WeekLeadersListClient({
     // envio. A folha continua valendo, só agrupamos num bucket à parte em
     // vez de esconder (ver /api/timesheets, filtro submittedByUserId=none).
     const key = t.submittedByUserId ?? "none";
-    const entry = byLeader.get(key) ?? { username: t.submittedByNome ?? "Conta removida", items: [] };
+    const entry = byLeader.get(key) ?? { username: t.submittedByNome ?? "Removed account", items: [] };
     entry.items.push(t);
     byLeader.set(key, entry);
   }
@@ -34,7 +34,7 @@ export default function WeekLeadersListClient({
     setDeletingId(userId);
     try {
       const results = await Promise.all(items.map((t) => fetch(`/api/timesheets/${t.id}`, { method: "DELETE" })));
-      if (results.some((r) => !r.ok)) throw new Error("Não foi possível excluir algumas folhas dessa semana");
+      if (results.some((r) => !r.ok)) throw new Error("Could not delete some timesheets from this week");
       const idsToRemove = new Set(items.map((t) => t.id));
       setTimesheets((prev) => prev.filter((t) => !idsToRemove.has(t.id)));
     } catch (e: any) {
@@ -59,8 +59,8 @@ export default function WeekLeadersListClient({
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
             >
               <span className="text-sm text-danger">
-                Excluir as {items.length} folha(s) de {username} nesta semana? Dá pra restaurar depois em "Ver
-                excluídas".
+                Delete the {items.length} timesheet(s) from {username} this week? Can be restored later in
+                "View deleted".
               </span>
               <div className="flex shrink-0 gap-2">
                 <button
@@ -68,13 +68,13 @@ export default function WeekLeadersListClient({
                   disabled={deletingId === userId}
                   className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  Confirmar
+                  Confirm
                 </button>
                 <button
                   onClick={() => setConfirmingId(null)}
                   className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
                 >
-                  Cancelar
+                  Cancel
                 </button>
               </div>
             </div>
@@ -90,24 +90,24 @@ export default function WeekLeadersListClient({
               <User size={18} className="text-petrol" />
               <div>
                 <div className="font-medium text-ink">{username}</div>
-                <div className="text-xs text-ink/40">{items.length} prédio(s)</div>
+                <div className="text-xs text-ink/40">{items.length} building(s)</div>
               </div>
             </Link>
 
             <div className="flex shrink-0 items-center gap-2">
               {pending > 0 ? (
                 <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                  Pendente
+                  Pending
                 </span>
               ) : (
                 <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">
-                  Concluído
+                  Done
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setConfirmingId(userId)}
-                title="Excluir folhas desta semana"
+                title="Delete this week's timesheets"
                 className="rounded-md p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
               >
                 <Trash2 size={16} />
@@ -122,7 +122,7 @@ export default function WeekLeadersListClient({
 
       {leaders.length === 0 && (
         <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-          Todas as folhas desta semana foram excluídas.
+          All of this week's timesheets have been deleted.
         </p>
       )}
     </div>

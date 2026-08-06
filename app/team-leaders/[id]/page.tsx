@@ -16,7 +16,7 @@ async function getTeamLeader(id: string) {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/team-leaders/${id}`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error("Falha ao carregar team leader");
+  if (!res.ok) throw new Error("Failed to load team leader");
   return res.json();
 }
 
@@ -30,7 +30,7 @@ export default async function TeamLeaderDetailPage({ params }: { params: { id: s
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
         <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Team Leader</p>
         <h1 className="font-display text-2xl font-bold text-ink">{teamLeader.nome}</h1>
-        <p className="mt-1 font-mono text-xs text-ink/50">#{teamLeader.staffNumber || "s/n"}</p>
+        <p className="mt-1 font-mono text-xs text-ink/50">#{teamLeader.staffNumber || "n/a"}</p>
 
         <div className="mt-4">
           <ResetPasswordCard teamLeaderId={teamLeader.id} loginAccount={teamLeader.loginAccount} />
@@ -39,7 +39,7 @@ export default async function TeamLeaderDetailPage({ params }: { params: { id: s
         <div className="mt-8 space-y-8">
           {teamLeader.buildings.length === 0 && (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-              Nenhum prédio vinculado a este team leader.
+              No building assigned to this team leader.
             </p>
           )}
 

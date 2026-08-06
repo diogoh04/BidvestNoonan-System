@@ -8,7 +8,7 @@ import { toJSONSafe } from "@/lib/types";
 export async function GET() {
   const user = await getCurrentUser();
   if (!hasRole(user, "team_leader") || !user!.staffId) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const staffId = BigInt(user!.staffId);

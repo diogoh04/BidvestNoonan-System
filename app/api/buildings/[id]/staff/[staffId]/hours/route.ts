@@ -9,7 +9,7 @@ export async function PATCH(
 ) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -17,13 +17,13 @@ export async function PATCH(
   const role = body.role;
 
   if (horas !== null && (typeof horas !== "number" || horas < 0)) {
-    return NextResponse.json({ error: "Horas inválidas" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
   }
 
   // O mesmo staff pode ter dois vínculos no mesmo prédio (cleaner e team
   // leader), cada um com suas próprias horas — precisa saber qual dos dois.
   if (role !== "cleaner" && role !== "team_leader") {
-    return NextResponse.json({ error: "Papel (role) inválido ou ausente" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid or missing role" }, { status: 400 });
   }
 
   try {
@@ -46,6 +46,6 @@ export async function PATCH(
       })
     );
   } catch {
-    return NextResponse.json({ error: "Vínculo não encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
   }
 }

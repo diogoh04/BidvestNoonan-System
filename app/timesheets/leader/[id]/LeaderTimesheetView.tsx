@@ -177,7 +177,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           horas: coverHoras.trim() === "" ? null : Number(coverHoras.replace(",", ".")),
         }),
       });
-      if (!res.ok) throw new Error("Não foi possível adicionar o cover");
+      if (!res.ok) throw new Error("Could not add the cover");
       const created = await res.json();
       setCoversByBuilding((prev) => ({
         ...prev,
@@ -212,7 +212,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
         >
           <Printer size={16} />
-          Imprimir / Exportar PDF
+          Print / Export PDF
         </button>
       </div>
 
@@ -225,7 +225,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           <span className="font-display text-lg font-bold text-ink print:text-xs">
             {teamLeader.buildings.map((b) => b.nome).join(", ")}
           </span>
-          <Image src="/logoUCD.png" alt="Logo do cliente" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
+          <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
         </div>
       </div>
 
@@ -289,7 +289,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           {teamLeader.buildings.length === 0 && (
             <tr>
               <td colSpan={15} className={`${cell} text-center text-ink/40`}>
-                Nenhum prédio vinculado a este team leader.
+                No building assigned to this team leader.
               </td>
             </tr>
           )}
@@ -311,7 +311,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                     <td className={cell}></td>
                     <td className={`${cell} text-center`}>{b.workOrder ?? ""}</td>
                     <td className={`${cell} text-ink/30`} colSpan={2}>
-                      sem cleaner ou vaga cadastrada
+                      no cleaner or slot registered
                     </td>
                     {DAYS.map((d) => (
                       <>
@@ -389,7 +389,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                 setCoverNome(staff.nome);
                 setCoverStaffNumber(staff.staffNumber ?? "");
               }}
-              placeholder="Buscar staff..."
+              placeholder="Search staff..."
             />
           )}
           <input
@@ -398,7 +398,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             step={0.25}
             value={coverHoras}
             onChange={(e) => setCoverHoras(e.target.value)}
-            placeholder="Horas"
+            placeholder="Hours"
             className="w-24 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
           />
           <button
@@ -408,7 +408,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             className="flex items-center gap-1 rounded-md bg-petrol px-3 py-1.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Plus size={14} />
-            Adicionar cover
+            Add cover
           </button>
           {coverError && <span className="text-xs text-danger">{coverError}</span>}
         </div>
@@ -448,7 +448,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                     <button
                       type="button"
                       onClick={() => removeCover(buildingId, cover.id)}
-                      title="Remover cover"
+                      title="Remove cover"
                       className="rounded p-0.5 text-ink/30 hover:text-danger print:hidden"
                     >
                       <X size={12} />

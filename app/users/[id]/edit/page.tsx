@@ -17,7 +17,7 @@ async function getUser(id: string) {
     headers: { cookie: headers().get("cookie") ?? "" },
   });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error("Falha ao carregar usuário");
+  if (!res.ok) throw new Error("Failed to load user");
   return res.json();
 }
 
@@ -29,7 +29,7 @@ export default async function EditUserPage({ params }: { params: { id: string } 
     <>
       <Header role="master" />
       <main className="mx-auto max-w-xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Editar conta</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Edit account</h1>
         <p className="mt-1 text-sm text-ink/50">{user.username}</p>
         <div className="mt-6">
           <UserForm

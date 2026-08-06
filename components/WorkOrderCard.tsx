@@ -64,7 +64,7 @@ export default function WorkOrderCard({
       className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1.5 text-sm text-ink transition hover:border-petrol"
     >
       <FileText size={14} className="text-petrol" />
-      <span>{wo ? `WO ${wo}` : "Definir WO"}</span>
+      <span>{wo ? `WO ${wo}` : "Set WO"}</span>
       <Pencil size={12} className="text-ink/30" />
     </button>
   );

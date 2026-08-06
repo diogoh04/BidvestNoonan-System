@@ -39,12 +39,12 @@ export default function ResetPasswordCard({
             body?.error?.fieldErrors?.username?.[0] ||
               body?.error?.fieldErrors?.password?.[0] ||
               (typeof body?.error === "string" ? body.error : null) ||
-              "Não foi possível criar o login."
+              "Could not create the login."
           );
         }
         const created = await res.json();
         setAccount({ id: created.id, username: created.username, active: created.active });
-        setDone("Login criado");
+        setDone("Login created");
       } else {
         const res = await fetch(`/api/users/${account!.id}`, {
           method: "PATCH",
@@ -53,9 +53,9 @@ export default function ResetPasswordCard({
         });
         if (!res.ok) {
           const body = await res.json().catch(() => null);
-          throw new Error(body?.error?.fieldErrors?.password?.[0] || "Não foi possível redefinir a senha.");
+          throw new Error(body?.error?.fieldErrors?.password?.[0] || "Could not reset the password.");
         }
-        setDone("Senha redefinida");
+        setDone("Password reset");
       }
       setUsername("");
       setPassword("");
@@ -76,10 +76,10 @@ export default function ResetPasswordCard({
             <>
               <span className="font-medium text-ink">Login:</span>{" "}
               <span className="font-mono text-ink/70">{account.username}</span>
-              {!account.active && <span className="ml-2 text-xs text-danger">(conta inativa)</span>}
+              {!account.active && <span className="ml-2 text-xs text-danger">(inactive account)</span>}
             </>
           ) : (
-            <span className="text-ink/50">Sem conta de login vinculada.</span>
+            <span className="text-ink/50">No login account linked.</span>
           )}
         </div>
         {!open && (
@@ -93,7 +93,7 @@ export default function ResetPasswordCard({
             className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol"
           >
             {account ? <KeyRound size={14} /> : <UserPlus size={14} />}
-            {account ? "Redefinir senha" : "Criar login"}
+            {account ? "Reset password" : "Create login"}
           </button>
         )}
         {done && (
@@ -110,7 +110,7 @@ export default function ResetPasswordCard({
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Usuário"
+              placeholder="Username"
               required
               minLength={3}
               autoFocus
@@ -121,7 +121,7 @@ export default function ResetPasswordCard({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={isCreate ? "Senha" : "Nova senha"}
+            placeholder={isCreate ? "Password" : "New password"}
             required
             minLength={6}
             autoFocus={!isCreate}
@@ -133,7 +133,7 @@ export default function ResetPasswordCard({
               disabled={saving}
               className="rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
             >
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? "Saving..." : "Save"}
             </button>
             <button
               type="button"
@@ -145,7 +145,7 @@ export default function ResetPasswordCard({
               }}
               className="rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"
             >
-              Cancelar
+              Cancel
             </button>
           </div>
           {error && <p className="w-full text-sm text-danger">{error}</p>}

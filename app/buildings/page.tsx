@@ -25,7 +25,7 @@ export default async function BuildingsPage() {
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Buildings</h1>
         <p className="mt-1 text-sm text-ink/50">
-          {buildings.length} prédio(s) cadastrado(s). Clique para ver o staff alocado.
+          {buildings.length} building(s) registered. Click to see assigned staff.
         </p>
 
         <BuildingsListClient initialBuildings={buildings} />

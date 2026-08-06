@@ -6,7 +6,7 @@ type StaffResult = { id: string; nome: string | null; staffNumber: string | null
 
 export default function StaffSearchInput({
   onSelect,
-  placeholder = "Buscar staff...",
+  placeholder = "Search staff...",
   className,
 }: {
   onSelect: (staff: { id: string; nome: string; staffNumber: string | null }) => void;
@@ -57,9 +57,9 @@ export default function StaffSearchInput({
       />
       {open && query.trim() !== "" && (
         <div className="absolute z-10 mt-1 max-h-56 w-64 overflow-auto rounded-md border border-line bg-white shadow-lg">
-          {loading && <div className="px-3 py-2 text-xs text-ink/40">Buscando...</div>}
+          {loading && <div className="px-3 py-2 text-xs text-ink/40">Searching...</div>}
           {!loading && results.length === 0 && (
-            <div className="px-3 py-2 text-xs text-ink/40">Nenhum staff encontrado.</div>
+            <div className="px-3 py-2 text-xs text-ink/40">No staff found.</div>
           )}
           {!loading &&
             results.map((s) => (
@@ -71,7 +71,7 @@ export default function StaffSearchInput({
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-surface"
               >
                 <div className="font-medium text-ink">{s.nome}</div>
-                <div className="font-mono text-xs text-ink/50">#{s.staffNumber || "s/n"}</div>
+                <div className="font-mono text-xs text-ink/50">#{s.staffNumber || "n/a"}</div>
               </button>
             ))}
         </div>

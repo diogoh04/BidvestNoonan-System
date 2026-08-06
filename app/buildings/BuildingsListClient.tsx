@@ -37,7 +37,7 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: newName.trim() }),
       });
-      if (!res.ok) throw new Error("Não foi possível criar (nome já existe?)");
+      if (!res.ok) throw new Error("Could not create (name already exists?)");
       const created = await res.json();
       setBuildings((prev) =>
         [...prev, { ...created, totalCleaners: 0, totalTeamLeaders: 0 }].sort((a, b) =>
@@ -65,7 +65,7 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: editValue.trim() }),
       });
-      if (!res.ok) throw new Error("Não foi possível renomear (nome já existe?)");
+      if (!res.ok) throw new Error("Could not rename (name already exists?)");
       setBuildings((prev) =>
         prev.map((b) => (b.id === id ? { ...b, nome: editValue.trim() } : b))
       );
@@ -78,7 +78,7 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
   async function deleteBuilding(id: string) {
     try {
       const res = await fetch(`/api/buildings/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Falha ao excluir");
+      if (!res.ok) throw new Error("Failed to delete");
       setBuildings((prev) => prev.filter((b) => b.id !== id));
     } catch (e: any) {
       setError(e.message);
@@ -94,7 +94,7 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && showAddButton && addBuilding()}
-          placeholder="Buscar ou adicionar prédio"
+          placeholder="Search or add building"
           className="flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
         />
         {showAddButton && (
@@ -104,7 +104,7 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Plus size={16} />
-            Adicionar prédio
+            Add building
           </button>
         )}
       </div>
@@ -135,20 +135,20 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
             ) : confirmingDeleteId === b.id ? (
               <div className="flex flex-1 items-center justify-between gap-3">
                 <span className="text-sm text-danger">
-                  Excluir {b.nome}? Isso remove os vínculos de staff com esse prédio.
+                  Delete {b.nome}? This removes staff assignments to this building.
                 </span>
                 <div className="flex shrink-0 gap-2">
                   <button
                     onClick={() => deleteBuilding(b.id)}
                     className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
                   >
-                    Confirmar
+                    Confirm
                   </button>
                   <button
                     onClick={() => setConfirmingDeleteId(null)}
                     className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
                   >
-                    Cancelar
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -164,14 +164,14 @@ export default function BuildingsListClient({ initialBuildings }: { initialBuild
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     onClick={() => startEdit(b)}
-                    title="Renomear"
+                    title="Rename"
                     className="rounded-md p-2 text-ink/50 hover:bg-petrolLight hover:text-petrol"
                   >
                     <Pencil size={16} />
                   </button>
                   <button
                     onClick={() => setConfirmingDeleteId(b.id)}
-                    title="Excluir"
+                    title="Delete"
                     className="rounded-md p-2 text-ink/50 hover:bg-red-50 hover:text-danger"
                   >
                     <Trash2 size={16} />

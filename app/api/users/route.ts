@@ -20,7 +20,7 @@ function mapUser(u: any): UserDTO {
 export async function GET() {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const users = await prisma.user.findMany({
@@ -34,7 +34,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
   if (!data.password) {
-    return NextResponse.json({ error: "Senha é obrigatória na criação" }, { status: 400 });
+    return NextResponse.json({ error: "Password is required on creation" }, { status: 400 });
   }
 
   const existing = await prisma.user.findUnique({ where: { username: data.username } });
   if (existing) {
-    return NextResponse.json({ error: "Usuário já existe" }, { status: 409 });
+    return NextResponse.json({ error: "Username already exists" }, { status: 409 });
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);

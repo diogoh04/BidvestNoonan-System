@@ -98,7 +98,7 @@ export default function BuildingStaffClient({
         >
           <span className="flex items-center gap-2 text-sm text-ink/40">
             <span className="w-5 shrink-0 text-center font-mono text-xs">{sortedList.length + i + 1}</span>
-            Vaga em aberto
+            Open slot
           </span>
 
           {editingSlotId === slot.id ? (
@@ -113,7 +113,7 @@ export default function BuildingStaffClient({
                 onKeyDown={(e) => e.key === "Enter" && saveSlotHours(slot.id)}
                 className="w-14 border-none bg-transparent text-ink outline-none"
               />
-              <span className="text-ink/50">h/sem</span>
+              <span className="text-ink/50">h/wk</span>
               <button onClick={() => saveSlotHours(slot.id)} className="text-petrol hover:text-petrolDark">
                 <Check size={14} />
               </button>
@@ -130,7 +130,7 @@ export default function BuildingStaffClient({
               className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink/60 hover:border-petrol hover:text-petrol"
             >
               <Clock size={13} />
-              {slot.horas}h/sem
+              {slot.horas}h/wk
               <Pencil size={12} />
             </button>
           )}

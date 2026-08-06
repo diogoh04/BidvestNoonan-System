@@ -39,7 +39,7 @@ export default function ReviewWeekLeaderClient({
       );
       results.forEach((r) => r && updateOne(r));
     } catch {
-      setError("Não foi possível marcar como concluído");
+      setError("Could not mark as done");
     } finally {
       setSaving(false);
     }
@@ -57,7 +57,7 @@ export default function ReviewWeekLeaderClient({
             className="ml-auto flex items-center gap-2 rounded-md bg-success px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             <CheckCircle2 size={16} />
-            Marcar semana como concluída ({pending})
+            Mark week as done ({pending})
           </button>
         )}
       </div>

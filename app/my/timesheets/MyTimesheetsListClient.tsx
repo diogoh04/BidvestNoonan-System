@@ -7,9 +7,9 @@ import { formatWeekRange } from "@/lib/week";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<TimesheetStatus, string> = {
-  draft: "Rascunho",
-  submitted: "Enviada — aguardando revisão",
-  done: "Concluída",
+  draft: "Draft",
+  submitted: "Submitted — awaiting review",
+  done: "Done",
 };
 
 const STATUS_CLASS: Record<TimesheetStatus, string> = {
@@ -43,7 +43,7 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
       const results = await Promise.all(
         items.map((t) => fetch(`/api/timesheets/${t.id}`, { method: "DELETE" }))
       );
-      if (results.some((r) => !r.ok)) throw new Error("Não foi possível excluir alguns prédios dessa semana");
+      if (results.some((r) => !r.ok)) throw new Error("Could not delete some buildings from this week");
       setTimesheets((prev) => prev.filter((t) => t.weekStart !== weekStart));
     } catch (e: any) {
       setError(e.message);
@@ -68,8 +68,8 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
               className="flex items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
             >
               <span className="text-sm text-danger">
-                Excluir a folha inteira da semana de {formatWeekRange(weekStart)} ({items.length} prédio(s))?
-                Essa ação não pode ser desfeita.
+                Delete the whole timesheet for the week of {formatWeekRange(weekStart)} ({items.length} building(s))?
+                This action cannot be undone.
               </span>
               <div className="flex shrink-0 gap-2">
                 <button
@@ -77,13 +77,13 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
                   disabled={deletingWeek === weekStart}
                   className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  Confirmar
+                  Confirm
                 </button>
                 <button
                   onClick={() => setConfirmingWeek(null)}
                   className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
                 >
-                  Cancelar
+                  Cancel
                 </button>
               </div>
             </div>
@@ -96,8 +96,8 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
             className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
           >
             <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="flex-1">
-              <div className="font-medium text-ink">Semana {formatWeekRange(weekStart)}</div>
-              <div className="text-xs text-ink/40">{items.length} prédio(s)</div>
+              <div className="font-medium text-ink">Week {formatWeekRange(weekStart)}</div>
+              <div className="text-xs text-ink/40">{items.length} building(s)</div>
             </Link>
 
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[status]}`}>
@@ -107,7 +107,7 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
             <div className="flex shrink-0 items-center gap-1">
               <Link
                 href={`/my/timesheets/lancar?week=${weekStart}`}
-                title="Editar"
+                title="Edit"
                 className="rounded-md p-2 text-ink/50 hover:bg-petrolLight hover:text-petrol"
               >
                 <Pencil size={16} />
@@ -115,7 +115,7 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
               {canDelete && (
                 <button
                   onClick={() => setConfirmingWeek(weekStart)}
-                  title="Excluir"
+                  title="Delete"
                   className="rounded-md p-2 text-ink/50 hover:bg-red-50 hover:text-danger"
                 >
                   <Trash2 size={16} />
@@ -128,11 +128,11 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
 
       {weeks.length === 0 && (
         <p className="text-sm text-ink/40">
-          Nenhuma folha lançada ainda.{" "}
+          No timesheet logged yet.{" "}
           <Link href="/my/timesheets/lancar" className="text-petrol hover:underline">
-            Lançar folha de ponto
+            Log timesheet
           </Link>{" "}
-          para começar.
+          to get started.
         </p>
       )}
     </div>

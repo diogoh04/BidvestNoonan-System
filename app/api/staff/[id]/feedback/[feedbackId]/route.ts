@@ -8,7 +8,7 @@ export async function DELETE(
 ) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   try {
@@ -16,10 +16,10 @@ export async function DELETE(
       where: { id: BigInt(params.feedbackId), workerId: BigInt(params.id) },
     });
     if (result.count === 0) {
-      return NextResponse.json({ error: "Observação não encontrada" }, { status: 404 });
+      return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Falha ao excluir observação" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete note" }, { status: 500 });
   }
 }

@@ -8,7 +8,7 @@ export default function NewStaffPage() {
       <main className="mx-auto max-w-xl px-6 py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Register Staff</h1>
         <p className="mt-1 text-sm text-ink/50">
-          Adicione um vínculo por prédio — cada um com seu próprio papel (Cleaner ou Team Leader) e horas.
+          Add one assignment per building — each with its own role (Cleaner or Team Leader) and hours.
         </p>
         <div className="mt-6">
           <StaffForm />

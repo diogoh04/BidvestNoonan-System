@@ -9,7 +9,7 @@ const ROLE_LABEL: Record<UserDTO["role"], string> = {
   master: "Master",
   supervisor: "Supervisor",
   team_leader: "Team Leader",
-  pending: "Pendente de aprovação",
+  pending: "Pending approval",
 };
 
 export default function UsersListClient({ initialUsers }: { initialUsers: UserDTO[] }) {
@@ -30,7 +30,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !u.active }),
       });
-      if (!res.ok) throw new Error("Não foi possível atualizar o usuário");
+      if (!res.ok) throw new Error("Could not update the user");
       setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, active: !x.active } : x)));
     } catch (e: any) {
       setError(e.message);
@@ -44,7 +44,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
       const res = await fetch(`/api/users/${u.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error || "Não foi possível excluir o usuário");
+        throw new Error(body?.error || "Could not delete the user");
       }
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
     } catch (e: any) {
@@ -63,7 +63,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
           className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
         >
           <UserPlus size={16} />
-          Nova conta
+          New account
         </Link>
       </div>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
@@ -77,7 +77,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
               >
                 <span className="text-sm text-danger">
-                  Excluir a conta "{u.username}"? Essa ação não pode ser desfeita.
+                  Delete the account "{u.username}"? This action cannot be undone.
                 </span>
                 <div className="flex shrink-0 gap-2">
                   <button
@@ -85,13 +85,13 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
                     disabled={deletingId === u.id}
                     className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    Confirmar
+                    Confirm
                   </button>
                   <button
                     onClick={() => setConfirmingId(null)}
                     className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
                   >
-                    Cancelar
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -108,7 +108,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
                   {u.username}
                   {!u.active && (
                     <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-danger">
-                      Inativo
+                      Inactive
                     </span>
                   )}
                 </div>
@@ -134,18 +134,18 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
                       : "border-line text-ink hover:border-petrol hover:text-petrol"
                   }`}
                 >
-                  {u.active ? "Desativar" : "Ativar"}
+                  {u.active ? "Deactivate" : "Activate"}
                 </button>
                 <Link
                   href={`/users/${u.id}/edit`}
-                  title="Editar"
+                  title="Edit"
                   className="rounded-md p-2 text-ink/50 hover:bg-petrolLight hover:text-petrol"
                 >
                   <Pencil size={16} />
                 </Link>
                 <button
                   onClick={() => setConfirmingId(u.id)}
-                  title="Excluir"
+                  title="Delete"
                   className="rounded-md p-2 text-ink/50 hover:bg-red-50 hover:text-danger"
                 >
                   <Trash2 size={16} />
@@ -154,7 +154,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
             </div>
           );
         })}
-        {users.length === 0 && <p className="text-sm text-ink/40">Nenhuma conta cadastrada ainda.</p>}
+        {users.length === 0 && <p className="text-sm text-ink/40">No account registered yet.</p>}
       </div>
     </div>
   );

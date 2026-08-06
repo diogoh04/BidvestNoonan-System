@@ -20,14 +20,14 @@ function mapUser(u: any): UserDTO {
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const found = await prisma.user.findUnique({
     where: { id: BigInt(params.id) },
     include: { staff: true },
   });
-  if (!found) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+  if (!found) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json(toJSONSafe(mapUser(found)));
 }
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -78,16 +78,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const userId = BigInt(params.id);
   if (user!.userId === userId.toString()) {
-    return NextResponse.json({ error: "Você não pode excluir sua própria conta" }, { status: 400 });
+    return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 });
   }
 
   const found = await prisma.user.findUnique({ where: { id: userId } });
-  if (!found) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+  if (!found) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   await prisma.user.delete({ where: { id: userId } });
 

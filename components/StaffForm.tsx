@@ -20,7 +20,7 @@ export type StaffFormValues = {
 };
 
 const STATUS_OPTIONS: { value: Status; label: string }[] = [
-  { value: null, label: "Ativo" },
+  { value: null, label: "Active" },
   { value: "p45", label: "P45" },
   { value: "le", label: "LE" },
   { value: "blocked", label: "Staff Blocked" },
@@ -63,7 +63,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: newBuildingName.trim() }),
       });
-      if (!res.ok) throw new Error("Não foi possível criar o prédio (nome já existe?)");
+      if (!res.ok) throw new Error("Could not create the building (name already exists?)");
       const created = await res.json();
       setNewBuildingName("");
       loadBuildings();
@@ -127,7 +127,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         throw new Error(
           body?.error?.formErrors?.[0] ||
             body?.error?.fieldErrors?.assignments?.[0] ||
-            "Não foi possível salvar. Confira os campos."
+            "Could not save. Please check the fields."
         );
       }
 
@@ -143,7 +143,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="mb-1 block text-sm font-medium text-ink">Nome</label>
+        <label className="mb-1 block text-sm font-medium text-ink">Name</label>
         <input
           value={nome}
           onChange={(e) => setNome(e.target.value)}
@@ -154,9 +154,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">
-            Staff Number{" "}
-          </label>
+          <label className="mb-1 block text-sm font-medium text-ink">Staff Number</label>
           <input
             value={staffNumber}
             onChange={(e) => setStaffNumber(e.target.value)}
@@ -164,7 +162,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">Telefone</label>
+          <label className="mb-1 block text-sm font-medium text-ink">Phone</label>
           <input
             value={telefone}
             onChange={(e) => setTelefone(e.target.value)}
@@ -195,13 +193,13 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
 
         {status && (
           <p className="mt-2 text-xs text-ink/50">
-            Os vínculos de prédio deste staff serão removidos ao salvar.
+            This staff's building assignments will be removed when you save.
           </p>
         )}
 
         {status === "blocked" && (
           <div className="mt-2">
-            <label className="mb-1 block text-xs font-medium text-ink/50">Bloqueado desde</label>
+            <label className="mb-1 block text-xs font-medium text-ink/50">Blocked since</label>
             <input
               type="date"
               value={blockedAt}
@@ -217,12 +215,12 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       <>
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">
-          Prédios{" "}
+          Buildings
         </label>
 
         <div className="space-y-2">
           {assignments.length === 0 && (
-            <p className="text-sm text-ink/40">Nenhum vínculo adicionado ainda.</p>
+            <p className="text-sm text-ink/40">No assignment added yet.</p>
           )}
 
           {assignments.map((a, i) => {
@@ -264,7 +262,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
                         key={r}
                         type="button"
                         disabled={conflict}
-                        title={conflict ? "Já existe um vínculo com este papel neste prédio" : undefined}
+                        title={conflict ? "There's already an assignment with this role in this building" : undefined}
                         onClick={() => updateAssignment(i, { role: r })}
                         className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
                           a.role === r
@@ -288,14 +286,14 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
                       horas: e.target.value === "" ? null : Number(e.target.value.replace(",", ".")),
                     })
                   }
-                  placeholder="h/sem"
+                  placeholder="h/wk"
                   className="w-20 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
                 />
 
                 <button
                   type="button"
                   onClick={() => removeAssignment(i)}
-                  title="Remover vínculo"
+                  title="Remove assignment"
                   className="rounded p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
                 >
                   <Trash2 size={16} />
@@ -312,7 +310,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           className="mt-2 flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
         >
           <Plus size={14} />
-          Adicionar vínculo
+          Add assignment
         </button>
       </div>
 
@@ -324,7 +322,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           <input
             value={newBuildingName}
             onChange={(e) => setNewBuildingName(e.target.value)}
-            placeholder="Nome do novo prédio"
+            placeholder="New building name"
             className="flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
           />
           <button
@@ -348,7 +346,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           disabled={saving}
           className="rounded-md bg-petrol px-5 py-2.5 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
         >
-          {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Cadastrar"}
+          {saving ? "Saving..." : isEdit ? "Save changes" : "Register"}
         </button>
       </div>
     </form>

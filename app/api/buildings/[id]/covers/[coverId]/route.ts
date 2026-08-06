@@ -8,7 +8,7 @@ export async function DELETE(
 ) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   await prisma.buildingCover.deleteMany({

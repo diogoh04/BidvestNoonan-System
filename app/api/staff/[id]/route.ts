@@ -26,7 +26,7 @@ function mapStaff(w: any): StaffDTO {
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const staff = await prisma.staff.findUnique({
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     },
   });
 
-  if (!staff) return NextResponse.json({ error: "Staff não encontrado" }, { status: 404 });
+  if (!staff) return NextResponse.json({ error: "Staff not found" }, { status: 404 });
 
   return NextResponse.json(
     toJSONSafe({
@@ -54,7 +54,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -101,7 +101,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   await prisma.staff.delete({ where: { id: BigInt(params.id) } });

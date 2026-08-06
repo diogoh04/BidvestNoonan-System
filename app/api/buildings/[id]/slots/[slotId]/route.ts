@@ -9,14 +9,14 @@ export async function PATCH(
 ) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
   const horas = body.horas;
 
   if (typeof horas !== "number" || horas <= 0) {
-    return NextResponse.json({ error: "Horas inválidas" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
   }
 
   const result = await prisma.buildingSlot.updateMany({
@@ -25,7 +25,7 @@ export async function PATCH(
   });
 
   if (result.count === 0) {
-    return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
+    return NextResponse.json({ error: "Slot not found" }, { status: 404 });
   }
 
   return NextResponse.json(toJSONSafe({ id: params.slotId, horas }));
@@ -37,7 +37,7 @@ export async function DELETE(
 ) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   await prisma.buildingSlot.deleteMany({

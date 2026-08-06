@@ -6,7 +6,7 @@ import { getCurrentUser, hasRole } from "@/lib/auth";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const teamLeader = await prisma.staff.findUnique({
@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const leaderLinks = teamLeader?.buildingsAsTeamLeader.filter((l) => l.role === "team_leader") ?? [];
 
   if (!teamLeader || leaderLinks.length === 0) {
-    return NextResponse.json({ error: "Team leader não encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Team leader not found" }, { status: 404 });
   }
 
   const buildingIds = leaderLinks.map((l) => l.buildingId);

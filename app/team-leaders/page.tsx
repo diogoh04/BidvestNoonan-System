@@ -26,13 +26,13 @@ export default async function TeamLeadersPage() {
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="font-display text-2xl font-bold text-ink">Team Leaders</h1>
         <p className="mt-1 text-sm text-ink/50">
-          {teamLeaders.length} cadastrado(s). Clique para ver os prédios e o staff.
+          {teamLeaders.length} registered. Click to see buildings and staff.
         </p>
 
         <div className="mt-6 space-y-2">
           {teamLeaders.length === 0 && (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-              Nenhum team leader cadastrado ainda.
+              No team leader registered yet.
             </p>
           )}
 
@@ -45,10 +45,10 @@ export default async function TeamLeadersPage() {
               <div>
                 <div className="font-medium text-ink">{tl.nome}</div>
                 <div className="mt-0.5 flex items-center gap-x-3 font-mono text-xs text-ink/50">
-                  <span>#{tl.staffNumber || "s/n"}</span>
+                  <span>#{tl.staffNumber || "n/a"}</span>
                   <span className="flex items-center gap-1 text-petrol">
                     <Building2 size={12} />
-                    {tl.buildings.length} prédio(s)
+                    {tl.buildings.length} building(s)
                   </span>
                 </div>
               </div>

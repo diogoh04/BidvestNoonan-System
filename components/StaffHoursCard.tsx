@@ -82,7 +82,7 @@ export default function StaffHoursCard({
       className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink transition hover:border-petrol"
     >
       <Clock size={13} className="text-petrol" />
-      <span>{hours !== null ? `${hours}h/sem` : "def. horas"}</span>
+      <span>{hours !== null ? `${hours}h/wk` : "set hrs"}</span>
       <Pencil size={11} className="text-ink/30" />
     </button>
   );

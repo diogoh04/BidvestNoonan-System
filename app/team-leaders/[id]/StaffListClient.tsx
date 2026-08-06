@@ -16,7 +16,7 @@ export default function StaffListClient({ staff }: { staff: Cleaner[] }) {
   const [list, setList] = useState(staff);
 
   if (list.length === 0) {
-    return <p className="text-sm text-ink/40">Nenhum cleaner alocado neste prédio.</p>;
+    return <p className="text-sm text-ink/40">No cleaner assigned to this building.</p>;
   }
 
   return (

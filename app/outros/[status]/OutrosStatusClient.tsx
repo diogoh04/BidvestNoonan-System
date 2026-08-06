@@ -14,7 +14,7 @@ type StaffItem = {
 
 function formatDate(iso: string | null) {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString("pt-BR");
+  return new Date(iso).toLocaleDateString("en-GB");
 }
 
 function csvEscape(value: string) {
@@ -35,7 +35,7 @@ export default function OutrosStatusClient({
 
   function exportCsv() {
     const isBlocked = status === "blocked";
-    const header = ["Nome", "Staff Number", "Telefone", ...(isBlocked ? ["Bloqueado desde"] : [])];
+    const header = ["Name", "Staff Number", "Phone", ...(isBlocked ? ["Blocked since"] : [])];
     const rows = list.map((s) => [
       s.nome ?? "",
       s.staffNumber ?? "",
@@ -57,7 +57,7 @@ export default function OutrosStatusClient({
     <div>
       <div className="flex items-center justify-between">
         <p className="text-sm text-ink/50">
-          {list.length} staff nessa lista.
+          {list.length} staff on this list.
         </p>
         <button
           onClick={exportCsv}
@@ -65,14 +65,14 @@ export default function OutrosStatusClient({
           className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
         >
           <Download size={14} />
-          Exportar lista
+          Export list
         </button>
       </div>
 
       <div className="mt-4 space-y-2">
         {list.length === 0 && (
           <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-            Nenhum staff em {label} ainda.
+            No staff in {label} yet.
           </p>
         )}
         {list.map((s) => (
@@ -82,7 +82,7 @@ export default function OutrosStatusClient({
             nome={s.nome}
             staffNumber={s.staffNumber}
             telefone={s.telefone}
-            subtitle={status === "blocked" && s.blockedAt ? `Bloqueado em ${formatDate(s.blockedAt)}` : undefined}
+            subtitle={status === "blocked" && s.blockedAt ? `Blocked on ${formatDate(s.blockedAt)}` : undefined}
             onDeleted={(id) => setList((prev) => prev.filter((p) => p.id !== id))}
           />
         ))}

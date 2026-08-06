@@ -5,22 +5,22 @@ import { getCurrentUser, hasRole } from "@/lib/auth";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const buildingId = BigInt(params.id);
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    if (!user.staffId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const owns = await prisma.staffBuilding.findFirst({
       where: { staffId: BigInt(user.staffId), buildingId, role: "team_leader" },
     });
-    if (!owns) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    if (!owns) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   } else if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const building = await prisma.building.findUnique({ where: { id: buildingId } });
-  if (!building) return NextResponse.json({ error: "Prédio não encontrado" }, { status: 404 });
+  if (!building) return NextResponse.json({ error: "Building not found" }, { status: 404 });
 
   const links = await prisma.staffBuilding.findMany({
     where: { buildingId },
@@ -68,7 +68,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -77,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if ("nome" in body) {
     const nome = body.nome;
     if (typeof nome !== "string" || nome.trim() === "") {
-      return NextResponse.json({ error: "Nome inválido" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid name" }, { status: 400 });
     }
     data.nome = nome.trim();
   }
@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if ("horasDisponiveis" in body) {
     const horas = body.horasDisponiveis;
     if (horas !== null && (typeof horas !== "number" || horas < 0)) {
-      return NextResponse.json({ error: "Horas inválidas" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
     }
     data.horasDisponiveis = horas;
   }
@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if ("workOrder" in body) {
     const wo = body.workOrder;
     if (wo !== null && typeof wo !== "string") {
-      return NextResponse.json({ error: "Work Order inválido" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid Work Order" }, { status: 400 });
     }
     data.workOrder = wo;
   }
@@ -113,14 +113,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       })
     );
   } catch {
-    return NextResponse.json({ error: "Não foi possível salvar (nome já existe?)" }, { status: 400 });
+    return NextResponse.json({ error: "Could not save (name already exists?)" }, { status: 400 });
   }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const buildingId = BigInt(params.id);

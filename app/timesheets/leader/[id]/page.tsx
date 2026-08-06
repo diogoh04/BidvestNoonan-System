@@ -14,7 +14,7 @@ async function getTeamLeader(id: string) {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/team-leaders/${id}`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error("Falha ao carregar team leader");
+  if (!res.ok) throw new Error("Failed to load team leader");
   return res.json();
 }
 

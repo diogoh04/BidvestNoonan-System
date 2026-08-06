@@ -3,7 +3,7 @@ import { TIMESHEET_DAYS } from "./types";
 
 export const staffInputSchema = z
   .object({
-    nome: z.string().trim().min(1, "Nome é obrigatório"),
+    nome: z.string().trim().min(1, "Name is required"),
     // Opcional: em alguns casos o staff number ainda não saiu quando a
     // pessoa é contratada, e é preenchido depois (editando o cadastro).
     staffNumber: z.string().trim().optional().nullable(),
@@ -33,7 +33,7 @@ export const staffInputSchema = z
       if (seen.has(key)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Vínculo duplicado (mesmo prédio e papel) na lista",
+          message: "Duplicate assignment (same building and role) in the list",
           path: ["assignments", i, "buildingId"],
         });
       }
@@ -44,11 +44,11 @@ export const staffInputSchema = z
 export type StaffInput = z.infer<typeof staffInputSchema>;
 
 export const feedbackInputSchema = z.object({
-  texto: z.string().trim().min(1, "Observação não pode ser vazia"),
+  texto: z.string().trim().min(1, "Note cannot be empty"),
 });
 
 export const buildingInputSchema = z.object({
-  nome: z.string().trim().min(1, "Nome do prédio é obrigatório"),
+  nome: z.string().trim().min(1, "Building name is required"),
 });
 
 // Reaproveitado pelo cadastro de conta em /register (registerInputSchema)
@@ -56,10 +56,10 @@ export const buildingInputSchema = z.object({
 export const usernameSchema = z
   .string()
   .trim()
-  .min(3, "Usuário precisa de pelo menos 3 caracteres")
-  .regex(/^[a-z0-9._ -]+$/i, "Use apenas letras, números, espaço, ponto, hífen ou underscore");
+  .min(3, "Username needs at least 3 characters")
+  .regex(/^[a-z0-9._ -]+$/i, "Use only letters, numbers, space, dot, hyphen or underscore");
 
-export const passwordSchema = z.string().min(6, "Senha precisa de pelo menos 6 caracteres");
+export const passwordSchema = z.string().min(6, "Password needs at least 6 characters");
 
 // Schema base (ZodObject puro) usado tanto na criação (com superRefine
 // abaixo) quanto na edição (via .partial(), que não existe em cima de um
@@ -84,14 +84,14 @@ function checkStaffLink(data: { role?: string; staffId?: string | null }, ctx: z
   if (data.role === "team_leader" && !data.staffId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Selecione o staff (team leader) vinculado a esta conta",
+      message: "Select the staff (team leader) linked to this account",
       path: ["staffId"],
     });
   }
   if (data.role && data.role !== "team_leader" && data.staffId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Vínculo com staff só se aplica a contas de team leader",
+      message: "Staff link only applies to team leader accounts",
       path: ["staffId"],
     });
   }

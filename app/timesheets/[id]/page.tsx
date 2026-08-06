@@ -14,7 +14,7 @@ async function getBuilding(id: string) {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/buildings/${id}`, { cache: "no-store", headers: { cookie: headers().get("cookie") ?? "" } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error("Falha ao carregar prédio");
+  if (!res.ok) throw new Error("Failed to load building");
   return res.json();
 }
 

@@ -71,9 +71,9 @@ export default function FilterPage() {
     <>
       <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Filtrar Staff</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Filter Staff</h1>
         <p className="mt-1 text-sm text-ink/50">
-          Busque por prédio, nome ou staff number — os resultados aparecem enquanto você digita.
+          Search by building, name or staff number — results appear as you type.
         </p>
 
         <form onSubmit={runSearch} className="mt-6 flex flex-wrap gap-3">
@@ -82,8 +82,8 @@ export default function FilterPage() {
             onChange={(e) => setBuildingId(e.target.value)}
             className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
           >
-            <option value="">Todos os prédios</option>
-            <option value={NO_BUILDING}>Sem prédio</option>
+            <option value="">All buildings</option>
+            <option value={NO_BUILDING}>No building</option>
             {buildings.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.nome}
@@ -94,7 +94,7 @@ export default function FilterPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Nome ou staff number..."
+            placeholder="Name or staff number..."
             autoFocus
             className="min-w-[220px] flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
           />
@@ -104,16 +104,16 @@ export default function FilterPage() {
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
           >
             <Search size={16} />
-            Buscar
+            Search
           </button>
         </form>
 
         <div className="mt-6 space-y-2">
-          {loading && <p className="text-sm text-ink/40">Buscando...</p>}
+          {loading && <p className="text-sm text-ink/40">Searching...</p>}
 
           {!loading && searched && results.length === 0 && (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-              Nenhum resultado para essa busca.
+              No results for this search.
             </p>
           )}
 
@@ -122,9 +122,9 @@ export default function FilterPage() {
               const subtitle =
                 s.buildings.length > 0
                   ? s.buildings
-                      .map((b) => `${b.role === "team_leader" ? "Team Leader" : "Cleaner"} em ${b.nome}`)
+                      .map((b) => `${b.role === "team_leader" ? "Team Leader" : "Cleaner"} at ${b.nome}`)
                       .join(" · ")
-                  : "Sem prédio";
+                  : "No building";
               return (
                 <StaffRow
                   key={s.id}

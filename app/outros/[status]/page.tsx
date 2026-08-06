@@ -34,7 +34,7 @@ export default async function OutrosStatusPage({ params }: { params: { status: s
     <>
       <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Outros</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Other</p>
         <h1 className="font-display text-2xl font-bold text-ink">{label}</h1>
 
         <div className="mt-6">

@@ -71,7 +71,7 @@ export default function StaffRow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto: obsText }),
       });
-      if (!res.ok) throw new Error("Falha ao salvar observação");
+      if (!res.ok) throw new Error("Failed to save note");
       setObsText("");
       const updated = await fetch(`/api/staff/${id}/feedback`).then((r) => r.json());
       setHistory(updated);
@@ -85,7 +85,7 @@ export default function StaffRow({
   async function deleteObservation(obsId: string) {
     try {
       const res = await fetch(`/api/staff/${id}/feedback/${obsId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Falha ao excluir observação");
+      if (!res.ok) throw new Error("Failed to delete note");
       setHistory((prev) => (prev ? prev.filter((o) => o.id !== obsId) : prev));
     } catch (e: any) {
       setError(e.message);
@@ -103,7 +103,7 @@ export default function StaffRow({
             ? `/api/buildings/${buildingId}/staff/${id}`
             : `/api/staff/${id}`;
       const res = await fetch(url, { method: "DELETE" });
-      if (!res.ok) throw new Error("Falha ao excluir");
+      if (!res.ok) throw new Error("Failed to delete");
       onDeleted?.(id);
     } catch (e: any) {
       setError(e.message);
@@ -117,7 +117,7 @@ export default function StaffRow({
         <div>
           <div className="font-medium text-ink">{nome || "—"}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-xs text-ink/50">
-            <span>#{staffNumber || "s/n"}</span>
+            <span>#{staffNumber || "n/a"}</span>
             {telefone &&
               (toWhatsAppHref(telefone) ? (
                 <a
@@ -139,7 +139,7 @@ export default function StaffRow({
 
         <div className="flex items-center gap-1">
           <button
-            title="Observações"
+            title="Notes"
             onClick={togglePanel}
             className={`rounded-md p-2 transition hover:bg-petrolLight hover:text-petrol ${
               showPanel ? "bg-petrolLight text-petrol" : "text-ink/60"
@@ -151,13 +151,13 @@ export default function StaffRow({
             <>
               <Link
                 href={`/staff/${id}/edit`}
-                title="Editar"
+                title="Edit"
                 className="rounded-md p-2 text-ink/60 transition hover:bg-petrolLight hover:text-petrol"
               >
                 <Pencil size={18} />
               </Link>
               <button
-                title="Excluir"
+                title="Delete"
                 onClick={() => setConfirmingDelete(true)}
                 className="rounded-md p-2 text-ink/60 transition hover:bg-red-50 hover:text-danger"
               >
@@ -175,7 +175,7 @@ export default function StaffRow({
               autoFocus
               value={obsText}
               onChange={(e) => setObsText(e.target.value)}
-              placeholder="Escreva a observação..."
+              placeholder="Write a note..."
               rows={2}
               className="flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
             />
@@ -184,14 +184,14 @@ export default function StaffRow({
               disabled={saving}
               className="rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
             >
-              Salvar
+              Save
             </button>
           </div>
 
           <div className="mt-3">
-            {loadingHistory && <p className="text-sm text-ink/40">Carregando...</p>}
+            {loadingHistory && <p className="text-sm text-ink/40">Loading...</p>}
             {!loadingHistory && history && history.length === 0 && (
-              <p className="text-sm text-ink/40">Nenhuma observação registrada ainda.</p>
+              <p className="text-sm text-ink/40">No notes yet.</p>
             )}
             {!loadingHistory && history && history.length > 0 && (
               <ul className="space-y-2">
@@ -204,12 +204,12 @@ export default function StaffRow({
                       <div className="text-ink">{obs.texto}</div>
                       {obs.data && (
                         <div className="mt-0.5 font-mono text-xs text-ink/40">
-                          {new Date(obs.data).toLocaleString("pt-BR")}
+                          {new Date(obs.data).toLocaleString("en-GB")}
                         </div>
                       )}
                     </div>
                     <button
-                      title="Excluir observação"
+                      title="Delete note"
                       onClick={() => deleteObservation(obs.id)}
                       className={`shrink-0 rounded p-1 text-ink/30 transition hover:bg-red-50 hover:text-danger ${
                         canManage ? "" : "hidden"
@@ -229,8 +229,8 @@ export default function StaffRow({
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
           <span className="text-sm text-danger">
             {buildingId
-              ? `Remover ${nome} deste prédio?`
-              : `Excluir ${nome}? Essa ação não pode ser desfeita.`}
+              ? `Remove ${nome} from this building?`
+              : `Delete ${nome}? This action cannot be undone.`}
           </span>
           <div className="flex gap-2">
             <button
@@ -238,13 +238,13 @@ export default function StaffRow({
               disabled={saving}
               className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
-              Confirmar
+              Confirm
             </button>
             <button
               onClick={() => setConfirmingDelete(false)}
               className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
             >
-              Cancelar
+              Cancel
             </button>
           </div>
         </div>

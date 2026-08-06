@@ -70,7 +70,7 @@ export default function BuildingHoursCard({
       className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1.5 text-sm text-ink transition hover:border-petrol"
     >
       <Clock size={14} className="text-petrol" />
-      <span>{hours !== null ? `${hours}h disponíveis` : "Definir horas"}</span>
+      <span>{hours !== null ? `${hours}h available` : "Set hours"}</span>
       <Pencil size={12} className="text-ink/30" />
     </button>
   );

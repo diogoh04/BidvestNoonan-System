@@ -26,7 +26,7 @@ export default async function MyProfilePage() {
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Meu Perfil</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">My Profile</h1>
         {account.nome && <p className="mt-1 text-sm text-ink/50">{account.nome}</p>}
 
         <div className="mt-6 space-y-3">

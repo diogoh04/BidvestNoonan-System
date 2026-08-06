@@ -83,8 +83,17 @@ export type DashboardDTO = {
     totalCleaners: number;
     totalTeamLeaders: number;
   };
-  buildingsOpenSlots: { buildingId: string; nome: string; openSlotsCount: number }[];
-  openSlotsByHours: { horas: number; count: number }[];
+  buildingsOpenSlots: {
+    buildingId: string;
+    nome: string;
+    openSlotsCount: number;
+    breakdown: { horas: number; count: number }[];
+  }[];
+  openSlotsByHours: {
+    horas: number;
+    count: number;
+    buildings: { buildingId: string; nome: string; count: number }[];
+  }[];
   totalOpenSlots: number;
   buildingsHoursBalance: {
     buildingId: string;

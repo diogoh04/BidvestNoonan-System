@@ -61,14 +61,14 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
             body?.error?.fieldErrors?.username?.[0] ||
             body?.error?.fieldErrors?.password?.[0] ||
             (typeof body?.error === "string" ? body.error : null) ||
-            "Não foi possível salvar. Confira os campos."
+            "Could not save. Please check the fields."
         );
       }
 
       router.push("/users");
       router.refresh();
     } catch (e: any) {
-      setError(typeof e.message === "string" ? e.message : "Não foi possível salvar.");
+      setError(typeof e.message === "string" ? e.message : "Could not save.");
     } finally {
       setSaving(false);
     }
@@ -77,7 +77,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="mb-1 block text-sm font-medium text-ink">Usuário</label>
+        <label className="mb-1 block text-sm font-medium text-ink">Username</label>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -90,8 +90,8 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">
-          {isEdit ? "Nova senha" : "Senha"}{" "}
-          {isEdit && <span className="font-normal text-ink/40">(deixe em branco para não trocar)</span>}
+          {isEdit ? "New password" : "Password"}{" "}
+          {isEdit && <span className="font-normal text-ink/40">(leave blank to keep unchanged)</span>}
         </label>
         <input
           type="password"
@@ -103,10 +103,10 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-ink">Papel</label>
+        <label className="mb-1 block text-sm font-medium text-ink">Role</label>
         {initial?.role === "pending" && (
           <p className="mb-2 text-xs text-amber-700">
-            Conta pendente de aprovação — escolha um papel pra ativar.
+            Account pending approval — choose a role to activate it.
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -129,7 +129,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
 
       {role === "team_leader" && (
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">Staff vinculado (Team Leader)</label>
+          <label className="mb-1 block text-sm font-medium text-ink">Linked staff (Team Leader)</label>
           {staffNome ? (
             <div className="flex items-center justify-between rounded-md border border-petrol bg-petrolLight px-3 py-2 text-sm text-petrol">
               {staffNome}
@@ -141,7 +141,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
                 }}
                 className="text-xs underline hover:text-petrolDark"
               >
-                Trocar
+                Change
               </button>
             </div>
           ) : (
@@ -150,7 +150,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
                 setStaffId(staff.id);
                 setStaffNome(staff.nome);
               }}
-              placeholder="Buscar staff (team leader)..."
+              placeholder="Search staff (team leader)..."
               className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
             />
           )}
@@ -167,7 +167,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
             className="h-4 w-4 rounded border-line"
           />
           <label htmlFor="active" className="text-sm text-ink">
-            Conta ativa
+            Active account
           </label>
         </div>
       )}
@@ -180,7 +180,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
           disabled={saving}
           className="rounded-md bg-petrol px-5 py-2.5 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
         >
-          {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar conta"}
+          {saving ? "Saving..." : isEdit ? "Save changes" : "Create account"}
         </button>
       </div>
     </form>

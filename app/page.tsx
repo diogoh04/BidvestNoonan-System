@@ -13,7 +13,7 @@ export default async function DashboardPage() {
       <Header role={user.role} />
       <main className="mx-auto flex max-w-6xl flex-col items-center justify-center px-6 py-24">
         <p className="mb-10 font-mono text-xs uppercase tracking-[0.3em] text-ink/40">
-          Selecione uma visão
+          Select a view
         </p>
         <div className="grid w-full max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {user.role === "master" && (
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
                 <div>
                   <div className="font-display text-2xl font-bold text-ink">Team Leader</div>
                   <div className="mt-1 text-sm text-ink/50">
-                    Ver por líder e os prédios sob sua responsabilidade
+                    View by leader and the buildings under their responsibility
                   </div>
                 </div>
               </Link>
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
                 <div>
                   <div className="font-display text-2xl font-bold text-ink">Building</div>
                   <div className="mt-1 text-sm text-ink/50">
-                    Ver por prédio e todo o staff alocado nele
+                    View by building and all staff assigned to it
                   </div>
                 </div>
               </Link>
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
                 <div>
                   <div className="font-display text-2xl font-bold text-ink">TimeSheets</div>
                   <div className="mt-1 text-sm text-ink/50">
-                    Folha de ponto em branco, pronta pra imprimir
+                    Blank timesheet, ready to print
                   </div>
                 </div>
               </Link>
@@ -63,8 +63,8 @@ export default async function DashboardPage() {
               >
                 <Archive size={40} className="text-petrol" />
                 <div>
-                  <div className="font-display text-2xl font-bold text-ink">Outros</div>
-                  <div className="mt-1 text-sm text-ink/50">P45, LE, Staff Blocked e Sick.</div>
+                  <div className="font-display text-2xl font-bold text-ink">Other</div>
+                  <div className="mt-1 text-sm text-ink/50">P45, LE, Staff Blocked and Sick.</div>
                 </div>
               </Link>
 
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
                 <LayoutDashboard size={40} className="text-petrol" />
                 <div>
                   <div className="font-display text-2xl font-bold text-ink">Dashboard</div>
-                  <div className="mt-1 text-sm text-ink/50">Visão geral: staff, vagas e horas por prédio</div>
+                  <div className="mt-1 text-sm text-ink/50">Overview: staff, slots and hours by building</div>
                 </div>
               </Link>
 
@@ -85,8 +85,8 @@ export default async function DashboardPage() {
               >
                 <UserCog size={40} className="text-petrol" />
                 <div>
-                  <div className="font-display text-2xl font-bold text-ink">Usuários</div>
-                  <div className="mt-1 text-sm text-ink/50">Contas de acesso: Master, Supervisor, Team Leader</div>
+                  <div className="font-display text-2xl font-bold text-ink">Users</div>
+                  <div className="mt-1 text-sm text-ink/50">Access accounts: Master, Supervisor, Team Leader</div>
                 </div>
               </Link>
             </>
@@ -99,8 +99,8 @@ export default async function DashboardPage() {
             >
               <FileCheck2 size={40} className="text-petrol" />
               <div>
-                <div className="font-display text-2xl font-bold text-ink">Folhas de Ponto</div>
-                <div className="mt-1 text-sm text-ink/50">Revisar e marcar como concluídas</div>
+                <div className="font-display text-2xl font-bold text-ink">Timesheets</div>
+                <div className="mt-1 text-sm text-ink/50">Review and mark as done</div>
               </div>
             </Link>
           )}
@@ -113,8 +113,8 @@ export default async function DashboardPage() {
               >
                 <Home size={40} className="text-petrol" />
                 <div>
-                  <div className="font-display text-2xl font-bold text-ink">Meus Prédios</div>
-                  <div className="mt-1 text-sm text-ink/50">Prédios sob sua responsabilidade</div>
+                  <div className="font-display text-2xl font-bold text-ink">My Buildings</div>
+                  <div className="mt-1 text-sm text-ink/50">Buildings under your responsibility</div>
                 </div>
               </Link>
 
@@ -124,8 +124,8 @@ export default async function DashboardPage() {
               >
                 <ClipboardList size={40} className="text-petrol" />
                 <div>
-                  <div className="font-display text-2xl font-bold text-ink">Minhas Folhas</div>
-                  <div className="mt-1 text-sm text-ink/50">Lançar e acompanhar folhas de ponto</div>
+                  <div className="font-display text-2xl font-bold text-ink">My Timesheets</div>
+                  <div className="mt-1 text-sm text-ink/50">Log and track timesheets</div>
                 </div>
               </Link>
             </>

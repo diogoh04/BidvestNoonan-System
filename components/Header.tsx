@@ -26,7 +26,7 @@ export default function Header({ role }: { role: AppRole }) {
               className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
             >
               <Users size={16} />
-              <span className="hidden sm:inline">Usuários</span>
+              <span className="hidden sm:inline">Users</span>
             </Link>
           )}
           {(role === "supervisor" || role === "master") && (
@@ -35,7 +35,7 @@ export default function Header({ role }: { role: AppRole }) {
               className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
             >
               <ClipboardList size={16} />
-              <span className="hidden sm:inline">Folhas de Ponto</span>
+              <span className="hidden sm:inline">Timesheets</span>
             </Link>
           )}
           {role === "team_leader" && (
@@ -44,7 +44,7 @@ export default function Header({ role }: { role: AppRole }) {
               className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
             >
               <UserCircle size={16} />
-              <span className="hidden sm:inline">Meu Perfil</span>
+              <span className="hidden sm:inline">My Profile</span>
             </Link>
           )}
         </div>

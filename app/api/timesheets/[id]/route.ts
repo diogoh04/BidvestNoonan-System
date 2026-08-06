@@ -51,11 +51,11 @@ async function loadWithOwnership(id: bigint, user: NonNullable<Awaited<ReturnTyp
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { timesheet, allowed } = await loadWithOwnership(BigInt(params.id), user);
-  if (!timesheet) return NextResponse.json({ error: "Folha não encontrada" }, { status: 404 });
-  if (!allowed) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  if (!timesheet) return NextResponse.json({ error: "Timesheet not found" }, { status: 404 });
+  if (!allowed) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
   return NextResponse.json(toJSONSafe(mapTimesheet(timesheet)));
 }
@@ -67,11 +67,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 //    os horários lançados).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { timesheet, allowed } = await loadWithOwnership(BigInt(params.id), user);
-  if (!timesheet) return NextResponse.json({ error: "Folha não encontrada" }, { status: 404 });
-  if (!allowed) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  if (!timesheet) return NextResponse.json({ error: "Timesheet not found" }, { status: 404 });
+  if (!allowed) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
   const body = await req.json();
   const parsed = timesheetPatchSchema.safeParse(body);
@@ -84,12 +84,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (hasRole(user, "team_leader")) {
     if (timesheet.status === "done") {
-      return NextResponse.json({ error: "Folha já concluída pelo supervisor" }, { status: 409 });
+      return NextResponse.json({ error: "Timesheet already completed by supervisor" }, { status: 409 });
     }
     if (entries) data.entries = entries as any;
     if (status) {
       if (status !== "submitted" || timesheet.status !== "draft") {
-        return NextResponse.json({ error: "Transição de status inválida" }, { status: 400 });
+        return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
       }
       data.status = "submitted";
       data.submittedByUserId = BigInt(user.userId);
@@ -98,20 +98,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   } else if (hasRole(user, "master", "supervisor")) {
     if (entries) {
       return NextResponse.json(
-        { error: "Master/Supervisor não editam os horários lançados" },
+        { error: "Master/Supervisor cannot edit logged hours" },
         { status: 403 }
       );
     }
     if (restore) {
       if (!timesheet.deletedAt) {
-        return NextResponse.json({ error: "Folha não está na lixeira" }, { status: 409 });
+        return NextResponse.json({ error: "Timesheet is not in the trash" }, { status: 409 });
       }
       data.deletedAt = null;
       data.deletedByUserId = null;
     }
     if (status) {
       if (status !== "done" || timesheet.status !== "submitted") {
-        return NextResponse.json({ error: "Transição de status inválida" }, { status: 400 });
+        return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
       }
       data.status = "done";
       data.reviewedByUserId = BigInt(user.userId);
@@ -139,14 +139,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // histórico já revisado); Master e Supervisor podem em qualquer status.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { timesheet, allowed } = await loadWithOwnership(BigInt(params.id), user);
-  if (!timesheet) return NextResponse.json({ error: "Folha não encontrada" }, { status: 404 });
-  if (!allowed) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  if (!timesheet) return NextResponse.json({ error: "Timesheet not found" }, { status: 404 });
+  if (!allowed) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
   if (hasRole(user, "team_leader") && timesheet.status === "done") {
-    return NextResponse.json({ error: "Folha já concluída pelo supervisor não pode ser excluída" }, { status: 409 });
+    return NextResponse.json({ error: "Timesheet already completed by supervisor cannot be deleted" }, { status: 409 });
   }
 
   await prisma.timesheet.update({

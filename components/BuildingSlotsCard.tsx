@@ -79,9 +79,9 @@ export default function BuildingSlotsCard({
     <div className="rounded-md border border-line bg-white p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
         <Users size={16} className="text-petrol" />
-        Vagas fixas do prédio
+        Building's fixed slots
         <span className="font-normal text-ink/40">
-          ({slots.length} no total — independente de quem está alocado hoje)
+          ({slots.length} total — independent of who's assigned today)
         </span>
       </div>
 
@@ -93,7 +93,7 @@ export default function BuildingSlotsCard({
           onChange={(e) => setNewQuantidade(e.target.value)}
           className="w-16 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
         />
-        <span className="text-sm text-ink/60">vaga(s) de</span>
+        <span className="text-sm text-ink/60">slot(s) of</span>
         <input
           type="number"
           min={1}
@@ -104,14 +104,14 @@ export default function BuildingSlotsCard({
           placeholder="h"
           className="w-16 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
         />
-        <span className="text-sm text-ink/60">horas cada</span>
+        <span className="text-sm text-ink/60">hours each</span>
         <button
           onClick={handleAddSubmit}
           disabled={saving}
           className="flex items-center gap-1 rounded-md bg-petrol px-3 py-1.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
         >
           <Plus size={14} />
-          Adicionar
+          Add
         </button>
       </div>
 
@@ -123,26 +123,26 @@ export default function BuildingSlotsCard({
               className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 text-sm"
             >
               <span className="font-medium text-ink">
-                {g.ids.length} vaga{g.ids.length !== 1 ? "s" : ""} de {g.horas}h
+                {g.ids.length} slot{g.ids.length !== 1 ? "s" : ""} of {g.horas}h
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => removeOne(g)}
-                  title="Remover uma vaga desse grupo"
+                  title="Remove one slot from this group"
                   className="rounded p-1 text-ink/40 hover:bg-white hover:text-danger"
                 >
                   <Minus size={14} />
                 </button>
                 <button
                   onClick={() => addSlots(g.horas, 1)}
-                  title="Adicionar mais uma vaga desse grupo"
+                  title="Add one more slot to this group"
                   className="rounded p-1 text-ink/40 hover:bg-white hover:text-petrol"
                 >
                   <Plus size={14} />
                 </button>
                 <button
                   onClick={() => removeGroup(g)}
-                  title="Remover todas as vagas desse grupo"
+                  title="Remove all slots in this group"
                   className="rounded p-1 text-ink/40 hover:bg-white hover:text-danger"
                 >
                   <Trash2 size={14} />

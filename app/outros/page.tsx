@@ -6,25 +6,25 @@ const CATEGORIES = [
   {
     slug: "p45",
     label: "P45",
-    description: "Staff a ser demitido, aguardando baixa",
+    description: "Staff to be dismissed, awaiting discharge",
     icon: FileX2,
   },
   {
     slug: "le",
     label: "LE",
-    description: "Staff transferido pra outro site da empresa",
+    description: "Staff transferred to another company site",
     icon: ArrowRightLeft,
   },
   {
     slug: "blocked",
     label: "Visa Staff Blocked",
-    description: "Staff bloqueado",
+    description: "Staff blocked",
     icon: ShieldAlert,
   },
   {
     slug: "sick",
     label: "Sick",
-    description: "Staff afastado por atestado",
+    description: "Staff on sick leave",
     icon: Thermometer,
   },
 ];
@@ -34,9 +34,9 @@ export default function OutrosPage() {
     <>
       <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Outros</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Other</h1>
         <p className="mt-1 text-sm text-ink/50">
-          Staff que não está mais em atividade em nenhum prédio.
+          Staff no longer active in any building.
         </p>
 
         <div className="mt-6 space-y-2">

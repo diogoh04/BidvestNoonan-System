@@ -66,7 +66,7 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
               ...(copyFrom ? { copyFromWeekStart: copyFrom } : {}),
             }),
           });
-          if (!res.ok) throw new Error(`Não foi possível carregar a folha de ${b.nome}`);
+          if (!res.ok) throw new Error(`Could not load the timesheet for ${b.nome}`);
           return (await res.json()) as TimesheetDTO;
         })
       );
@@ -114,7 +114,7 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-ink">Semana:</label>
+        <label className="text-sm font-medium text-ink">Week:</label>
         <input
           type="date"
           value={weekStart}
@@ -124,13 +124,13 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
 
         {existingWeeks.length > 0 && (
           <>
-            <span className="text-xs text-ink/40">ou importar folha:</span>
+            <span className="text-xs text-ink/40">or import timesheet:</span>
             <select
               value={existingWeeks.includes(weekStart) ? weekStart : ""}
               onChange={(e) => e.target.value && setWeekStart(e.target.value)}
               className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
             >
-              <option value="">Selecionar semana já lançada...</option>
+              <option value="">Select an already logged week...</option>
               {existingWeeks.map((w) => (
                 <option key={w} value={w}>
                   {formatWeekRange(w)}
@@ -148,7 +148,7 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
             className="ml-auto flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Send size={16} />
-            Enviar todas as pendentes ({pendingDrafts})
+            Send all pending ({pendingDrafts})
           </button>
         )}
       </div>
@@ -158,7 +158,7 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
       {pendingChoice && (
         <div className="mb-6 rounded-md border border-dashed border-line bg-surface px-4 py-8 text-center print:hidden">
           <p className="text-sm text-ink/60">
-            Nenhuma folha lançada para a semana de {formatWeekRange(weekStart)} ainda.
+            No timesheet logged for the week of {formatWeekRange(weekStart)} yet.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <button
@@ -167,7 +167,7 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
               className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
             >
               <FilePlus size={16} />
-              Começar em branco
+              Start blank
             </button>
             {prior && (
               <button
@@ -176,14 +176,14 @@ export default function LancarClient({ initialWeek }: { initialWeek: string | nu
                 className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
               >
                 <Copy size={16} />
-                Copiar da semana anterior ({formatWeekRange(prior)})
+                Copy from previous week ({formatWeekRange(prior)})
               </button>
             )}
           </div>
         </div>
       )}
 
-      {loading && <p className="text-sm text-ink/40 print:hidden">Carregando...</p>}
+      {loading && <p className="text-sm text-ink/40 print:hidden">Loading...</p>}
 
       {!pendingChoice && !loading && timesheets.length > 0 && (
         <CombinedTimesheetEditor teamLeaderNome={profile?.nome ?? null} timesheets={timesheets} onChanged={updateOne} />

@@ -12,13 +12,13 @@ const selfPasswordSchema = z.object({ password: passwordSchema });
 // em id vindo do cliente (diferente de /api/users/[id], que é exclusivo do Master).
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const found = await prisma.user.findUnique({
     where: { id: BigInt(user.userId) },
     include: { staff: true },
   });
-  if (!found) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+  if (!found) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json(
     toJSONSafe({ username: found.username, nome: found.staff?.nome ?? null })
@@ -27,7 +27,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const body = await req.json();
   const parsed = selfPasswordSchema.safeParse(body);

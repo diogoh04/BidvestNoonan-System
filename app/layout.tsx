@@ -11,13 +11,13 @@ const display = Barlow_Semi_Condensed({
 const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: "Bidvest Noonan | Gestão de Staff",
-  description: "Cadastro e gestão de staff, team leaders e prédios",
+  title: "Bidvest Noonan | Staff Management",
+  description: "Staff, team leader, and building registration and management",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
       <body className="font-sans min-h-screen">{children}</body>
     </html>
   );

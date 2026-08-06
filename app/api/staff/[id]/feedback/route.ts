@@ -14,7 +14,7 @@ async function authorize(req: NextRequest, staffId: bigint) {
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { ok } = await authorize(req, BigInt(params.id));
-  if (!ok) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  if (!ok) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
   const observations = await prisma.feedback.findMany({
     where: { workerId: BigInt(params.id) },
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { ok } = await authorize(req, BigInt(params.id));
-  if (!ok) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  if (!ok) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
   const body = await req.json();
   const parsed = feedbackInputSchema.safeParse(body);

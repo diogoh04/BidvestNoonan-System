@@ -34,7 +34,7 @@ const timesheetInclude = {
 // GET /api/timesheets?buildingId=&weekStart=&status=
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const buildingIdParam = searchParams.get("buildingId");
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     if (buildingIdParam) {
       const requested = BigInt(buildingIdParam);
       if (!myBuildingIds.some((id) => id === requested)) {
-        return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
       }
       and.push({ buildingId: requested });
     } else {
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     if (submittedByUserId === "none") and.push({ submittedByUserId: null });
     else if (submittedByUserId) and.push({ submittedByUserId: BigInt(submittedByUserId) });
   } else {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   if (weekStart) and.push({ weekStart: new Date(weekStart + "T00:00:00Z") });
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 // dessa semana ou cria uma nova (fotografando o estado atual do prédio).
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const body = await req.json();
   const parsed = timesheetCreateSchema.safeParse(body);
@@ -110,13 +110,13 @@ export async function POST(req: NextRequest) {
   const weekStart = new Date(weekStartStr + "T00:00:00Z");
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    if (!user.staffId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const owns = await prisma.staffBuilding.findFirst({
       where: { staffId: BigInt(user.staffId), buildingId, role: "team_leader" },
     });
-    if (!owns) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    if (!owns) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   } else if (!hasRole(user, "master")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const existing = await prisma.timesheet.findUnique({

@@ -12,9 +12,9 @@ const ESTATES_EVENTS_WO = "515736";
 const MIN_COVER_ROWS = 7;
 
 const STATUS_LABEL: Record<TimesheetDTO["status"], string> = {
-  draft: "Rascunho",
-  submitted: "Enviado",
-  done: "Concluído",
+  draft: "Draft",
+  submitted: "Submitted",
+  done: "Done",
 };
 
 const STATUS_CLASS: Record<TimesheetDTO["status"], string> = {
@@ -156,7 +156,7 @@ export default function CombinedTimesheetEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries: { rows: nextRows } }),
       });
-      if (!res.ok) throw new Error("Não foi possível salvar");
+      if (!res.ok) throw new Error("Could not save");
       const updated = await res.json();
       onChanged(updated);
     } catch (e: any) {
@@ -251,7 +251,7 @@ export default function CombinedTimesheetEditor({
           className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
         >
           <Printer size={16} />
-          Imprimir / Exportar PDF
+          Print / Export PDF
         </button>
       </div>
 
@@ -264,7 +264,7 @@ export default function CombinedTimesheetEditor({
           <span className="font-display text-lg font-bold text-ink print:text-xs">
             {timesheets.map((t) => t.buildingNome).join(", ")}
           </span>
-          <Image src="/logoUCD.png" alt="Logo do cliente" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
+          <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
         </div>
       </div>
 
@@ -290,7 +290,7 @@ export default function CombinedTimesheetEditor({
         <span className="inline-block min-w-[220px] border-b border-ink px-2">{teamLeaderNome ?? " "}</span>
       </div>
 
-      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Deslize a tabela para o lado para ver todos os dias →</p>
+      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
 
       <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
       <table className={`w-full border-collapse print:mt-2 ${sz.text}`}>
@@ -325,7 +325,7 @@ export default function CombinedTimesheetEditor({
           {timesheets.length === 0 && (
             <tr>
               <td colSpan={5 + DAYS.length} className={`${cell} text-center text-ink/40`}>
-                Nenhum prédio vinculado a você.
+                No building assigned to you.
               </td>
             </tr>
           )}
@@ -348,7 +348,7 @@ export default function CombinedTimesheetEditor({
                     <td className={cell}></td>
                     <td className={`${cell} text-center`}>{t.buildingWorkOrder ?? ""}</td>
                     <td className={`${cell} text-ink/30`} colSpan={2}>
-                      sem cleaner ou vaga cadastrada
+                      no cleaner or slot registered
                     </td>
                     {DAYS.map((d) => (
                       <td key={d} className={signCell}></td>
@@ -376,7 +376,7 @@ export default function CombinedTimesheetEditor({
                           {t.buildingWorkOrder ?? ""}
                         </td>
                       )}
-                      <td className={cell}>{r.nome ?? <span className="text-ink/30">Vaga em aberto</span>}</td>
+                      <td className={cell}>{r.nome ?? <span className="text-ink/30">Open slot</span>}</td>
                       <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
                       {DAYS.map((d) => (
                         <SignCell
@@ -426,7 +426,7 @@ export default function CombinedTimesheetEditor({
                 setCoverNome(staff.nome);
                 setCoverStaffNumber(staff.staffNumber ?? "");
               }}
-              placeholder="Buscar staff..."
+              placeholder="Search staff..."
             />
           )}
           <input
@@ -435,7 +435,7 @@ export default function CombinedTimesheetEditor({
             step={0.25}
             value={coverHoras}
             onChange={(e) => setCoverHoras(e.target.value)}
-            placeholder="Horas"
+            placeholder="Hours"
             className="w-24 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
           />
           <button
@@ -445,12 +445,12 @@ export default function CombinedTimesheetEditor({
             className="flex items-center gap-1 rounded-md bg-petrol px-3 py-1.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Plus size={14} />
-            Adicionar cover
+            Add cover
           </button>
         </div>
         )}
 
-        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Deslize a tabela para o lado para ver todos os dias →</p>
+        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
 
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
         <table className={`w-full border-collapse ${backSz.text}`}>
@@ -491,7 +491,7 @@ export default function CombinedTimesheetEditor({
                       <button
                         type="button"
                         onClick={() => removeCover(t.id, rowIndex)}
-                        title="Remover cover"
+                        title="Remove cover"
                         className="rounded p-0.5 text-ink/30 hover:text-danger print:hidden"
                       >
                         <X size={12} />

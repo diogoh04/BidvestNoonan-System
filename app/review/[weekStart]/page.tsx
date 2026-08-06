@@ -33,7 +33,7 @@ export default async function ReviewWeekPage({ params }: { params: { weekStart: 
     <>
       <Header role={user?.role ?? "supervisor"} />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Semana</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Week</p>
         <h1 className="font-display text-2xl font-bold text-ink">{formatWeekRange(params.weekStart)}</h1>
 
         <WeekLeadersListClient weekStart={params.weekStart} initialTimesheets={timesheets} />

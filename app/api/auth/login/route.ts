@@ -10,17 +10,17 @@ export async function POST(req: NextRequest) {
   const password = typeof body.password === "string" ? body.password : "";
 
   if (!username || !password) {
-    return NextResponse.json({ error: "Usuário e senha são obrigatórios" }, { status: 401 });
+    return NextResponse.json({ error: "Username and password are required" }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user || !user.active) {
-    return NextResponse.json({ error: "Usuário ou senha incorretos" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect username or password" }, { status: 401 });
   }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
-    return NextResponse.json({ error: "Usuário ou senha incorretos" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect username or password" }, { status: 401 });
   }
 
   const token = await createSessionToken({

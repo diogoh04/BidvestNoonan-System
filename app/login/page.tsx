@@ -24,7 +24,7 @@ function LoginForm() {
         body: JSON.stringify({ username, password }),
       });
       if (!res.ok) {
-        setError("Usuário ou senha incorretos");
+        setError("Incorrect username or password");
         return;
       }
       const from = searchParams.get("from") || "/";
@@ -48,14 +48,14 @@ function LoginForm() {
           />
         </div>
         <h1 className="mb-1 text-center font-display text-lg font-bold text-ink">Building Management System</h1>
-        <p className="mb-6 text-center text-sm text-ink/50">Entre com seu usuário e senha.</p>
+        <p className="mb-6 text-center text-sm text-ink/50">Sign in with your username and password.</p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Usuário"
+            placeholder="Username"
             autoFocus
             autoCapitalize="none"
             autoCorrect="off"
@@ -65,7 +65,7 @@ function LoginForm() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Senha"
+            placeholder="Password"
             className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
           />
           {error && <p className="text-sm text-danger">{error}</p>}
@@ -74,14 +74,14 @@ function LoginForm() {
             disabled={loading}
             className="w-full rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-ink/50">
-          Não tem conta?{" "}
+          Don't have an account?{" "}
           <Link href="/register" className="text-petrol hover:underline">
-            Criar conta
+            Create account
           </Link>
         </p>
       </div>

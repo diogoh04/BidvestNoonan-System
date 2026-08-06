@@ -26,9 +26,9 @@ export default async function UsersPage() {
     <>
       <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Usuários</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Users</h1>
         <p className="mt-1 text-sm text-ink/50">
-          Contas de acesso ao sistema (Master, Supervisor, Team Leader).
+          System access accounts (Master, Supervisor, Team Leader).
         </p>
 
         <UsersListClient initialUsers={users} />
