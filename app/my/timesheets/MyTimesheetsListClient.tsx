@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
-import { formatWeekRange } from "@/lib/week";
+import { formatWeekRange, formatFortnightRange } from "@/lib/week";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<TimesheetStatus, string> = {
@@ -60,6 +60,9 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
       {weeks.map(([weekStart, items]) => {
         const status = weekOverallStatus(items);
         const canDelete = items.every((t) => t.status !== "done");
+        const periodType = items[0]?.periodType ?? "weekly";
+        const isBiweekly = periodType === "biweekly";
+        const range = isBiweekly ? formatFortnightRange(weekStart) : formatWeekRange(weekStart);
 
         if (confirmingWeek === weekStart) {
           return (
@@ -68,8 +71,8 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
               className="flex items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
             >
               <span className="text-sm text-danger">
-                Delete the whole timesheet for the week of {formatWeekRange(weekStart)} ({items.length} building(s))?
-                This action cannot be undone.
+                Delete the whole timesheet for the {isBiweekly ? "fortnight" : "week"} of {range} ({items.length}{" "}
+                building(s))? This action cannot be undone.
               </span>
               <div className="flex shrink-0 gap-2">
                 <button
@@ -96,7 +99,9 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
             className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
           >
             <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="flex-1">
-              <div className="font-medium text-ink">Week {formatWeekRange(weekStart)}</div>
+              <div className="font-medium text-ink">
+                {isBiweekly ? "Fortnight" : "Week"} {range}
+              </div>
               <div className="text-xs text-ink/40">{items.length} building(s)</div>
             </Link>
 

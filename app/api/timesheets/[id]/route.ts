@@ -11,6 +11,7 @@ function mapTimesheet(t: any): TimesheetDTO {
     buildingNome: t.building.nome,
     buildingWorkOrder: t.building.workOrder,
     weekStart: t.weekStart.toISOString().slice(0, 10),
+    periodType: t.periodType,
     status: t.status,
     entries: t.entries,
     submittedByUserId: t.submittedByUserId ? t.submittedByUserId.toString() : null,

@@ -164,6 +164,11 @@ model Timesheet {
 
   weekStart  DateTime @map("week_start") @db.Date
 
+  // "weekly" (padrão, cobre weekStart..+4 dias) | "biweekly" (cobre
+  // weekStart..+13 dias — a segunda semana não ganha uma linha própria,
+  // fica dentro do mesmo registro via entries.rows[].days).
+  periodType String   @default("weekly") @map("period_type") @db.VarChar(20)
+
   status     String   @default("draft") @db.VarChar(20)
 
   entries    Json     @default("{\"rows\":[]}")

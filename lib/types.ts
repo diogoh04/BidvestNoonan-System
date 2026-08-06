@@ -21,6 +21,38 @@ export type UserDTO = {
 export const TIMESHEET_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"] as const;
 export type TimesheetDayKey = (typeof TIMESHEET_DAYS)[number];
 
+// Folha quinzenal: os mesmos 5 dias, duas vezes (W1_/W2_) — o quadro de
+// sign in/out ganha uma segunda semana de colunas em vez de virar uma
+// folha separada (ver Timesheet.periodType no schema). O rótulo exibido
+// fica abreviado (MON/TUE/...) pra caber as 10 colunas.
+export const TIMESHEET_DAYS_BIWEEKLY = [
+  "W1_MONDAY", "W1_TUESDAY", "W1_WEDNESDAY", "W1_THURSDAY", "W1_FRIDAY",
+  "W2_MONDAY", "W2_TUESDAY", "W2_WEDNESDAY", "W2_THURSDAY", "W2_FRIDAY",
+] as const;
+export type TimesheetBiweeklyDayKey = (typeof TIMESHEET_DAYS_BIWEEKLY)[number];
+
+export type TimesheetPeriodType = "weekly" | "biweekly";
+
+const SHORT_DAY_LABEL: Record<string, string> = {
+  MONDAY: "MON",
+  TUESDAY: "TUE",
+  WEDNESDAY: "WED",
+  THURSDAY: "THU",
+  FRIDAY: "FRI",
+};
+
+// Lista ordenada de chaves do quadro de dias, conforme o período da folha.
+export function getTimesheetDayKeys(periodType: TimesheetPeriodType): readonly string[] {
+  return periodType === "biweekly" ? TIMESHEET_DAYS_BIWEEKLY : TIMESHEET_DAYS;
+}
+
+// Rótulo exibido no cabeçalho da coluna — nome completo do dia na semanal
+// ("MONDAY"), abreviado na quinzenal ("MON", repetido nas duas semanas).
+export function timesheetDayLabel(dayKey: string): string {
+  const base = dayKey.startsWith("W1_") || dayKey.startsWith("W2_") ? dayKey.slice(3) : dayKey;
+  return base === dayKey ? base : SHORT_DAY_LABEL[base] ?? base;
+}
+
 export type TimesheetStatus = "draft" | "submitted" | "done";
 
 export type TimesheetDayValue = { in: string | null; out: string | null };
@@ -31,7 +63,10 @@ export type TimesheetRow = {
   nome: string | null;
   staffNumber: string | null;
   horas: number | null;
-  days: Record<TimesheetDayKey, TimesheetDayValue>;
+  // Solto de propósito (não fixo nas chaves de TIMESHEET_DAYS) — o
+  // conjunto real de chaves depende do periodType da folha, ver
+  // getTimesheetDayKeys.
+  days: Record<string, TimesheetDayValue>;
 };
 
 export type TimesheetEntries = { rows: TimesheetRow[] };
@@ -42,6 +77,7 @@ export type TimesheetDTO = {
   buildingNome: string;
   buildingWorkOrder: string | null;
   weekStart: string;
+  periodType: TimesheetPeriodType;
   status: TimesheetStatus;
   entries: TimesheetEntries;
   submittedByUserId: string | null;

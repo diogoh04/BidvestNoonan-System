@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X } from "lucide-react";
 import { computeOpenSlots, type Slot } from "@/lib/openSlots";
+import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetPeriodType } from "@/lib/types";
 import StaffSearchInput from "@/components/StaffSearchInput";
 
 type StaffLine = {
@@ -25,9 +26,12 @@ type Building = {
   cleaners: StaffLine[];
 };
 
-const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 const ESTATES_EVENTS_WO = "515736";
 const MIN_COVER_ROWS = 7;
+// Coluna vazia entre a sexta da semana 1 e a segunda da semana 2, só na
+// quinzenal — sem borda/conteúdo, só pra separar visualmente as semanas.
+const SPACER_CLASS = "w-2 border-0 bg-white p-0 print:bg-transparent";
+const SPACER_AFTER_INDEX = 4;
 
 // Só cleaners + vagas em aberto — o(s) team leader(s) já aparecem na linha
 // "Team Leader" do cabeçalho, não precisam repetir como linha na tabela.
@@ -78,11 +82,15 @@ function BlankRow({
   cell,
   signCell,
   textClass,
+  days,
+  spacer = false,
 }: {
   n: number;
   cell: string;
   signCell: string;
   textClass: string;
+  days: readonly string[];
+  spacer?: boolean;
 }) {
   return (
     <>
@@ -93,10 +101,11 @@ function BlankRow({
           <td className={cell}></td>
           <td className={cell}></td>
           <td className={cell}></td>
-          {DAYS.map((d) => (
+          {days.map((d, di) => (
             <>
               <SignCell key={d + i + "-in"} className={signCell} textClass={textClass} />
               <SignCell key={d + i + "-out"} className={signCell} textClass={textClass} />
+              {spacer && di === SPACER_AFTER_INDEX && <td key={d + i + "-spacer"} className={SPACER_CLASS}></td>}
             </>
           ))}
         </tr>
@@ -135,6 +144,14 @@ export default function TimesheetView({ building }: { building: Building }) {
   const sz = frontTableSizing(rows.length);
   const cell = `border border-ink ${sz.pad}`;
   const signCell = `border border-ink ${sz.pad} ${sz.cellH}`;
+
+  const [hideNames, setHideNames] = useState(false);
+  // Molde em branco só na tela — não persiste nada (igual o resto da folha
+  // de impressão), então é só um toggle local decidindo quantos dias mostrar.
+  const [periodType, setPeriodType] = useState<TimesheetPeriodType>("weekly");
+  const DAYS = getTimesheetDayKeys(periodType);
+  const hasSpacer = periodType === "biweekly";
+  const spacerCount = hasSpacer ? 1 : 0;
 
   const [covers, setCovers] = useState<Cover[]>(building.covers);
   const backRowCount = covers.length + Math.max(MIN_COVER_ROWS - covers.length, 1) + 12;
@@ -184,7 +201,32 @@ export default function TimesheetView({ building }: { building: Building }) {
 
   return (
     <main className="mx-auto max-w-6xl bg-white px-6 py-10 print:max-w-none print:px-8 print:py-4">
-      <div className="mb-6 flex justify-end print:hidden">
+      <div className="mb-6 flex flex-wrap items-center justify-end gap-4 print:hidden">
+        <div className="flex gap-1">
+          {(["weekly", "biweekly"] as TimesheetPeriodType[]).map((pt) => (
+            <button
+              key={pt}
+              type="button"
+              onClick={() => setPeriodType(pt)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                periodType === pt
+                  ? "border-petrol bg-petrol text-white"
+                  : "border-line bg-white text-ink hover:border-petrol"
+              }`}
+            >
+              {pt === "weekly" ? "Weekly" : "Biweekly"}
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 text-sm text-ink/70">
+          <input
+            type="checkbox"
+            checked={hideNames}
+            onChange={(e) => setHideNames(e.target.checked)}
+            className="h-4 w-4 rounded border-line"
+          />
+          Hide staff names
+        </label>
         <button
           onClick={() => window.print()}
           className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
@@ -207,7 +249,7 @@ export default function TimesheetView({ building }: { building: Building }) {
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4 text-sm print:mt-1">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-ink">WEEK</span>
+          <span className="font-medium text-ink">{periodType === "biweekly" ? "FORTNIGHT" : "WEEK"}</span>
           <WeekField />
           <span>/</span>
           <WeekField />
@@ -231,7 +273,7 @@ export default function TimesheetView({ building }: { building: Building }) {
       <div className="mt-3 flex items-center gap-2 text-sm print:mt-1">
         <span className="font-medium text-ink">Team Leader</span>
         <span className="inline-block min-w-[220px] border-b border-ink px-2">
-          {building.teamLeaders.map((t) => t.nome).join(", ") || "\u00A0"}
+          {hideNames ? "\u00A0" : building.teamLeaders.map((t) => t.nome).join(", ") || "\u00A0"}
         </span>
       </div>
 
@@ -243,17 +285,21 @@ export default function TimesheetView({ building }: { building: Building }) {
             <th rowSpan={2} className={`${cell} align-middle`}>WO</th>
             <th rowSpan={2} className={`${cell} align-middle`}>Name</th>
             <th rowSpan={2} className={`${cell} align-middle`}>Staff Number</th>
-            {DAYS.map((d) => (
-              <th key={d} colSpan={2} className={`${cell} text-center`}>
-                {d}
-              </th>
+            {DAYS.map((d, i) => (
+              <>
+                <th key={d} colSpan={2} className={`${cell} text-center`}>
+                  {timesheetDayLabel(d)}
+                </th>
+                {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
+              </>
             ))}
           </tr>
           <tr>
-            {DAYS.map((d) => (
+            {DAYS.map((d, i) => (
               <>
                 <th key={d + "-in"} className={`${cell} text-center font-normal`}>SIGN IN</th>
                 <th key={d + "-out"} className={`${cell} text-center font-normal`}>SIGN OUT</th>
+                {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
               </>
             ))}
           </tr>
@@ -261,7 +307,7 @@ export default function TimesheetView({ building }: { building: Building }) {
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={15} className={`${cell} text-center text-ink/40`}>
+              <td colSpan={5 + DAYS.length * 2 + spacerCount} className={`${cell} text-center text-ink/40`}>
                 No staff or slot registered in this building yet.
               </td>
             </tr>
@@ -279,12 +325,13 @@ export default function TimesheetView({ building }: { building: Building }) {
                   {building.workOrder ?? ""}
                 </td>
               )}
-              <td className={cell}>{r.nome ?? ""}</td>
-              <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
-              {DAYS.map((d) => (
+              <td className={cell}>{hideNames ? "" : r.nome ?? ""}</td>
+              <td className={`${cell} text-center`}>{hideNames ? "" : r.staffNumber ?? ""}</td>
+              {DAYS.map((d, di) => (
                 <>
                   <SignCell key={d + i + "-in"} className={signCell} textClass={sz.text} />
                   <SignCell key={d + i + "-out"} className={signCell} textClass={sz.text} />
+                  {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + i + "-spacer"} className={SPACER_CLASS}></td>}
                 </>
               ))}
             </tr>
@@ -346,17 +393,21 @@ export default function TimesheetView({ building }: { building: Building }) {
               <th rowSpan={2} className={`${backCell} align-middle`}>WO</th>
               <th rowSpan={2} className={`${backCell} align-middle`}>Name</th>
               <th rowSpan={2} className={`${backCell} align-middle`}>Staff Number</th>
-              {DAYS.map((d) => (
-                <th key={d} colSpan={2} className={`${backCell} text-center`}>
-                  {d}
-                </th>
+              {DAYS.map((d, i) => (
+                <>
+                  <th key={d} colSpan={2} className={`${backCell} text-center`}>
+                    {timesheetDayLabel(d)}
+                  </th>
+                  {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
+                </>
               ))}
             </tr>
             <tr>
-              {DAYS.map((d) => (
+              {DAYS.map((d, i) => (
                 <>
                   <th key={d + "-in2"} className={`${backCell} text-center font-normal`}>SIGN IN</th>
                   <th key={d + "-out2"} className={`${backCell} text-center font-normal`}>SIGN OUT</th>
+                  {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
                 </>
               ))}
             </tr>
@@ -369,7 +420,7 @@ export default function TimesheetView({ building }: { building: Building }) {
                 <td className={`${backCell} text-center`}>{building.workOrder ?? ""}</td>
                 <td className={backCell}>
                   <span className="flex items-center justify-between gap-2">
-                    {c.nome ?? ""}
+                    {hideNames ? "" : c.nome ?? ""}
                     <button
                       type="button"
                       onClick={() => removeCover(c.id)}
@@ -380,11 +431,12 @@ export default function TimesheetView({ building }: { building: Building }) {
                     </button>
                   </span>
                 </td>
-                <td className={`${backCell} text-center`}>{c.staffNumber ?? ""}</td>
-                {DAYS.map((d) => (
+                <td className={`${backCell} text-center`}>{hideNames ? "" : c.staffNumber ?? ""}</td>
+                {DAYS.map((d, di) => (
                   <>
                     <SignCell key={d + c.id + "-in"} className={backSignCell} textClass={backSz.text} />
                     <SignCell key={d + c.id + "-out"} className={backSignCell} textClass={backSz.text} />
+                    {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + c.id + "-spacer"} className={SPACER_CLASS}></td>}
                   </>
                 ))}
               </tr>
@@ -394,13 +446,15 @@ export default function TimesheetView({ building }: { building: Building }) {
               cell={backCell}
               signCell={backSignCell}
               textClass={backSz.text}
+              days={DAYS}
+              spacer={hasSpacer}
             />
 
             <tr>
               <td className={`${backCell} font-medium`}>ESTATES ADDITIONAL</td>
               <td className={backCell}></td>
               {(() => {
-                const total = 13;
+                const total = 3 + DAYS.length * 2 + spacerCount;
                 const per = Math.floor(total / coverItems.length);
                 return coverItems.map((item, idx) => (
                   <td
@@ -414,7 +468,7 @@ export default function TimesheetView({ building }: { building: Building }) {
               })()}
             </tr>
 
-            <BlankRow n={6} cell={backCell} signCell={backSignCell} textClass={backSz.text} />
+            <BlankRow n={6} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />
 
             <tr>
               <td className={`${backCell} font-medium`}>ESTATES EVENTS</td>
@@ -422,15 +476,16 @@ export default function TimesheetView({ building }: { building: Building }) {
               <td className={`${backCell} text-center font-medium`}>{ESTATES_EVENTS_WO}</td>
               <td className={backCell}></td>
               <td className={backCell}></td>
-              {DAYS.map((d) => (
+              {DAYS.map((d, di) => (
                 <>
                   <SignCell key={d + "-events-in"} className={backSignCell} textClass={backSz.text} />
                   <SignCell key={d + "-events-out"} className={backSignCell} textClass={backSz.text} />
+                  {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-events-spacer"} className={SPACER_CLASS}></td>}
                 </>
               ))}
             </tr>
 
-            <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} />
+            <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />
           </tbody>
         </table>
       </div>

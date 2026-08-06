@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TIMESHEET_DAYS } from "./types";
 
 export const staffInputSchema = z
   .object({
@@ -110,12 +109,10 @@ const timesheetDayValueSchema = z.object({
   out: z.string().trim().max(5).nullable(),
 });
 
-const timesheetDaysSchema = z.object(
-  Object.fromEntries(TIMESHEET_DAYS.map((d) => [d, timesheetDayValueSchema])) as Record<
-    (typeof TIMESHEET_DAYS)[number],
-    typeof timesheetDayValueSchema
-  >
-);
+// z.record em vez do objeto fixo de 5 chaves (TIMESHEET_DAYS) — a folha
+// quinzenal usa outro conjunto de 10 chaves (ver getTimesheetDayKeys em
+// lib/types.ts), então isso precisa aceitar qualquer chave de dia.
+const timesheetDaysSchema = z.record(timesheetDayValueSchema);
 
 export const timesheetRowSchema = z.object({
   kind: z.enum(["staff", "openSlot", "cover"]),
@@ -133,6 +130,9 @@ export const timesheetEntriesSchema = z.object({
 export const timesheetCreateSchema = z.object({
   buildingId: z.string(),
   weekStart: z.string(), // "YYYY-MM-DD", deve ser uma segunda-feira
+  // "weekly" (padrão) ou "biweekly" — só é usado na criação; ignorado se a
+  // folha já existir pra esse prédio+semana (fica imutável, igual weekStart).
+  periodType: z.enum(["weekly", "biweekly"]).optional(),
   // Se enviado e a folha ainda não existir, clona as linhas dessa semana
   // anterior (zerando os horários) em vez de fotografar o estado atual.
   copyFromWeekStart: z.string().optional(),

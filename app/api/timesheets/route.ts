@@ -12,6 +12,7 @@ function mapTimesheet(t: any): TimesheetDTO {
     buildingNome: t.building.nome,
     buildingWorkOrder: t.building.workOrder,
     weekStart: t.weekStart.toISOString().slice(0, 10),
+    periodType: t.periodType,
     status: t.status,
     entries: t.entries,
     submittedByUserId: t.submittedByUserId ? t.submittedByUserId.toString() : null,
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { buildingId: buildingIdStr, weekStart: weekStartStr, copyFromWeekStart } = parsed.data;
+  const periodType = parsed.data.periodType ?? "weekly";
   const buildingId = BigInt(buildingIdStr);
   const weekStart = new Date(weekStartStr + "T00:00:00Z");
 
@@ -128,7 +130,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(toJSONSafe(mapTimesheet(existing)));
   }
 
-  let entries = await buildInitialEntries(buildingId);
+  let entries = await buildInitialEntries(buildingId, periodType);
 
   if (copyFromWeekStart) {
     const source = await prisma.timesheet.findUnique({
@@ -137,7 +139,7 @@ export async function POST(req: NextRequest) {
       },
     });
     if (source) {
-      entries = cloneEntriesForNewWeek(source.entries as any);
+      entries = cloneEntriesForNewWeek(source.entries as any, periodType);
     }
   }
 
@@ -148,6 +150,7 @@ export async function POST(req: NextRequest) {
   // outra linha e colidir com a constraint.
   const freshData = {
     entries: entries as any,
+    periodType,
     createdByUserId: BigInt(user.userId),
     status: "draft",
     submittedByUserId: null,
