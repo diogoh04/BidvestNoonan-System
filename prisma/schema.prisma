@@ -37,6 +37,14 @@ model Staff {
   status    String?   @db.VarChar(20)
   blockedAt DateTime? @map("blocked_at")
 
+  // Campos específicos do status "p45" (saída/dispensa). Só fazem sentido
+  // quando status === "p45"; limpos no servidor sempre que o status muda
+  // pra outra coisa (mesmo padrão de blockedAt acima).
+  lastWorkingDay  DateTime? @map("last_working_day") @db.Date
+  voluntaryLeave  Boolean?  @map("voluntary_leave")
+  leaveReason     String?   @map("leave_reason") @db.VarChar(30)
+  leaveReasonNote String?   @map("leave_reason_note") @db.VarChar(500)
+
   observations Feedback[]
   buildingsAsTeamLeader StaffBuilding[]
   loginAccount User?

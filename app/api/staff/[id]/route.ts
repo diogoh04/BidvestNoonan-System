@@ -19,6 +19,10 @@ function mapStaff(w: any): StaffDTO {
     })),
     status: w.status ?? null,
     blockedAt: w.blockedAt ? w.blockedAt.toISOString() : null,
+    lastWorkingDay: w.lastWorkingDay ? w.lastWorkingDay.toISOString() : null,
+    voluntaryLeave: w.voluntaryLeave ?? null,
+    leaveReason: w.leaveReason ?? null,
+    leaveReasonNote: w.leaveReasonNote ?? null,
   };
 }
 
@@ -81,6 +85,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       telefone: data.telefone || null,
       status: data.status ?? null,
       blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,
+      lastWorkingDay: data.status === "p45" && data.lastWorkingDay ? new Date(data.lastWorkingDay) : null,
+      voluntaryLeave: data.status === "p45" ? data.voluntaryLeave ?? null : null,
+      leaveReason: data.status === "p45" && data.voluntaryLeave === false ? data.leaveReason ?? null : null,
+      leaveReasonNote:
+        data.status === "p45" && data.voluntaryLeave === false && data.leaveReason === "other"
+          ? data.leaveReasonNote?.trim() || null
+          : null,
       buildingsAsTeamLeader:
         assignments.length > 0
           ? {

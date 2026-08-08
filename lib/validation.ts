@@ -24,6 +24,14 @@ export const staffInputSchema = z
     // não tem vínculo real de prédio (assignments é sempre limpo no servidor).
     status: z.enum(["p45", "le", "blocked", "sick"]).nullable().optional(),
     blockedAt: z.string().trim().nullable().optional(),
+    // Detalhes da saída — só obrigatórios quando status === "p45" (ver
+    // superRefine abaixo). lastWorkingDay/voluntaryLeave sempre exigidos
+    // nesse caso; leaveReason só quando voluntaryLeave === false; e
+    // leaveReasonNote só quando leaveReason === "other".
+    lastWorkingDay: z.string().trim().nullable().optional(),
+    voluntaryLeave: z.boolean().nullable().optional(),
+    leaveReason: z.enum(["absences", "transport", "productivity", "visa_blocked", "other"]).nullable().optional(),
+    leaveReasonNote: z.string().trim().max(500).nullable().optional(),
   })
   .superRefine((data, ctx) => {
     const seen = new Set<string>();
@@ -37,6 +45,37 @@ export const staffInputSchema = z
         });
       }
       seen.add(key);
+    }
+
+    if (data.status === "p45") {
+      if (!data.lastWorkingDay) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Last working day is required",
+          path: ["lastWorkingDay"],
+        });
+      }
+      if (data.voluntaryLeave === null || data.voluntaryLeave === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please indicate if the departure was voluntary",
+          path: ["voluntaryLeave"],
+        });
+      } else if (data.voluntaryLeave === false) {
+        if (!data.leaveReason) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Reason is required",
+            path: ["leaveReason"],
+          });
+        } else if (data.leaveReason === "other" && !data.leaveReasonNote?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please specify the reason",
+            path: ["leaveReasonNote"],
+          });
+        }
+      }
     }
   });
 

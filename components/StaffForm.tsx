@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
+import { LEAVE_REASON_LABELS, type LeaveReason } from "@/lib/types";
 
 type Building = { id: string; nome: string };
 type Role = "cleaner" | "team_leader";
@@ -17,6 +18,10 @@ export type StaffFormValues = {
   assignments: Assignment[];
   status?: Status;
   blockedAt?: string | null;
+  lastWorkingDay?: string | null;
+  voluntaryLeave?: boolean | null;
+  leaveReason?: LeaveReason | null;
+  leaveReasonNote?: string | null;
 };
 
 const STATUS_OPTIONS: { value: Status; label: string }[] = [
@@ -26,6 +31,10 @@ const STATUS_OPTIONS: { value: Status; label: string }[] = [
   { value: "blocked", label: "Staff Blocked" },
   { value: "sick", label: "Sick" },
 ];
+
+const REASON_OPTIONS: { value: LeaveReason; label: string }[] = (
+  ["absences", "transport", "productivity", "visa_blocked", "other"] as LeaveReason[]
+).map((value) => ({ value, label: LEAVE_REASON_LABELS[value] }));
 
 export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const router = useRouter();
@@ -38,6 +47,10 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const [assignments, setAssignments] = useState<Assignment[]>(initial?.assignments ?? []);
   const [status, setStatus] = useState<Status>(initial?.status ?? null);
   const [blockedAt, setBlockedAt] = useState(initial?.blockedAt?.slice(0, 10) ?? "");
+  const [lastWorkingDay, setLastWorkingDay] = useState(initial?.lastWorkingDay?.slice(0, 10) ?? "");
+  const [voluntaryLeave, setVoluntaryLeave] = useState<boolean | null>(initial?.voluntaryLeave ?? null);
+  const [leaveReason, setLeaveReason] = useState<LeaveReason | null>(initial?.leaveReason ?? null);
+  const [leaveReasonNote, setLeaveReasonNote] = useState(initial?.leaveReasonNote ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newBuildingName, setNewBuildingName] = useState("");
@@ -113,6 +126,10 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       assignments,
       status,
       blockedAt: status === "blocked" && blockedAt ? blockedAt : null,
+      lastWorkingDay: status === "p45" && lastWorkingDay ? lastWorkingDay : null,
+      voluntaryLeave: status === "p45" ? voluntaryLeave : null,
+      leaveReason: status === "p45" && voluntaryLeave === false ? leaveReason : null,
+      leaveReasonNote: status === "p45" && voluntaryLeave === false && leaveReason === "other" ? leaveReasonNote : null,
     };
 
     try {
@@ -127,6 +144,10 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         throw new Error(
           body?.error?.formErrors?.[0] ||
             body?.error?.fieldErrors?.assignments?.[0] ||
+            body?.error?.fieldErrors?.lastWorkingDay?.[0] ||
+            body?.error?.fieldErrors?.voluntaryLeave?.[0] ||
+            body?.error?.fieldErrors?.leaveReason?.[0] ||
+            body?.error?.fieldErrors?.leaveReasonNote?.[0] ||
             "Could not save. Please check the fields."
         );
       }
@@ -206,6 +227,82 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
               onChange={(e) => setBlockedAt(e.target.value)}
               className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
             />
+          </div>
+        )}
+
+        {status === "p45" && (
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink/50">Last working day</label>
+              <input
+                type="date"
+                value={lastWorkingDay}
+                onChange={(e) => setLastWorkingDay(e.target.value)}
+                className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink/50">
+                Left by own choice (voluntary)?
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { value: true, label: "Yes" },
+                  { value: false, label: "No" },
+                ].map((opt) => (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => {
+                      setVoluntaryLeave(opt.value);
+                      if (opt.value) {
+                        setLeaveReason(null);
+                        setLeaveReasonNote("");
+                      }
+                    }}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                      voluntaryLeave === opt.value
+                        ? "border-petrol bg-petrol text-white"
+                        : "border-line bg-white text-ink hover:border-petrol"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {voluntaryLeave === false && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink/50">Reason</label>
+                <div className="flex flex-wrap gap-2">
+                  {REASON_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setLeaveReason(opt.value)}
+                      className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                        leaveReason === opt.value
+                          ? "border-petrol bg-petrol text-white"
+                          : "border-line bg-white text-ink hover:border-petrol"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {leaveReason === "other" && (
+                  <input
+                    value={leaveReasonNote}
+                    onChange={(e) => setLeaveReasonNote(e.target.value)}
+                    placeholder="Specify the reason"
+                    className="mt-2 w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
+                  />
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -2,6 +2,18 @@ export type Role = "cleaner" | "team_leader";
 
 export type StaffStatus = "p45" | "le" | "blocked" | "sick";
 
+// Motivo de saída — só se aplica quando status === "p45" e a saída não foi
+// voluntária (ver Staff.voluntaryLeave). "other" exige leaveReasonNote.
+export type LeaveReason = "absences" | "transport" | "productivity" | "visa_blocked" | "other";
+
+export const LEAVE_REASON_LABELS: Record<LeaveReason, string> = {
+  absences: "Absences",
+  transport: "Transport",
+  productivity: "Productivity",
+  visa_blocked: "Visa expired or blocked",
+  other: "Other",
+};
+
 // Papel de ACESSO ao app (conta de login) — não confundir com `Role` acima,
 // que é o papel de trabalho do staff no prédio (cleaner/team_leader).
 // "pending" = conta autocadastrada em /register, aguardando o Master
@@ -99,7 +111,29 @@ export type StaffDTO = {
   buildings: { id: string; nome: string; role: Role; horas: number | null }[];
   status: StaffStatus | null;
   blockedAt: string | null;
+  // Detalhes da saída — só preenchidos quando status === "p45" (ver
+  // Staff.lastWorkingDay/voluntaryLeave/leaveReason/leaveReasonNote no schema).
+  lastWorkingDay: string | null;
+  voluntaryLeave: boolean | null;
+  leaveReason: LeaveReason | null;
+  leaveReasonNote: string | null;
   createdAt: string | null;
+};
+
+// Relatório em % de motivos de saída do P45 — calculado no client a partir
+// da lista já buscada (ver components/P45ReportChart.tsx), sem endpoint
+// próprio. "voluntary" é uma fatia igual às demais (todas em % do total de
+// P45); "unknown" cobre registros antigos sem voluntaryLeave preenchido.
+export type P45ReportSlice = {
+  key: LeaveReason | "voluntary" | "unknown";
+  label: string;
+  count: number;
+  pct: number;
+};
+
+export type P45ReportDTO = {
+  total: number;
+  slices: P45ReportSlice[];
 };
 
 export type BuildingDTO = {
