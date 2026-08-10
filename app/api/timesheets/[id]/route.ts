@@ -2,34 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { timesheetPatchSchema } from "@/lib/validation";
-import { toJSONSafe, TimesheetDTO } from "@/lib/types";
-
-function mapTimesheet(t: any): TimesheetDTO {
-  return {
-    id: t.id.toString(),
-    buildingId: t.buildingId.toString(),
-    buildingNome: t.building.nome,
-    buildingWorkOrder: t.building.workOrder,
-    weekStart: t.weekStart.toISOString().slice(0, 10),
-    periodType: t.periodType,
-    status: t.status,
-    entries: t.entries,
-    submittedByUserId: t.submittedByUserId ? t.submittedByUserId.toString() : null,
-    submittedByNome: t.submittedByUser?.staff?.nome ?? t.submittedByUser?.username ?? null,
-    submittedAt: t.submittedAt ? t.submittedAt.toISOString() : null,
-    reviewedByNome: t.reviewedByUser?.staff?.nome ?? t.reviewedByUser?.username ?? null,
-    reviewedAt: t.reviewedAt ? t.reviewedAt.toISOString() : null,
-    deletedAt: t.deletedAt ? t.deletedAt.toISOString() : null,
-    deletedByNome: t.deletedByUser?.staff?.nome ?? t.deletedByUser?.username ?? null,
-  };
-}
-
-const timesheetInclude = {
-  building: true,
-  submittedByUser: { include: { staff: true } },
-  reviewedByUser: { include: { staff: true } },
-  deletedByUser: { include: { staff: true } },
-} as const;
+import { toJSONSafe, type TimesheetEntries } from "@/lib/types";
+import { computeTimesheetDiff } from "@/lib/timesheetAdjustment";
+import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
 
 async function loadWithOwnership(id: bigint, user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>) {
   const timesheet = await prisma.timesheet.findUnique({
@@ -89,12 +64,53 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     if (entries) data.entries = entries as any;
     if (status) {
+      // Quinzenal (biweekly) não é enviada direto — precisa passar pelo
+      // Launch (POST /api/timesheets/fortnight/launch), que a converte em
+      // duas folhas semanais. Só afeta rascunhos novos daqui pra frente;
+      // folhas biweekly antigas já enviadas/concluídas não são tocadas.
+      if (status === "submitted" && timesheet.periodType === "biweekly") {
+        return NextResponse.json(
+          { error: "Biweekly sheets must be launched, not submitted directly. Use the Launch action." },
+          { status: 400 }
+        );
+      }
       if (status !== "submitted" || timesheet.status !== "draft") {
         return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
       }
       data.status = "submitted";
       data.submittedByUserId = BigInt(user.userId);
       data.submittedAt = new Date();
+      // Foto do que está sendo enviado agora — baseline usado depois pra
+      // detectar "ajuste" numa edição posterior a este envio.
+      data.submittedSnapshot = (entries ?? timesheet.entries) as any;
+    }
+
+    // Edição feita DEPOIS do primeiro envio (a folha já tem uma baseline
+    // congelada) — compara e grava/atualiza/remove o Adjustment dessa folha.
+    // Não roda no mesmo PATCH que acabou de submeter (submittedSnapshot só
+    // existe a partir da transição acima, então timesheet.submittedSnapshot
+    // aqui é sempre o valor ANTERIOR a este PATCH).
+    if (entries && timesheet.status === "submitted" && timesheet.submittedSnapshot) {
+      const diff = computeTimesheetDiff(timesheet.submittedSnapshot as unknown as TimesheetEntries, entries);
+      if (diff.length === 0) {
+        await prisma.adjustment.deleteMany({ where: { timesheetId: timesheet.id } });
+      } else {
+        await prisma.adjustment.upsert({
+          where: { timesheetId: timesheet.id },
+          create: {
+            timesheetId: timesheet.id,
+            beforeEntries: timesheet.submittedSnapshot as any,
+            afterEntries: entries as any,
+            diff: diff as any,
+            updatedByUserId: BigInt(user.userId),
+          },
+          update: {
+            afterEntries: entries as any,
+            diff: diff as any,
+            updatedByUserId: BigInt(user.userId),
+          },
+        });
+      }
     }
   } else if (hasRole(user, "master", "supervisor")) {
     if (entries) {

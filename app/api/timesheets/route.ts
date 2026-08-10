@@ -3,34 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { timesheetCreateSchema } from "@/lib/validation";
 import { buildInitialEntries, cloneEntriesForNewWeek } from "@/lib/timesheetSnapshot";
-import { toJSONSafe, TimesheetDTO } from "@/lib/types";
-
-function mapTimesheet(t: any): TimesheetDTO {
-  return {
-    id: t.id.toString(),
-    buildingId: t.buildingId.toString(),
-    buildingNome: t.building.nome,
-    buildingWorkOrder: t.building.workOrder,
-    weekStart: t.weekStart.toISOString().slice(0, 10),
-    periodType: t.periodType,
-    status: t.status,
-    entries: t.entries,
-    submittedByUserId: t.submittedByUserId ? t.submittedByUserId.toString() : null,
-    submittedByNome: t.submittedByUser?.staff?.nome ?? t.submittedByUser?.username ?? null,
-    submittedAt: t.submittedAt ? t.submittedAt.toISOString() : null,
-    reviewedByNome: t.reviewedByUser?.staff?.nome ?? t.reviewedByUser?.username ?? null,
-    reviewedAt: t.reviewedAt ? t.reviewedAt.toISOString() : null,
-    deletedAt: t.deletedAt ? t.deletedAt.toISOString() : null,
-    deletedByNome: t.deletedByUser?.staff?.nome ?? t.deletedByUser?.username ?? null,
-  };
-}
-
-const timesheetInclude = {
-  building: true,
-  submittedByUser: { include: { staff: true } },
-  reviewedByUser: { include: { staff: true } },
-  deletedByUser: { include: { staff: true } },
-} as const;
+import { toJSONSafe } from "@/lib/types";
+import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
 
 // GET /api/timesheets?buildingId=&weekStart=&status=
 export async function GET(req: NextRequest) {

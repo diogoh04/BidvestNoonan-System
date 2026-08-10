@@ -26,11 +26,14 @@ export const staffInputSchema = z
     blockedAt: z.string().trim().nullable().optional(),
     // Detalhes da saída — só obrigatórios quando status === "p45" (ver
     // superRefine abaixo). lastWorkingDay/voluntaryLeave sempre exigidos
-    // nesse caso; leaveReason só quando voluntaryLeave === false; e
-    // leaveReasonNote só quando leaveReason === "other".
+    // nesse caso; leaveReasons (pode ser mais de um) só quando
+    // voluntaryLeave === false; leaveReasonNote é sempre aceito nesse caso,
+    // mas só obrigatório quando "other" está entre os motivos.
     lastWorkingDay: z.string().trim().nullable().optional(),
     voluntaryLeave: z.boolean().nullable().optional(),
-    leaveReason: z.enum(["absences", "transport", "productivity", "visa_blocked", "other"]).nullable().optional(),
+    leaveReasons: z
+      .array(z.enum(["absences", "transport", "productivity", "visa_blocked", "other"]))
+      .default([]),
     leaveReasonNote: z.string().trim().max(500).nullable().optional(),
   })
   .superRefine((data, ctx) => {
@@ -62,13 +65,13 @@ export const staffInputSchema = z
           path: ["voluntaryLeave"],
         });
       } else if (data.voluntaryLeave === false) {
-        if (!data.leaveReason) {
+        if (data.leaveReasons.length === 0) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Reason is required",
-            path: ["leaveReason"],
+            message: "Select at least one reason",
+            path: ["leaveReasons"],
           });
-        } else if (data.leaveReason === "other" && !data.leaveReasonNote?.trim()) {
+        } else if (data.leaveReasons.includes("other") && !data.leaveReasonNote?.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Please specify the reason",
@@ -183,4 +186,10 @@ export const timesheetPatchSchema = z.object({
   // Só Master/Supervisor, só numa folha já excluída — ver PATCH em
   // /api/timesheets/[id].
   restore: z.literal(true).optional(),
+});
+
+// POST /api/timesheets/fortnight/launch — "lança" a quinzenal (biweekly, em
+// draft) do Team Leader nessa data, virando duas folhas semanais reais.
+export const fortnightLaunchSchema = z.object({
+  fortnightStart: z.string(), // "YYYY-MM-DD", mesma segunda-feira usada na criação da quinzenal
 });

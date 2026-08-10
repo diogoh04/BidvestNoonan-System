@@ -24,14 +24,28 @@ function weekOverallStatus(items: TimesheetDTO[]): TimesheetStatus {
   return "done";
 }
 
-export default function MyTimesheetsListClient({ initialTimesheets }: { initialTimesheets: TimesheetDTO[] }) {
+export default function MyTimesheetsListClient({
+  initialTimesheets,
+  periodTypeFilter,
+  emptyLabel = "No timesheet logged yet.",
+}: {
+  initialTimesheets: TimesheetDTO[];
+  // Restringe a lista a um tipo só — usado pra reaproveitar este componente
+  // nas abas "Weekly sheets" (filter="weekly") e na seção de quinzenais
+  // ainda não lançadas/legadas em "Fortnightly sheets" (filter="biweekly")
+  // de MyTimesheetsHubClient. Sem filtro, mostra tudo (comportamento antigo).
+  periodTypeFilter?: "weekly" | "biweekly";
+  emptyLabel?: string;
+}) {
   const [timesheets, setTimesheets] = useState(initialTimesheets);
   const [deletingWeek, setDeletingWeek] = useState<string | null>(null);
   const [confirmingWeek, setConfirmingWeek] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const filtered = periodTypeFilter ? timesheets.filter((t) => t.periodType === periodTypeFilter) : timesheets;
+
   const byWeek = new Map<string, TimesheetDTO[]>();
-  for (const t of timesheets) {
+  for (const t of filtered) {
     byWeek.set(t.weekStart, [...(byWeek.get(t.weekStart) ?? []), t]);
   }
   const weeks = Array.from(byWeek.entries()).sort((a, b) => b[0].localeCompare(a[0]));
@@ -99,8 +113,20 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
             className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
           >
             <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="flex-1">
-              <div className="font-medium text-ink">
-                {isBiweekly ? "Fortnight" : "Week"} {range}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-ink">
+                  {isBiweekly ? "Fortnight" : "Week"} {range}
+                </span>
+                {items.some((t) => t.fortnightPlanId) && (
+                  <span className="rounded-full bg-petrolLight px-2 py-0.5 text-[11px] font-medium text-petrol">
+                    From fortnight
+                  </span>
+                )}
+                {items.some((t) => t.hasAdjustment) && (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                    Adjusted
+                  </span>
+                )}
               </div>
               <div className="text-xs text-ink/40">{items.length} building(s)</div>
             </Link>
@@ -131,15 +157,7 @@ export default function MyTimesheetsListClient({ initialTimesheets }: { initialT
         );
       })}
 
-      {weeks.length === 0 && (
-        <p className="text-sm text-ink/40">
-          No timesheet logged yet.{" "}
-          <Link href="/my/timesheets/lancar" className="text-petrol hover:underline">
-            Log timesheet
-          </Link>{" "}
-          to get started.
-        </p>
-      )}
+      {weeks.length === 0 && <p className="text-sm text-ink/40">{emptyLabel}</p>}
     </div>
   );
 }

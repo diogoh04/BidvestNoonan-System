@@ -42,7 +42,11 @@ model Staff {
   // pra outra coisa (mesmo padrão de blockedAt acima).
   lastWorkingDay  DateTime? @map("last_working_day") @db.Date
   voluntaryLeave  Boolean?  @map("voluntary_leave")
-  leaveReason     String?   @map("leave_reason") @db.VarChar(30)
+  // Motivo(s) de saída — pode ser mais de um. Só relevante quando
+  // status === "p45" e voluntaryLeave === false. leaveReasonNote é sempre
+  // editável nesse caso (não só quando "other" está entre os motivos), mas
+  // só obrigatório (na validação) quando "other" está selecionado.
+  leaveReasons    String[]  @default([]) @map("leave_reasons")
   leaveReasonNote String?   @map("leave_reason_note") @db.VarChar(500)
 
   observations Feedback[]
@@ -64,6 +68,7 @@ model Building {
   slots         BuildingSlot[]
   covers        BuildingCover[]
   timesheets    Timesheet[]
+  fortnightPlans FortnightPlan[]
 
   @@map("predios")
 }
@@ -156,6 +161,8 @@ model User {
   timesheetsSubmitted Timesheet[] @relation("TimesheetSubmittedBy")
   timesheetsReviewed  Timesheet[] @relation("TimesheetReviewedBy")
   timesheetsDeleted   Timesheet[] @relation("TimesheetDeletedBy")
+  fortnightPlansLaunched FortnightPlan[] @relation("FortnightPlanLaunchedBy")
+  adjustmentsUpdated  Adjustment[] @relation("AdjustmentUpdatedBy")
 
   @@map("app_user")
 }
@@ -202,6 +209,76 @@ model Timesheet {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Foto do `entries` no instante do PRIMEIRO envio (draft -> submitted)
+  // dessa folha. Nunca reescrito depois (não há transição submitted -> draft
+  // hoje). Baseline usado pra detectar "ajuste" em edições feitas depois do
+  // envio — ver PATCH /api/timesheets/[id] e lib/timesheetAdjustment.ts.
+  submittedSnapshot Json? @map("submitted_snapshot")
+
+  // Preenchido só quando esta linha nasceu de um Launch de quinzenal (ver
+  // FortnightPlan abaixo) — uma linha é ou week1 ou week2 de no máximo um
+  // plano, nunca os dois.
+  fortnightAsWeek1 FortnightPlan? @relation("FortnightWeek1")
+  fortnightAsWeek2 FortnightPlan? @relation("FortnightWeek2")
+
+  adjustment Adjustment?
+
   @@unique([buildingId, weekStart])
   @@map("timesheet")
+}
+
+// ---------- Previsão quinzenal lançada (tabela nova: fortnight_plan) ----------
+// Histórico do que o Team Leader preencheu na tela quinzenal (10 dias) no
+// momento do "Launch". Congelado — nunca mais editado depois de criado. As
+// duas folhas reais geradas pelo Launch (semanais, no fluxo normal de
+// submit/review) ficam linkadas aqui: week1 é a PRÓPRIA linha biweekly
+// original (mutada in place pro periodType "weekly"), week2 é uma linha nova
+// em weekStart+7 — nunca se insere uma 2ª linha no weekStart original (ver
+// POST /api/timesheets/fortnight/launch).
+model FortnightPlan {
+  id             BigInt   @id @default(autoincrement())
+  buildingId     BigInt   @map("building_id")
+  building       Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  fortnightStart DateTime @map("fortnight_start") @db.Date
+
+  forecastEntries Json @map("forecast_entries")
+
+  week1TimesheetId BigInt    @unique @map("week1_timesheet_id")
+  week1Timesheet   Timesheet @relation("FortnightWeek1", fields: [week1TimesheetId], references: [id], onDelete: Cascade)
+  week2TimesheetId BigInt    @unique @map("week2_timesheet_id")
+  week2Timesheet   Timesheet @relation("FortnightWeek2", fields: [week2TimesheetId], references: [id], onDelete: Cascade)
+
+  launchedByUserId BigInt?  @map("launched_by_user_id")
+  launchedByUser   User?    @relation("FortnightPlanLaunchedBy", fields: [launchedByUserId], references: [id], onDelete: SetNull)
+  launchedAt       DateTime @default(now()) @map("launched_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([buildingId, fortnightStart])
+  @@map("fortnight_plan")
+}
+
+// ---------- Ajuste pós-envio (tabela nova: adjustment) ----------
+// Registrado quando o Team Leader edita `entries` de uma folha semanal DEPOIS
+// do primeiro envio (draft -> submitted) — compara contra o que foi
+// congelado em Timesheet.submittedSnapshot naquele momento. Um registro por
+// folha (upsert): se a edição fizer o conteúdo voltar a bater com o que foi
+// enviado, o registro é apagado (ver PATCH /api/timesheets/[id]). Não exige
+// aprovação própria — é só um log visível na aba Adjustments.
+model Adjustment {
+  id              BigInt    @id @default(autoincrement())
+  timesheetId     BigInt    @unique @map("timesheet_id")
+  timesheet       Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  beforeEntries Json @map("before_entries")
+  afterEntries  Json @map("after_entries")
+  diff          Json // pré-computado, ver lib/timesheetAdjustment.ts
+
+  updatedByUserId BigInt? @map("updated_by_user_id")
+  updatedByUser   User?   @relation("AdjustmentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("adjustment")
 }

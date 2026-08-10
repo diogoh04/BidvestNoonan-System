@@ -45,7 +45,7 @@ export default async function EditStaffPage({ params }: { params: { id: string }
               blockedAt: staff.blockedAt ?? null,
               lastWorkingDay: staff.lastWorkingDay ?? null,
               voluntaryLeave: staff.voluntaryLeave ?? null,
-              leaveReason: staff.leaveReason ?? null,
+              leaveReasons: staff.leaveReasons ?? [],
               leaveReasonNote: staff.leaveReasonNote ?? null,
             }}
           />

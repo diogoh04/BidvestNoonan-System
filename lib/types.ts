@@ -101,6 +101,45 @@ export type TimesheetDTO = {
   reviewedAt: string | null;
   deletedAt: string | null;
   deletedByNome: string | null;
+  // Preenchido quando esta linha nasceu de um Launch de quinzenal (é week1
+  // ou week2 de um FortnightPlan) — usado pra mostrar o badge "From
+  // fortnight" na aba Weekly sheets e linkar pro histórico.
+  fortnightPlanId: string | null;
+  // true se existe um Adjustment aberto pra esta folha (edição feita depois
+  // do primeiro envio, ainda diferente do que foi enviado) — ver
+  // lib/timesheetAdjustment.ts.
+  hasAdjustment: boolean;
+};
+
+// Histórico de uma quinzenal lançada — congelado no momento do Launch, nunca
+// mais editado. Ver POST /api/timesheets/fortnight/launch e a aba
+// "Fortnightly sheets" em /my/timesheets.
+export type FortnightPlanDTO = {
+  id: string;
+  buildingId: string;
+  buildingNome: string;
+  fortnightStart: string;
+  forecastEntries: TimesheetEntries;
+  week1: TimesheetDTO;
+  week2: TimesheetDTO;
+  launchedByNome: string | null;
+  launchedAt: string;
+};
+
+// Ajuste feito numa folha semanal depois do primeiro envio — antes/depois
+// completo + diff pré-computado. Ver lib/timesheetAdjustment.ts e a aba
+// "Adjustments" em /my/timesheets.
+export type AdjustmentDTO = {
+  id: string;
+  timesheetId: string;
+  buildingNome: string;
+  weekStart: string;
+  periodType: TimesheetPeriodType;
+  beforeEntries: TimesheetEntries;
+  afterEntries: TimesheetEntries;
+  diff: { rowIndex: number; kind: string; nome: string | null; day: string; field: "in" | "out"; before: string | null; after: string | null }[];
+  updatedByNome: string | null;
+  updatedAt: string;
 };
 
 export type StaffDTO = {
@@ -112,18 +151,22 @@ export type StaffDTO = {
   status: StaffStatus | null;
   blockedAt: string | null;
   // Detalhes da saída — só preenchidos quando status === "p45" (ver
-  // Staff.lastWorkingDay/voluntaryLeave/leaveReason/leaveReasonNote no schema).
+  // Staff.lastWorkingDay/voluntaryLeave/leaveReasons/leaveReasonNote no schema).
   lastWorkingDay: string | null;
   voluntaryLeave: boolean | null;
-  leaveReason: LeaveReason | null;
+  // Pode ter mais de um motivo (ex.: Absences + Transport juntos).
+  leaveReasons: LeaveReason[];
   leaveReasonNote: string | null;
   createdAt: string | null;
 };
 
-// Relatório em % de motivos de saída do P45 — calculado no client a partir
-// da lista já buscada (ver components/P45ReportChart.tsx), sem endpoint
-// próprio. "voluntary" é uma fatia igual às demais (todas em % do total de
-// P45); "unknown" cobre registros antigos sem voluntaryLeave preenchido.
+// Relatório de motivos de saída do P45 — calculado no client a partir da
+// lista já buscada (ver components/P45ReportChart.tsx), sem endpoint
+// próprio. Cada fatia é "% do total de P45 que inclui essa categoria" —
+// como um staff pode ter mais de um motivo, as fatias podem se sobrepor e a
+// soma pode passar de 100% (não é mais parte-do-todo). "voluntary" cobre
+// quem saiu por conta própria; "unknown" cobre registros antigos sem
+// voluntaryLeave preenchido.
 export type P45ReportSlice = {
   key: LeaveReason | "voluntary" | "unknown";
   label: string;

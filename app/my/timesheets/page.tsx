@@ -1,7 +1,9 @@
 import { headers } from "next/headers";
+import Link from "next/link";
+import { FilePlus } from "lucide-react";
 import Header from "@/components/Header";
-import MyTimesheetsListClient from "./MyTimesheetsListClient";
-import type { TimesheetDTO } from "@/lib/types";
+import MyTimesheetsHubClient from "./MyTimesheetsHubClient";
+import type { TimesheetDTO, FortnightPlanDTO, AdjustmentDTO } from "@/lib/types";
 
 async function getBaseUrl() {
   const h = headers();
@@ -10,27 +12,46 @@ async function getBaseUrl() {
   return `${protocol}://${host}`;
 }
 
-async function getMyTimesheets(): Promise<TimesheetDTO[]> {
+async function getJson<T>(path: string, fallback: T): Promise<T> {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/timesheets`, {
+  const res = await fetch(`${base}${path}`, {
     cache: "no-store",
     headers: { cookie: headers().get("cookie") ?? "" },
   });
-  if (!res.ok) return [];
+  if (!res.ok) return fallback;
   return res.json();
 }
 
 export default async function MyTimesheetsPage() {
-  const timesheets = await getMyTimesheets();
+  const [timesheets, fortnightPlans, adjustments] = await Promise.all([
+    getJson<TimesheetDTO[]>("/api/timesheets", []),
+    getJson<FortnightPlanDTO[]>("/api/timesheets/fortnight-plans", []),
+    getJson<AdjustmentDTO[]>("/api/timesheets/adjustments", []),
+  ]);
 
   return (
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">My Timesheets</h1>
-        <p className="mt-1 text-sm text-ink/50">Weekly history, with all your buildings together.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink">My Timesheets</h1>
+            <p className="mt-1 text-sm text-ink/50">Start a new fortnight, or review what&apos;s already logged.</p>
+          </div>
+          <Link
+            href="/my/timesheets/lancar"
+            className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
+          >
+            <FilePlus size={16} />
+            Start New
+          </Link>
+        </div>
 
-        <MyTimesheetsListClient initialTimesheets={timesheets} />
+        <MyTimesheetsHubClient
+          initialTimesheets={timesheets}
+          initialFortnightPlans={fortnightPlans}
+          initialAdjustments={adjustments}
+        />
       </main>
     </>
   );

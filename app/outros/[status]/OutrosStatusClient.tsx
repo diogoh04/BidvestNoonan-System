@@ -5,6 +5,8 @@ import { Download } from "lucide-react";
 import StaffRow from "@/components/StaffRow";
 import P45ReportChart from "@/components/P45ReportChart";
 import { LEAVE_REASON_LABELS, type LeaveReason } from "@/lib/types";
+import { downloadStaffListXlsx } from "@/lib/excelExport";
+import { buildP45ReportSlices } from "@/lib/p45Report";
 
 type StaffItem = {
   id: string;
@@ -14,7 +16,7 @@ type StaffItem = {
   blockedAt: string | null;
   lastWorkingDay: string | null;
   voluntaryLeave: boolean | null;
-  leaveReason: LeaveReason | null;
+  leaveReasons: LeaveReason[];
   leaveReasonNote: string | null;
 };
 
@@ -23,18 +25,15 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-GB");
 }
 
-function csvEscape(value: string) {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
 // Mesma linha resumida usada no subtítulo da lista e (parcialmente) no CSV —
-// "Last day <data> · <motivo ou Voluntary>".
+// "Last day <data> · <motivo(s) ou Voluntary>".
 function p45Subtitle(s: StaffItem): string | undefined {
   if (!s.lastWorkingDay) return undefined;
   const base = `Last day ${formatDate(s.lastWorkingDay)}`;
   if (s.voluntaryLeave === true) return `${base} · Voluntary`;
-  if (s.voluntaryLeave === false && s.leaveReason) return `${base} · ${LEAVE_REASON_LABELS[s.leaveReason]}`;
+  if (s.voluntaryLeave === false && s.leaveReasons.length > 0) {
+    return `${base} · ${s.leaveReasons.map((r) => LEAVE_REASON_LABELS[r]).join(", ")}`;
+  }
   return base;
 }
 
@@ -48,40 +47,50 @@ export default function OutrosStatusClient({
   initialStaff: StaffItem[];
 }) {
   const [list, setList] = useState(initialStaff);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  function exportCsv() {
-    const isBlocked = status === "blocked";
-    const isP45 = status === "p45";
-    const header = [
-      "Name",
-      "Staff Number",
-      "Phone",
-      ...(isBlocked ? ["Blocked since"] : []),
-      ...(isP45 ? ["Last working day", "Left by own choice", "Reason", "Reason details"] : []),
-    ];
-    const rows = list.map((s) => [
-      s.nome ?? "",
-      s.staffNumber ?? "",
-      s.telefone ?? "",
-      ...(isBlocked ? [formatDate(s.blockedAt) ?? ""] : []),
-      ...(isP45
-        ? [
-            formatDate(s.lastWorkingDay) ?? "",
-            s.voluntaryLeave === true ? "Yes" : s.voluntaryLeave === false ? "No" : "",
-            s.voluntaryLeave === false && s.leaveReason ? LEAVE_REASON_LABELS[s.leaveReason] : "",
-            s.voluntaryLeave === false && s.leaveReason === "other" ? s.leaveReasonNote ?? "" : "",
-          ]
-        : []),
-    ]);
-    const csv = [header, ...rows].map((r) => r.map(csvEscape).join(",")).join("\n");
+  async function exportXlsx() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const isBlocked = status === "blocked";
+      const isP45 = status === "p45";
+      const header = [
+        "Name",
+        "Staff Number",
+        "Phone",
+        ...(isBlocked ? ["Blocked since"] : []),
+        ...(isP45 ? ["Last working day", "Left by own choice", "Reason", "Reason details"] : []),
+      ];
+      const rows = list.map((s) => [
+        s.nome ?? "",
+        s.staffNumber ?? "",
+        s.telefone ?? "",
+        ...(isBlocked ? [formatDate(s.blockedAt) ?? ""] : []),
+        ...(isP45
+          ? [
+              formatDate(s.lastWorkingDay) ?? "",
+              s.voluntaryLeave === true ? "Yes" : s.voluntaryLeave === false ? "No" : "",
+              s.voluntaryLeave === false
+                ? s.leaveReasons.map((r) => LEAVE_REASON_LABELS[r]).join("; ")
+                : "",
+              s.voluntaryLeave === false ? s.leaveReasonNote ?? "" : "",
+            ]
+          : []),
+      ]);
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${label.toLowerCase().replace(/\s+/g, "-")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      await downloadStaffListXlsx({
+        filename: label.toLowerCase().replace(/\s+/g, "-"),
+        header,
+        rows,
+        ...(isP45 ? { reportTitle: "Leaving reasons", reportSlices: buildP45ReportSlices(list).slices } : {}),
+      });
+    } catch (e: any) {
+      setExportError(e.message || "Could not export the list");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -91,14 +100,16 @@ export default function OutrosStatusClient({
           {list.length} staff on this list.
         </p>
         <button
-          onClick={exportCsv}
-          disabled={list.length === 0}
+          onClick={exportXlsx}
+          disabled={list.length === 0 || exporting}
           className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
         >
           <Download size={14} />
-          Export list
+          {exporting ? "Exporting..." : "Export list"}
         </button>
       </div>
+
+      {exportError && <p className="mt-2 text-sm text-danger">{exportError}</p>}
 
       {status === "p45" && list.length > 0 && (
         <div className="mt-6">

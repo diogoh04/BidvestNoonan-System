@@ -78,3 +78,26 @@ export function cloneEntriesForNewWeek(
 ): TimesheetEntries {
   return { rows: source.rows.map((r) => ({ ...r, days: emptyDays(periodType) })) };
 }
+
+// Usado só no "Launch" de uma quinzenal (POST /api/timesheets/fortnight/launch):
+// separa o entries de 10 colunas (W1_*/W2_*, ver TIMESHEET_DAYS_BIWEEKLY em
+// lib/types.ts) em duas TimesheetEntries semanais de 5 colunas, preservando
+// linhas/ordem/identidade (kind/refId/nome/staffNumber/horas) — só o mapa
+// `days` de cada linha muda, virando as chaves normais (MONDAY..FRIDAY) sem
+// o prefixo W1_/W2_.
+export function splitFortnightEntries(source: TimesheetEntries): {
+  week1: TimesheetEntries;
+  week2: TimesheetEntries;
+} {
+  const pick = (prefix: "W1_" | "W2_"): TimesheetEntries => ({
+    rows: source.rows.map((r) => ({
+      ...r,
+      days: Object.fromEntries(
+        Object.entries(r.days)
+          .filter(([k]) => k.startsWith(prefix))
+          .map(([k, v]) => [k.slice(3), v])
+      ),
+    })),
+  });
+  return { week1: pick("W1_"), week2: pick("W2_") };
+}

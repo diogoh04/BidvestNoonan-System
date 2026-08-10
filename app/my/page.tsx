@@ -37,11 +37,11 @@ export default async function MyBuildingsPage() {
             </p>
           </div>
           <Link
-            href="/my/timesheets/lancar"
+            href="/my/timesheets"
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
           >
             <ClipboardList size={16} />
-            Log timesheet
+            My Timesheets
           </Link>
         </div>
 

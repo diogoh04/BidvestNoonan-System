@@ -21,7 +21,7 @@ function mapStaff(w: any): StaffDTO {
     blockedAt: w.blockedAt ? w.blockedAt.toISOString() : null,
     lastWorkingDay: w.lastWorkingDay ? w.lastWorkingDay.toISOString() : null,
     voluntaryLeave: w.voluntaryLeave ?? null,
-    leaveReason: w.leaveReason ?? null,
+    leaveReasons: w.leaveReasons ?? [],
     leaveReasonNote: w.leaveReasonNote ?? null,
   };
 }
@@ -131,9 +131,9 @@ export async function POST(req: NextRequest) {
       blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,
       lastWorkingDay: data.status === "p45" && data.lastWorkingDay ? new Date(data.lastWorkingDay) : null,
       voluntaryLeave: data.status === "p45" ? data.voluntaryLeave ?? null : null,
-      leaveReason: data.status === "p45" && data.voluntaryLeave === false ? data.leaveReason ?? null : null,
+      leaveReasons: data.status === "p45" && data.voluntaryLeave === false ? data.leaveReasons : [],
       leaveReasonNote:
-        data.status === "p45" && data.voluntaryLeave === false && data.leaveReason === "other"
+        data.status === "p45" && data.voluntaryLeave === false
           ? data.leaveReasonNote?.trim() || null
           : null,
       buildingsAsTeamLeader:
