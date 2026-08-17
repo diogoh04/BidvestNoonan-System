@@ -243,7 +243,7 @@ export default function TimesheetView({ building }: { building: Building }) {
         </h1>
         <div className="flex items-center gap-6">
           <span className="font-display text-lg font-bold text-ink print:text-xs">{building.nome}</span>
-          <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
+          <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-9 print:w-9" />
         </div>
       </div>
 
@@ -385,7 +385,21 @@ export default function TimesheetView({ building }: { building: Building }) {
           {coverError && <span className="text-xs text-danger">{coverError}</span>}
         </div>
 
-        <table className={`w-full border-collapse ${backSz.text}`}>
+        <table className={`w-full table-fixed border-collapse ${backSz.text}`}>
+          <colgroup>
+            <col className="w-[9%]" />
+            <col className="w-[4%]" />
+            <col className="w-[7%]" />
+            <col className="w-[18%]" />
+            <col className="w-[13%]" />
+            {DAYS.map((d, i) => (
+              <>
+                <col key={d + "-in-col"} />
+                <col key={d + "-out-col"} />
+                {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+              </>
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th rowSpan={2} className={`${backCell} align-middle`}>Building Covers</th>
