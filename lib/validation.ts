@@ -24,17 +24,20 @@ export const staffInputSchema = z
     // não tem vínculo real de prédio (assignments é sempre limpo no servidor).
     status: z.enum(["p45", "le", "blocked", "sick"]).nullable().optional(),
     blockedAt: z.string().trim().nullable().optional(),
-    // Detalhes da saída — só obrigatórios quando status === "p45" (ver
-    // superRefine abaixo). lastWorkingDay/voluntaryLeave sempre exigidos
-    // nesse caso; leaveReasons (pode ser mais de um) só quando
-    // voluntaryLeave === false; leaveReasonNote é sempre aceito nesse caso,
-    // mas só obrigatório quando "other" está entre os motivos.
+    // lastWorkingDay é obrigatório tanto pra "p45" quanto pra "le" (ver
+    // superRefine abaixo). voluntaryLeave/leaveReasons/leaveReasonNote são
+    // só do "p45": voluntaryLeave sempre exigido nesse caso; leaveReasons
+    // (pode ser mais de um) só quando voluntaryLeave === false;
+    // leaveReasonNote é sempre aceito nesse caso, mas só obrigatório
+    // quando "other" está entre os motivos.
     lastWorkingDay: z.string().trim().nullable().optional(),
     voluntaryLeave: z.boolean().nullable().optional(),
     leaveReasons: z
       .array(z.enum(["absences", "transport", "productivity", "visa_blocked", "other"]))
       .default([]),
     leaveReasonNote: z.string().trim().max(500).nullable().optional(),
+    // Só do "le" — pra qual empresa o staff está indo. Sempre opcional.
+    leDestinationCompany: z.string().trim().max(255).nullable().optional(),
   })
   .superRefine((data, ctx) => {
     const seen = new Set<string>();
@@ -50,7 +53,7 @@ export const staffInputSchema = z
       seen.add(key);
     }
 
-    if (data.status === "p45") {
+    if (data.status === "p45" || data.status === "le") {
       if (!data.lastWorkingDay) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -58,6 +61,9 @@ export const staffInputSchema = z
           path: ["lastWorkingDay"],
         });
       }
+    }
+
+    if (data.status === "p45") {
       if (data.voluntaryLeave === null || data.voluntaryLeave === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

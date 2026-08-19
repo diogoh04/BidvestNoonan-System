@@ -157,6 +157,13 @@ export type StaffDTO = {
   // Pode ter mais de um motivo (ex.: Absences + Transport juntos).
   leaveReasons: LeaveReason[];
   leaveReasonNote: string | null;
+  // Último prédio (StaffBuilding) antes da saída — capturado quando o
+  // status vira "p45", já que os vínculos de prédio são apagados nesse
+  // momento. Só faz sentido quando status === "p45".
+  lastBuildingName: string | null;
+  // Só faz sentido quando status === "le" — pra qual empresa o staff está
+  // indo (sempre opcional, quem preenche pode não saber ainda).
+  leDestinationCompany: string | null;
   createdAt: string | null;
 };
 

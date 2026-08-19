@@ -37,9 +37,10 @@ model Staff {
   status    String?   @db.VarChar(20)
   blockedAt DateTime? @map("blocked_at")
 
-  // Campos específicos do status "p45" (saída/dispensa). Só fazem sentido
-  // quando status === "p45"; limpos no servidor sempre que o status muda
-  // pra outra coisa (mesmo padrão de blockedAt acima).
+  // Último dia trabalhado — obrigatório tanto pro "p45" (saída/dispensa)
+  // quanto pro "le" (transferido pra outra empresa); limpo no servidor
+  // sempre que o status muda pra outra coisa (mesmo padrão de blockedAt
+  // acima). voluntaryLeave/leaveReasons abaixo são só do "p45".
   lastWorkingDay  DateTime? @map("last_working_day") @db.Date
   voluntaryLeave  Boolean?  @map("voluntary_leave")
   // Motivo(s) de saída — pode ser mais de um. Só relevante quando
@@ -48,6 +49,19 @@ model Staff {
   // só obrigatório (na validação) quando "other" está selecionado.
   leaveReasons    String[]  @default([]) @map("leave_reasons")
   leaveReasonNote String?   @map("leave_reason_note") @db.VarChar(500)
+
+  // Campo específico do status "le": pra qual empresa o staff está indo —
+  // opcional (nem sempre se sabe/importa registrar). Limpo sempre que o
+  // status muda pra outra coisa.
+  leDestinationCompany String? @map("le_destination_company") @db.VarChar(255)
+
+  // Snapshot do nome do último prédio (StaffBuilding, preferindo o vínculo
+  // "cleaner") no momento em que o status virou "p45" — capturado no
+  // servidor antes de apagar os vínculos (ver PUT /api/staff/[id]), porque
+  // esses vínculos são removidos ao salvar o P45. Texto livre (não FK) de
+  // propósito: sobrevive mesmo se o prédio for renomeado/excluído depois.
+  // Usado só pelo relatório de saída (lib/p45Report.ts).
+  lastBuildingName String? @map("last_building_name") @db.VarChar(255)
 
   observations Feedback[]
   buildingsAsTeamLeader StaffBuilding[]

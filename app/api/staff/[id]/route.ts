@@ -23,6 +23,8 @@ function mapStaff(w: any): StaffDTO {
     voluntaryLeave: w.voluntaryLeave ?? null,
     leaveReasons: w.leaveReasons ?? [],
     leaveReasonNote: w.leaveReasonNote ?? null,
+    lastBuildingName: w.lastBuildingName ?? null,
+    leDestinationCompany: w.leDestinationCompany ?? null,
   };
 }
 
@@ -75,6 +77,24 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   // prédio — ignora quaisquer assignments enviados nesse caso.
   const assignments = data.status ? [] : data.assignments;
 
+  // P45: antes de apagar os vínculos de prédio (logo abaixo), guarda o
+  // nome do último prédio pro relatório de saída (lib/p45Report.ts) —
+  // preferindo o vínculo "cleaner" quando o staff tem mais de um. Se não
+  // sobrar nenhum vínculo pra capturar agora (ex.: reeditando um P45 que já
+  // teve os vínculos apagados numa edição anterior), `undefined` faz o
+  // Prisma não mexer no campo, preservando o valor já salvo.
+  let lastBuildingName: string | null | undefined;
+  if (data.status === "p45") {
+    const currentLinks = await prisma.staffBuilding.findMany({
+      where: { staffId },
+      include: { building: true },
+    });
+    const picked = currentLinks.find((l) => l.role === "cleaner") ?? currentLinks[0];
+    lastBuildingName = picked ? picked.building.nome : undefined;
+  } else {
+    lastBuildingName = null;
+  }
+
   await prisma.staffBuilding.deleteMany({ where: { staffId } });
 
   const updated = await prisma.staff.update({
@@ -85,13 +105,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       telefone: data.telefone || null,
       status: data.status ?? null,
       blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,
-      lastWorkingDay: data.status === "p45" && data.lastWorkingDay ? new Date(data.lastWorkingDay) : null,
+      lastWorkingDay:
+        (data.status === "p45" || data.status === "le") && data.lastWorkingDay
+          ? new Date(data.lastWorkingDay)
+          : null,
       voluntaryLeave: data.status === "p45" ? data.voluntaryLeave ?? null : null,
       leaveReasons: data.status === "p45" && data.voluntaryLeave === false ? data.leaveReasons : [],
       leaveReasonNote:
         data.status === "p45" && data.voluntaryLeave === false
           ? data.leaveReasonNote?.trim() || null
           : null,
+      leDestinationCompany: data.status === "le" ? data.leDestinationCompany?.trim() || null : null,
+      lastBuildingName,
       buildingsAsTeamLeader:
         assignments.length > 0
           ? {

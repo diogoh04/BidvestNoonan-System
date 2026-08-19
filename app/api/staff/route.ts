@@ -23,6 +23,8 @@ function mapStaff(w: any): StaffDTO {
     voluntaryLeave: w.voluntaryLeave ?? null,
     leaveReasons: w.leaveReasons ?? [],
     leaveReasonNote: w.leaveReasonNote ?? null,
+    lastBuildingName: w.lastBuildingName ?? null,
+    leDestinationCompany: w.leDestinationCompany ?? null,
   };
 }
 
@@ -129,13 +131,21 @@ export async function POST(req: NextRequest) {
       telefone: data.telefone || null,
       status: data.status ?? null,
       blockedAt: data.status === "blocked" && data.blockedAt ? new Date(data.blockedAt) : null,
-      lastWorkingDay: data.status === "p45" && data.lastWorkingDay ? new Date(data.lastWorkingDay) : null,
+      lastWorkingDay:
+        (data.status === "p45" || data.status === "le") && data.lastWorkingDay
+          ? new Date(data.lastWorkingDay)
+          : null,
       voluntaryLeave: data.status === "p45" ? data.voluntaryLeave ?? null : null,
       leaveReasons: data.status === "p45" && data.voluntaryLeave === false ? data.leaveReasons : [],
       leaveReasonNote:
         data.status === "p45" && data.voluntaryLeave === false
           ? data.leaveReasonNote?.trim() || null
           : null,
+      leDestinationCompany: data.status === "le" ? data.leDestinationCompany?.trim() || null : null,
+      // Staff criado direto como P45 nunca teve vínculo de prédio pra
+      // capturar (assignments são ignorados acima) — diferente do PUT em
+      // app/api/staff/[id]/route.ts, que captura de um vínculo existente.
+      lastBuildingName: null,
       buildingsAsTeamLeader:
         assignments.length > 0
           ? {

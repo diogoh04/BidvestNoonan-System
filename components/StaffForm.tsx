@@ -22,6 +22,7 @@ export type StaffFormValues = {
   voluntaryLeave?: boolean | null;
   leaveReasons?: LeaveReason[];
   leaveReasonNote?: string | null;
+  leDestinationCompany?: string | null;
 };
 
 const STATUS_OPTIONS: { value: Status; label: string }[] = [
@@ -51,6 +52,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const [voluntaryLeave, setVoluntaryLeave] = useState<boolean | null>(initial?.voluntaryLeave ?? null);
   const [leaveReasons, setLeaveReasons] = useState<LeaveReason[]>(initial?.leaveReasons ?? []);
   const [leaveReasonNote, setLeaveReasonNote] = useState(initial?.leaveReasonNote ?? "");
+  const [leDestinationCompany, setLeDestinationCompany] = useState(initial?.leDestinationCompany ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newBuildingName, setNewBuildingName] = useState("");
@@ -126,10 +128,11 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       assignments,
       status,
       blockedAt: status === "blocked" && blockedAt ? blockedAt : null,
-      lastWorkingDay: status === "p45" && lastWorkingDay ? lastWorkingDay : null,
+      lastWorkingDay: (status === "p45" || status === "le") && lastWorkingDay ? lastWorkingDay : null,
       voluntaryLeave: status === "p45" ? voluntaryLeave : null,
       leaveReasons: status === "p45" && voluntaryLeave === false ? leaveReasons : [],
       leaveReasonNote: status === "p45" && voluntaryLeave === false ? leaveReasonNote : null,
+      leDestinationCompany: status === "le" ? leDestinationCompany : null,
     };
 
     try {
@@ -227,6 +230,32 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
               onChange={(e) => setBlockedAt(e.target.value)}
               className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
             />
+          </div>
+        )}
+
+        {status === "le" && (
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink/50">Last working day</label>
+              <input
+                type="date"
+                value={lastWorkingDay}
+                onChange={(e) => setLastWorkingDay(e.target.value)}
+                className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink/50">
+                Destination company <span className="font-normal text-ink/40">(optional)</span>
+              </label>
+              <input
+                value={leDestinationCompany}
+                onChange={(e) => setLeDestinationCompany(e.target.value)}
+                placeholder="Which company is this staff going to?"
+                className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
+              />
+            </div>
           </div>
         )}
 
