@@ -259,15 +259,15 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
       </div>
 
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 border-b-2 border-ink pb-3 print:pb-1">
-        <Image src="/logo.jpg" alt="Bidvest Noonan" width={160} height={50} className="h-10 w-auto object-contain print:h-6" />
-        <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink print:text-sm">
+        <Image src="/logo.jpg" alt="Bidvest Noonan" width={160} height={50} className="h-10 w-auto object-contain print:h-8" />
+        <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink print:text-lg">
           Sign In &amp; Sign Out Book
         </h1>
         <div className="flex items-center gap-6">
-          <span className="font-display text-lg font-bold text-ink print:text-xs">
+          <span className="font-display text-lg font-bold text-ink print:text-sm">
             {teamLeader.buildings.map((b) => b.nome).join(", ")}
           </span>
-          <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-9 print:w-9" />
+          <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-10 print:w-10" />
         </div>
       </div>
 
@@ -283,7 +283,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           <WeekField />
         </div>
 
-        <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-xs print:grid-cols-7 print:gap-x-2 print:gap-y-0 print:text-[7px]">
+        <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-xs print:grid-cols-7 print:gap-x-2 print:gap-y-0 print:text-[9px]">
           <span><strong>HP</strong> - Holiday Paid</span>
           <span><strong>AA</strong> - Absent Autorized</span>
           <span><strong>S</strong> - Sick</span>
@@ -301,7 +301,21 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
         </span>
       </div>
 
-      <table className={`mt-6 w-full border-collapse print:mt-2 ${sz.text}`}>
+      <table className={`mt-6 w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
+        <colgroup>
+          <col className="w-[9%]" />
+          <col className="w-[4%]" />
+          <col className="w-[7%]" />
+          <col className="w-[22%]" />
+          <col className="w-[9%]" />
+          {DAYS.map((d, i) => (
+            <>
+              <col key={d + "-in-col"} />
+              <col key={d + "-out-col"} />
+              {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+            </>
+          ))}
+        </colgroup>
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>

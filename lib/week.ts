@@ -101,6 +101,21 @@ export function countMondaysInMonth(monthKey: string): number {
   return count;
 }
 
+// Lista (YYYY-MM-DD) de cada segunda-feira dentro do mês — usado pra somar
+// o UCD Hours semana a semana no mês (cada semana pode ter um valor
+// congelado diferente, ver BuildingHoursLog.ucdHours no schema.prisma), em
+// vez de multiplicar o valor ao vivo pela quantidade de semanas.
+export function getMondaysInMonth(monthKey: string): string[] {
+  const { startISO, endISO } = getMonthRange(monthKey);
+  const start = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  const mondays: string[] = [];
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() === 1) mondays.push(toISODate(d));
+  }
+  return mondays;
+}
+
 function addMonths(monthKey: string, delta: number): string {
   const [year, month] = monthKey.split("-").map(Number);
   const d = new Date(Date.UTC(year, month - 1 + delta, 1));

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { syncBuildingTeamChange } from "@/lib/teams";
+import { closeOpenForBuilding } from "@/lib/staffHistory";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -150,6 +151,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   }
 
   const buildingId = BigInt(params.id);
+
+  // Fecha o histórico aberto antes de apagar — senão a linha fica "aberta"
+  // pra sempre com o prédio nulo (ver lib/staffHistory.ts).
+  await closeOpenForBuilding(buildingId);
 
   await prisma.staff.updateMany({ where: { buildingId }, data: { buildingId: null } });
   await prisma.building.delete({ where: { id: buildingId } });

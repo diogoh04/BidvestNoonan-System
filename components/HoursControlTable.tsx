@@ -4,95 +4,49 @@ import { useState } from "react";
 import Link from "next/link";
 import { Pencil, Check, X } from "lucide-react";
 
-type Row = { id: string; nome: string; horasDisponiveis: number | null; hoursSpent: number | null };
-type EditingCell = { buildingId: string; field: "ucd" | "spent" } | null;
+type Row = { id: string; nome: string; ucdHours: number | null; hoursSpent: number | null };
 
-// UCD Hours aqui é o MESMO campo Building.horasDisponiveis editado em
-// /buildings/[id] (BuildingHoursCard) — salvar aqui muda lá também, é o
-// mesmo dado. Hours Spent é o lançamento semanal novo (BuildingHoursLog,
-// ver /api/buildings/[id]/hours-log), específico da semana escolhida.
+// UCD Hours é só leitura aqui — é editado em /buildings/[id] e /teams/[id]
+// (BuildingHoursCard). O valor mostrado já é o congelado daquela semana
+// (BuildingHoursLog.ucdHours), não o valor ao vivo do prédio — ver
+// comentário no schema.prisma. Hours Spent é o único campo editável nesta
+// tela, específico da semana escolhida.
 export default function HoursControlTable({ weekStart, rows: initialRows }: { weekStart: string; rows: Row[] }) {
   const [rows, setRows] = useState(initialRows);
-  const [editing, setEditing] = useState<EditingCell>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
 
-  function startEdit(buildingId: string, field: "ucd" | "spent", current: number | null) {
-    setEditing({ buildingId, field });
+  function startEdit(buildingId: string, current: number | null) {
+    setEditingId(buildingId);
     setValue(current?.toString() ?? "");
   }
 
-  async function save() {
-    if (!editing) return;
+  async function save(buildingId: string) {
     const parsed = value.trim() === "" ? null : Number(value.replace(",", "."));
-    if (parsed !== null && (isNaN(parsed) || parsed < 0)) return;
+    if (parsed === null || isNaN(parsed) || parsed < 0) {
+      setEditingId(null);
+      return;
+    }
 
     setSaving(true);
     try {
-      if (editing.field === "ucd") {
-        const res = await fetch(`/api/buildings/${editing.buildingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ horasDisponiveis: parsed }),
-        });
-        if (!res.ok) throw new Error();
-        setRows((prev) => prev.map((r) => (r.id === editing.buildingId ? { ...r, horasDisponiveis: parsed } : r)));
-      } else {
-        if (parsed === null) {
-          setEditing(null);
-          return;
-        }
-        const res = await fetch(`/api/buildings/${editing.buildingId}/hours-log`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ weekStart, hoursSpent: parsed }),
-        });
-        if (!res.ok) throw new Error();
-        setRows((prev) => prev.map((r) => (r.id === editing.buildingId ? { ...r, hoursSpent: parsed } : r)));
-      }
-      setEditing(null);
+      const res = await fetch(`/api/buildings/${buildingId}/hours-log`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart, hoursSpent: parsed }),
+      });
+      if (!res.ok) throw new Error();
+      const saved = await res.json();
+      setRows((prev) => prev.map((r) => (r.id === buildingId ? { ...r, hoursSpent: parsed, ucdHours: saved.ucdHours ?? r.ucdHours } : r)));
+      setEditingId(null);
     } catch {
     } finally {
       setSaving(false);
     }
   }
 
-  function Cell({ buildingId, field, current }: { buildingId: string; field: "ucd" | "spent"; current: number | null }) {
-    const isEditing = editing?.buildingId === buildingId && editing.field === field;
-    if (isEditing) {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1">
-          <input
-            type="number"
-            min={0}
-            step={0.25}
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && save()}
-            className="w-16 border-none bg-transparent text-sm outline-none"
-          />
-          <button onClick={save} disabled={saving} className="text-petrol hover:text-petrolDark">
-            <Check size={13} />
-          </button>
-          <button onClick={() => setEditing(null)} className="text-ink/40 hover:text-ink">
-            <X size={13} />
-          </button>
-        </span>
-      );
-    }
-    return (
-      <button
-        onClick={() => startEdit(buildingId, field, current)}
-        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-ink transition hover:bg-surface"
-      >
-        {current ?? "—"}
-        <Pencil size={11} className="text-ink/30" />
-      </button>
-    );
-  }
-
-  const totalUcd = rows.reduce((sum, r) => sum + (r.horasDisponiveis ?? 0), 0);
+  const totalUcd = rows.reduce((sum, r) => sum + (r.ucdHours ?? 0), 0);
   const totalSpent = rows.reduce((sum, r) => sum + (r.hoursSpent ?? 0), 0);
   const totalBalance = totalUcd - totalSpent;
 
@@ -115,7 +69,8 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
           </tr>
         )}
         {rows.map((r) => {
-          const balance = r.horasDisponiveis != null && r.hoursSpent != null ? r.horasDisponiveis - r.hoursSpent : null;
+          const balance = r.ucdHours != null && r.hoursSpent != null ? r.ucdHours - r.hoursSpent : null;
+          const isEditing = editingId === r.id;
           return (
             <tr key={r.id} className="border-b border-line/60">
               <td className="px-3 py-2">
@@ -123,11 +78,36 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
                   {r.nome}
                 </Link>
               </td>
+              <td className="px-3 py-2 text-ink/70">{r.ucdHours ?? "—"}</td>
               <td className="px-3 py-2">
-                <Cell buildingId={r.id} field="ucd" current={r.horasDisponiveis} />
-              </td>
-              <td className="px-3 py-2">
-                <Cell buildingId={r.id} field="spent" current={r.hoursSpent} />
+                {isEditing ? (
+                  <span className="inline-flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1">
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.25}
+                      autoFocus
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && save(r.id)}
+                      className="w-16 border-none bg-transparent text-sm outline-none"
+                    />
+                    <button onClick={() => save(r.id)} disabled={saving} className="text-petrol hover:text-petrolDark">
+                      <Check size={13} />
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="text-ink/40 hover:text-ink">
+                      <X size={13} />
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => startEdit(r.id, r.hoursSpent)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-ink transition hover:bg-surface"
+                  >
+                    {r.hoursSpent ?? "—"}
+                    <Pencil size={11} className="text-ink/30" />
+                  </button>
+                )}
               </td>
               <td className="px-3 py-2">
                 {balance === null ? (

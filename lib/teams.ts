@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { openTeamLeadership, closeTeamLeadership } from "@/lib/staffHistory";
 
 // --- Sincronização com o vínculo legado StaffBuilding.role="team_leader" ---
 // O portal de autoatendimento do Team Leader (login "team_leader": /my,
@@ -52,6 +53,12 @@ export async function connectTeamLeader(teamId: bigint, staffId: bigint, horas: 
       create: { staffId, buildingId: b.id, role: "team_leader" },
     });
   }
+
+  // Histórico (ver lib/staffHistory.ts) — idempotente, então chamar isso
+  // pra um líder que já estava conectado (ex.: PUT /api/staff/[id]
+  // reconectando todos os times enviados no formulário) não cria linha
+  // duplicada, só atualiza as horas se mudaram.
+  await openTeamLeadership(staffId, teamId, { horas });
 }
 
 // Desconecta um team leader de um time (o time e os outros líderes, se
@@ -60,10 +67,13 @@ export async function disconnectTeamLeader(teamId: bigint, staffId: bigint) {
   await prisma.teamLeader.delete({ where: { teamId_staffId: { teamId, staffId } } }).catch(() => {});
 
   const buildings = await prisma.building.findMany({ where: { teamId }, select: { id: true } });
-  if (buildings.length === 0) return;
-  await prisma.staffBuilding.deleteMany({
-    where: { staffId, role: "team_leader", buildingId: { in: buildings.map((b) => b.id) } },
-  });
+  if (buildings.length > 0) {
+    await prisma.staffBuilding.deleteMany({
+      where: { staffId, role: "team_leader", buildingId: { in: buildings.map((b) => b.id) } },
+    });
+  }
+
+  await closeTeamLeadership(staffId, teamId);
 }
 
 // Um Team tem número + prédios alocados + um ou mais team leaders conectados
@@ -79,14 +89,22 @@ export async function getTeamsData(onlyTeamId?: bigint) {
   });
 
   const buildingIds = teams.flatMap((t) => t.buildings.map((b) => b.id));
+  const teamIds = teams.map((t) => t.id);
 
-  const [cleanerLinks, allSlots, allCovers] = await Promise.all([
+  const [cleanerLinks, allSlots, allCovers, activeLeaderCovers] = await Promise.all([
     prisma.staffBuilding.findMany({
       where: { buildingId: { in: buildingIds }, role: "cleaner" },
       include: { staff: true },
     }),
     prisma.buildingSlot.findMany({ where: { buildingId: { in: buildingIds } }, orderBy: { ordem: "asc" } }),
     prisma.buildingCover.findMany({ where: { buildingId: { in: buildingIds } }, orderBy: { createdAt: "asc" } }),
+    // Team leaders cobrindo temporariamente (ver StaffHistory.kind ==
+    // "team_leader_cover") — não é StaffBuilding/TeamLeader, é só o log.
+    prisma.staffHistory.findMany({
+      where: { kind: "team_leader_cover", teamId: { in: teamIds }, endedAt: null },
+      include: { staff: true },
+      orderBy: { startedAt: "asc" },
+    }),
   ]);
 
   function mapBuilding(building: (typeof teams)[number]["buildings"][number]) {
@@ -119,10 +137,22 @@ export async function getTeamsData(onlyTeamId?: bigint) {
         staffNumber: l.staff.staffNumber,
         horas: l.horas,
       }));
+      const leaderCovers = activeLeaderCovers
+        .filter((c) => c.teamId === t.id)
+        .map((c) => ({
+          id: c.id.toString(),
+          staffId: c.staffId.toString(),
+          nome: c.staff.nome,
+          staffNumber: c.staff.staffNumber,
+          startedAt: c.startedAt.toISOString(),
+          endedAt: c.endedAt ? c.endedAt.toISOString() : null,
+          note: c.note,
+        }));
       return {
         id: t.id.toString(),
         number: t.number,
         leaders,
+        leaderCovers,
         // Nome/horas "resumidos" pra telas que só têm espaço pra uma linha
         // (grade de /timesheets, Hours Control) — junta todos os líderes.
         leaderName: leaders.length > 0 ? leaders.map((l) => l.nome).join(", ") : null,

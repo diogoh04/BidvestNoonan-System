@@ -68,6 +68,7 @@ model Staff {
   // Times que este staff lidera hoje (ver TeamLeader) — pode ser mais de um,
   // e um time pode ter mais de um líder ao mesmo tempo (co-liderança).
   teamsLed     TeamLeader[]
+  history      StaffHistory[]
   loginAccount User?
 
   @@map("worker")
@@ -93,15 +94,23 @@ model Building {
   timesheets    Timesheet[]
   fortnightPlans FortnightPlan[]
   hoursLogs     BuildingHoursLog[]
+  history       StaffHistory[]
 
   @@map("predios")
 }
 
 // ---------- Horas gastas lançadas por semana (tabela nova: building_hours_log) ----------
-// horasDisponiveis (acima) é o orçamento semanal (UCD Hours) — fixo até
-// alguém mudar. Esta tabela é o real: o Master lança, semana a semana, quanto
-// foi de fato gasto naquele prédio (ver /hours-control), pra dar pra comparar
-// orçado x gasto e gerar o balanço. Uma linha por prédio+semana; nada aqui é
+// Building.horasDisponiveis (UCD Hours) é editado em /buildings/[id] e
+// /teams/[id] (BuildingHoursCard) — é o valor AO VIVO, sempre o atual. Esta
+// tabela é o real: o Master lança, semana a semana, quanto foi de fato
+// gasto naquele prédio (ver /hours-control), pra dar pra comparar orçado x
+// gasto e gerar o balanço. `ucdHours` aqui é um SNAPSHOT do valor ao vivo,
+// tirado só na primeira vez que a semana é lançada (ver PUT
+// /api/buildings/[id]/hours-log) — depois disso fica congelado, mesmo que o
+// valor ao vivo do prédio mude depois (orçamento de mês passado não pode
+// mudar retroativamente só porque o orçamento deste mês mudou). Semanas
+// nunca lançadas não têm snapshot — mostram o valor ao vivo até serem
+// lançadas pela primeira vez. Uma linha por prédio+semana; hoursSpent não é
 // derivado automaticamente dos cleaners cadastrados (esse cálculo já existe
 // em outro lugar — dashboard/timesheets — e é só uma estimativa).
 model BuildingHoursLog {
@@ -110,6 +119,7 @@ model BuildingHoursLog {
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   weekStart  DateTime @map("week_start") @db.Date
   hoursSpent Float    @map("hours_spent")
+  ucdHours   Float?   @map("ucd_hours")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -133,6 +143,7 @@ model Team {
 
   leaders   TeamLeader[]
   buildings Building[]
+  history   StaffHistory[]
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -156,6 +167,46 @@ model TeamLeader {
 
   @@id([teamId, staffId])
   @@map("team_leader")
+}
+
+// ---------- Trilha/histórico do staff (tabela nova: staff_history) ----------
+// Uma linha por INTERVALO: aberta (endedAt = null) enquanto vale, fechada
+// (endedAt preenchido) quando termina. Substitui a necessidade de reconstruir
+// "desde quando"/"quanto tempo ficou" a partir de StaffBuilding/TeamLeader —
+// esses vínculos são apagados e recriados a cada edição (ver PUT
+// /api/staff/[id]), então o createdAt deles não é confiável como histórico.
+// `kind`:
+//   "building"           -> cleaner num prédio (buildingId preenchido)
+//   "team_leader"        -> conectado como líder real de um time (teamId)
+//   "team_leader_cover"  -> cobrindo a função de líder temporariamente, SEM
+//                           estar conectado de verdade (não mexe em acesso
+//                           nem nos prédios do time) — ver /teams/[id]
+// buildingName/teamNumber são snapshot (sobrevivem a rename/exclusão do
+// prédio/time), mesmo padrão de Staff.lastBuildingName.
+model StaffHistory {
+  id      BigInt @id @default(autoincrement())
+  staffId BigInt @map("staff_id")
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  kind String @db.VarChar(30)
+
+  buildingId   BigInt?   @map("building_id")
+  building     Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  buildingName String?   @map("building_name") @db.VarChar(255)
+
+  teamId     BigInt? @map("team_id")
+  team       Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamNumber Int?    @map("team_number")
+
+  horas     Float?
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  // Só usado no "team_leader_cover" hoje (motivo/observação livre).
+  note      String?   @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("staff_history")
 }
 
 // ---------- Vagas fixas do prédio (posições com horas definidas, independente de quem ocupa hoje) ----------

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { getTeamsData, disconnectTeamLeader } from "@/lib/teams";
+import { closeOpenCoversForTeam } from "@/lib/staffHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   for (const l of team.leaders) {
     await disconnectTeamLeader(teamId, l.staffId);
   }
+  await closeOpenCoversForTeam(teamId);
   await prisma.team.delete({ where: { id: teamId } });
 
   return NextResponse.json({ ok: true });

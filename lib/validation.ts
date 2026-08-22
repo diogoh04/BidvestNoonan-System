@@ -125,6 +125,29 @@ export const buildingInputSchema = z.object({
   nome: z.string().trim().min(1, "Building name is required"),
 });
 
+// "YYYY-MM-DD" — vem de <input type="date">.
+const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
+
+// POST /api/teams/[id]/covers — registra um staff cobrindo a função de team
+// leader temporariamente (ver StaffHistory.kind="team_leader_cover" no
+// schema.prisma). endedAt opcional: em branco = cobertura em andamento.
+export const teamLeaderCoverCreateSchema = z
+  .object({
+    staffId: z.string().min(1, "Select the staff covering"),
+    startedAt: dateOnlySchema,
+    endedAt: dateOnlySchema.nullable().optional(),
+    note: z.string().trim().max(500).nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.endedAt && data.endedAt < data.startedAt) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date can't be before the start date", path: ["endedAt"] });
+    }
+  });
+
+export const teamLeaderCoverCloseSchema = z.object({
+  endedAt: dateOnlySchema.optional(),
+});
+
 // Reaproveitado pelo cadastro de conta em /register (registerInputSchema)
 // além do formulário de usuário do Master (userBaseSchema).
 export const usernameSchema = z

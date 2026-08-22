@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
 import StaffRow from "@/components/StaffRow";
-import { Search } from "lucide-react";
+import { Search, History } from "lucide-react";
 
 const NO_BUILDING = "__sem_predio__";
 
@@ -71,10 +72,21 @@ export default function FilterPage() {
     <>
       <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">Filter Staff</h1>
-        <p className="mt-1 text-sm text-ink/50">
-          Search by building, name or staff number — results appear as you type.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink">Filter Staff</h1>
+            <p className="mt-1 text-sm text-ink/50">
+              Search by building, name or staff number — results appear as you type.
+            </p>
+          </div>
+          <Link
+            href="/staff-history"
+            className="flex items-center gap-1.5 whitespace-nowrap text-sm text-petrol hover:underline"
+          >
+            <History size={14} />
+            Building/team history
+          </Link>
+        </div>
 
         <form onSubmit={runSearch} className="mt-6 flex flex-wrap gap-3">
           <select

@@ -4,6 +4,7 @@ import { staffInputSchema } from "@/lib/validation";
 import { toJSONSafe, StaffDTO } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { connectTeamLeader, disconnectTeamLeader } from "@/lib/teams";
+import { syncBuildingAssignments, closeAllOpenForStaff } from "@/lib/staffHistory";
 
 function mapStaff(w: any, teamsLed: StaffDTO["teamsLed"] = []): StaffDTO {
   return {
@@ -152,7 +153,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   // saíram, conecta/atualiza horas dos que ficaram ou entraram. O
   // deleteMany(staffBuilding) acima já apagou os vínculos legados
   // role="team_leader" deste staff — connectTeamLeader recria os que ainda
-  // valem (ver lib/teams.ts).
+  // valem (ver lib/teams.ts). Cada connect/disconnect já abre/fecha o
+  // histórico de liderança sozinho (idempotente).
   const newTeamIds = new Set(teamsLed.map((t) => BigInt(t.teamId).toString()));
   for (const teamId of previouslyLedTeamIds) {
     if (!newTeamIds.has(teamId.toString())) {
@@ -161,6 +163,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
   for (const t of teamsLed) {
     await connectTeamLeader(BigInt(t.teamId), staffId, t.horas ?? null);
+  }
+
+  // Histórico de prédio (ver lib/staffHistory.ts) — diffa contra o que já
+  // estava aberto no histórico (não contra StaffBuilding, apagado acima),
+  // então só fecha/abre o que realmente mudou.
+  await syncBuildingAssignments(
+    staffId,
+    assignments.filter((a) => a.role === "cleaner").map((a) => ({ buildingId: BigInt(a.buildingId), horas: a.horas ?? null }))
+  );
+  // Status especial: fecha qualquer coisa que ainda esteja aberta (hoje só
+  // sobra "cover" — prédio/time já ficam vazios acima nesse caso).
+  if (data.status) {
+    await closeAllOpenForStaff(staffId);
   }
 
   return NextResponse.json(toJSONSafe(mapStaff(updated, await getTeamsLed(staffId))));

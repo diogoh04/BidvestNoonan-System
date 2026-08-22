@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquarePlus, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { MessageSquarePlus, MessageCircle, Pencil, Trash2, X, History as HistoryIcon } from "lucide-react";
 import { toWhatsAppHref } from "@/lib/phone";
+import {
+  HISTORY_KIND_LABELS,
+  historyTargetLabel,
+  formatHistoryRange,
+  formatHistoryDuration,
+  type StaffHistoryDTO,
+} from "@/lib/historyFormat";
 
 type StaffRowProps = {
   id: string;
@@ -17,11 +24,18 @@ type StaffRowProps = {
   role?: "cleaner" | "team_leader";
   onDeleted?: (id: string) => void;
   // Team Leader vê e comenta, mas não edita/exclui staff (isso é admin,
-  // exclusivo do Master).
+  // exclusivo do Master) — o painel de histórico também é exclusivo dele.
   canManage?: boolean;
 };
 
 type Observation = { id: string; texto: string | null; data: string | null };
+type Panel = null | "notes" | "history";
+
+const HISTORY_KIND_STYLE: Record<StaffHistoryDTO["kind"], string> = {
+  building: "bg-petrolLight text-petrol",
+  team_leader: "bg-petrolLight text-petrol",
+  team_leader_cover: "border border-dashed border-amber-400 bg-amber-50 text-amber-700",
+};
 
 export default function StaffRow({
   id,
@@ -34,7 +48,7 @@ export default function StaffRow({
   onDeleted,
   canManage = true,
 }: StaffRowProps) {
-  const [showPanel, setShowPanel] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
   const [obsText, setObsText] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -43,21 +57,40 @@ export default function StaffRow({
   const [history, setHistory] = useState<Observation[] | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  async function togglePanel() {
-    if (showPanel) {
-      setShowPanel(false);
+  const [entries, setEntries] = useState<StaffHistoryDTO[] | null>(null);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+
+  async function togglePanel(next: "notes" | "history") {
+    if (panel === next) {
+      setPanel(null);
       return;
     }
-    setShowPanel(true);
-    setLoadingHistory(true);
-    try {
-      const res = await fetch(`/api/staff/${id}/feedback`);
-      const data = await res.json();
-      setHistory(data);
-    } catch {
-      setHistory([]);
-    } finally {
-      setLoadingHistory(false);
+    setPanel(next);
+
+    if (next === "notes" && history === null) {
+      setLoadingHistory(true);
+      try {
+        const res = await fetch(`/api/staff/${id}/feedback`);
+        const data = await res.json();
+        setHistory(data);
+      } catch {
+        setHistory([]);
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+
+    if (next === "history" && entries === null) {
+      setLoadingEntries(true);
+      try {
+        const res = await fetch(`/api/staff/${id}/history`);
+        const data = await res.json();
+        setEntries(data);
+      } catch {
+        setEntries([]);
+      } finally {
+        setLoadingEntries(false);
+      }
     }
   }
 
@@ -87,6 +120,16 @@ export default function StaffRow({
       const res = await fetch(`/api/staff/${id}/feedback/${obsId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete note");
       setHistory((prev) => (prev ? prev.filter((o) => o.id !== obsId) : prev));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function deleteEntry(entryId: string) {
+    try {
+      const res = await fetch(`/api/staff-history/${entryId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete entry");
+      setEntries((prev) => (prev ? prev.filter((e) => e.id !== entryId) : prev));
     } catch (e: any) {
       setError(e.message);
     }
@@ -140,15 +183,24 @@ export default function StaffRow({
         <div className="flex items-center gap-1">
           <button
             title="Notes"
-            onClick={togglePanel}
+            onClick={() => togglePanel("notes")}
             className={`rounded-md p-2 transition hover:bg-petrolLight hover:text-petrol ${
-              showPanel ? "bg-petrolLight text-petrol" : "text-ink/60"
+              panel === "notes" ? "bg-petrolLight text-petrol" : "text-ink/60"
             }`}
           >
             <MessageSquarePlus size={18} />
           </button>
           {canManage && (
             <>
+              <button
+                title="Building & team history"
+                onClick={() => togglePanel("history")}
+                className={`rounded-md p-2 transition hover:bg-petrolLight hover:text-petrol ${
+                  panel === "history" ? "bg-petrolLight text-petrol" : "text-ink/60"
+                }`}
+              >
+                <HistoryIcon size={18} />
+              </button>
               <Link
                 href={`/staff/${id}/edit`}
                 title="Edit"
@@ -168,7 +220,7 @@ export default function StaffRow({
         </div>
       </div>
 
-      {showPanel && (
+      {panel === "notes" && (
         <div className="mt-3 border-t border-line pt-3">
           <div className="flex items-start gap-2">
             <textarea
@@ -222,6 +274,47 @@ export default function StaffRow({
               </ul>
             )}
           </div>
+        </div>
+      )}
+
+      {panel === "history" && (
+        <div className="mt-3 border-t border-line pt-3">
+          {loadingEntries && <p className="text-sm text-ink/40">Loading...</p>}
+          {!loadingEntries && entries && entries.length === 0 && (
+            <p className="text-sm text-ink/40">No history yet.</p>
+          )}
+          {!loadingEntries && entries && entries.length > 0 && (
+            <ul className="space-y-2">
+              {entries.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-2 rounded-md bg-surface px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${HISTORY_KIND_STYLE[e.kind]}`}>
+                      {HISTORY_KIND_LABELS[e.kind]}
+                    </span>
+                    <span className="text-ink">{historyTargetLabel(e)}</span>
+                    {!e.endedAt && (
+                      <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success">
+                        current
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right font-mono text-xs text-ink/40">
+                      <div>{formatHistoryRange(e)}</div>
+                      <div>{formatHistoryDuration(e.startedAt, e.endedAt)}</div>
+                    </div>
+                    <button
+                      title="Delete entry (wrong change or test)"
+                      onClick={() => deleteEntry(e.id)}
+                      className="shrink-0 rounded p-1 text-ink/30 transition hover:bg-red-50 hover:text-danger"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

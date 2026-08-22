@@ -4,6 +4,7 @@ import { staffInputSchema } from "@/lib/validation";
 import { toJSONSafe, StaffDTO } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { connectTeamLeader } from "@/lib/teams";
+import { syncBuildingAssignments } from "@/lib/staffHistory";
 
 function mapStaff(w: any, teamsLed: StaffDTO["teamsLed"] = []): StaffDTO {
   return {
@@ -163,8 +164,17 @@ export async function POST(req: NextRequest) {
     include: { buildingsAsTeamLeader: { include: { building: true } } },
   });
 
+  // Histórico (ver lib/staffHistory.ts) — abre uma entrada por prédio de
+  // cleaner logo na criação (role="team_leader" em assignments é legado, não
+  // gera histórico de prédio — ver comentário no schema.prisma).
+  await syncBuildingAssignments(
+    created.id,
+    assignments.filter((a) => a.role === "cleaner").map((a) => ({ buildingId: BigInt(a.buildingId), horas: a.horas ?? null }))
+  );
+
   // Conecta o staff recém-criado como líder de cada time selecionado (ver
-  // lib/teams.ts:connectTeamLeader — já cuida do vínculo legado de acesso).
+  // lib/teams.ts:connectTeamLeader — já cuida do vínculo legado de acesso e
+  // do histórico de liderança).
   for (const t of teamsLed) {
     await connectTeamLeader(BigInt(t.teamId), created.id, t.horas ?? null);
   }

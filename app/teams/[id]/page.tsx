@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import BuildingCard from "@/components/BuildingCard";
 import TeamNumberCard from "@/components/TeamNumberCard";
 import ConnectTeamLeaderCard from "@/components/ConnectTeamLeaderCard";
+import TeamLeaderCoversCard from "@/components/TeamLeaderCoversCard";
 import AddBuildingToTeamCard from "@/components/AddBuildingToTeamCard";
 import DeleteTeamButton from "@/components/DeleteTeamButton";
 import { ClipboardList } from "lucide-react";
@@ -59,6 +60,8 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
             <DeleteTeamButton teamId={team.id} />
           </div>
         </div>
+
+        <TeamLeaderCoversCard teamId={team.id} initialCovers={team.leaderCovers} />
 
         <div className="mt-6">
           <AddBuildingToTeamCard teamId={team.id} availableBuildings={availableBuildings} />

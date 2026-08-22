@@ -5,7 +5,7 @@ import WeekNav from "@/components/WeekNav";
 import MonthNav from "@/components/MonthNav";
 import HoursViewToggle from "@/components/HoursViewToggle";
 import { ChevronRight, Gauge } from "lucide-react";
-import { getMonday, toISODate, getMonthKey, countMondaysInMonth, firstMondayOfMonth } from "@/lib/week";
+import { getMonday, toISODate, getMonthKey, getMondaysInMonth, firstMondayOfMonth } from "@/lib/week";
 
 async function getBaseUrl() {
   const h = headers();
@@ -51,19 +51,34 @@ export default async function HoursControlPage({
   const weekStart = searchParams.week ?? toISODate(getMonday(new Date()));
   const month = searchParams.month ?? getMonthKey(new Date());
   const periodQuery = view === "month" ? `month=${month}` : `weekStart=${weekStart}`;
-  // No mês, o "orçamento" escala com o número de semanas lançáveis dentro
-  // dele — UCD Hours é sempre semanal, não guardamos um valor mensal à parte.
-  const budgetMultiplier = view === "month" ? countMondaysInMonth(month) : 1;
   const editWeek = view === "month" ? firstMondayOfMonth(month) : weekStart;
+  // Cada segunda do período (só 1 no modo semana) — soma semana a semana em
+  // vez de multiplicar o valor ao vivo, porque cada semana já lançada tem
+  // seu próprio UCD Hours congelado (ver BuildingHoursLog.ucdHours no
+  // schema.prisma); semana sem lançamento cai pro valor ao vivo do prédio.
+  const mondays = view === "month" ? getMondaysInMonth(month) : [weekStart];
 
   const [teams, buildings, logs] = await Promise.all([getTeams(), getBuildings(), getHoursLog(periodQuery)]);
-  const spentByBuilding = new Map<string, number>(logs.map((l: any) => [l.buildingId, l.hoursSpent]));
+
+  const logsByBuilding = new Map<string, any[]>();
+  for (const l of logs) {
+    const arr = logsByBuilding.get(l.buildingId) ?? [];
+    arr.push(l);
+    logsByBuilding.set(l.buildingId, arr);
+  }
 
   const unassigned = buildings.filter((b: any) => !b.teamId);
 
   function buildingRow(b: { id: string; nome: string; horasDisponiveis: number | null }) {
-    const budget = b.horasDisponiveis != null ? b.horasDisponiveis * budgetMultiplier : null;
-    const spent = spentByBuilding.get(b.id) ?? null;
+    const buildingLogs = logsByBuilding.get(b.id) ?? [];
+    let budget: number | null = null;
+    let spent: number | null = null;
+    for (const monday of mondays) {
+      const log = buildingLogs.find((l) => l.weekStart === monday);
+      const ucd = log?.ucdHours ?? b.horasDisponiveis;
+      if (ucd != null) budget = (budget ?? 0) + ucd;
+      if (log) spent = (spent ?? 0) + log.hoursSpent;
+    }
     const balance = budget != null && spent != null ? budget - spent : null;
     return { ...b, budget, spent, balance };
   }

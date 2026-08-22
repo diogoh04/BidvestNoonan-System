@@ -52,7 +52,7 @@ export default async function TimesheetsPage() {
                       {team.leaders.length > 1 && <span>{team.leaders.length} leaders</span>}
                       <span className="flex items-center gap-1 text-petrol">
                         <Building2 size={12} />
-                        {team.buildings.length} building(s)
+                        {team.buildings.length > 0 ? team.buildings.map((b: any) => b.nome).join(", ") : "No building"}
                       </span>
                     </div>
                   </div>

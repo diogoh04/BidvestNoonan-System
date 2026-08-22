@@ -46,14 +46,19 @@ export default async function HoursControlTeamPage({
   const weekStart = searchParams.week ?? toISODate(getMonday(new Date()));
   const buildingIds = team.buildings.map((b: any) => b.id);
   const logs = await getHoursLog(weekStart, buildingIds);
-  const spentByBuilding = new Map<string, number>(logs.map((l: any) => [l.buildingId, l.hoursSpent]));
+  const logByBuilding = new Map<string, any>(logs.map((l: any) => [l.buildingId, l]));
 
-  const rows = team.buildings.map((b: any) => ({
-    id: b.id,
-    nome: b.nome,
-    horasDisponiveis: b.horasDisponiveis,
-    hoursSpent: spentByBuilding.get(b.id) ?? null,
-  }));
+  const rows = team.buildings.map((b: any) => {
+    const log = logByBuilding.get(b.id);
+    return {
+      id: b.id,
+      nome: b.nome,
+      // Semana já lançada -> valor congelado daquela semana; senão, o valor
+      // ao vivo do prédio (ainda não existe snapshot pra essa semana).
+      ucdHours: log?.ucdHours ?? b.horasDisponiveis,
+      hoursSpent: log?.hoursSpent ?? null,
+    };
+  });
 
   return (
     <>

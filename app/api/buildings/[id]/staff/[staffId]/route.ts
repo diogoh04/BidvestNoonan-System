@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
+import { closeBuildingAssignment } from "@/lib/staffHistory";
 
 export async function DELETE(
   req: NextRequest,
@@ -28,6 +29,13 @@ export async function DELETE(
         },
       },
     });
+
+    // Histórico (ver lib/staffHistory.ts) — só faz sentido pra cleaner; o
+    // vínculo "team_leader" aqui é derivado de TeamLeader (lib/teams.ts já
+    // cuida do histórico de liderança quando o time é que muda).
+    if (role === "cleaner") {
+      await closeBuildingAssignment(BigInt(params.staffId), BigInt(params.id));
+    }
 
     return NextResponse.json({ ok: true });
   } catch {
