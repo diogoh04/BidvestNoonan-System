@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { staffInputSchema } from "@/lib/validation";
 import { toJSONSafe, StaffDTO } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
+import { connectTeamLeader, disconnectTeamLeader } from "@/lib/teams";
 
-function mapStaff(w: any): StaffDTO {
+function mapStaff(w: any, teamsLed: StaffDTO["teamsLed"] = []): StaffDTO {
   return {
     id: w.id.toString(),
     nome: w.nome,
@@ -17,6 +18,7 @@ function mapStaff(w: any): StaffDTO {
       role: sb.role,
       horas: sb.horas,
     })),
+    teamsLed,
     status: w.status ?? null,
     blockedAt: w.blockedAt ? w.blockedAt.toISOString() : null,
     lastWorkingDay: w.lastWorkingDay ? w.lastWorkingDay.toISOString() : null,
@@ -26,6 +28,11 @@ function mapStaff(w: any): StaffDTO {
     lastBuildingName: w.lastBuildingName ?? null,
     leDestinationCompany: w.leDestinationCompany ?? null,
   };
+}
+
+async function getTeamsLed(staffId: bigint): Promise<StaffDTO["teamsLed"]> {
+  const links = await prisma.teamLeader.findMany({ where: { staffId }, include: { team: true } });
+  return links.map((l) => ({ teamId: l.teamId.toString(), number: l.team.number, horas: l.horas }));
 }
 
 
@@ -45,9 +52,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (!staff) return NextResponse.json({ error: "Staff not found" }, { status: 404 });
 
+  const teamsLed = await getTeamsLed(staff.id);
+
   return NextResponse.json(
     toJSONSafe({
-      ...mapStaff(staff),
+      ...mapStaff(staff, teamsLed),
       observations: staff.observations.map((f) => ({
         id: f.id.toString(),
         texto: f.texto,
@@ -74,8 +83,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const staffId = BigInt(params.id);
 
   // Staff com status especial (P45/LE/Blocked) não tem vínculo real de
-  // prédio — ignora quaisquer assignments enviados nesse caso.
+  // prédio — ignora quaisquer assignments/teamsLed enviados nesse caso.
   const assignments = data.status ? [] : data.assignments;
+  const teamsLed = data.status ? [] : data.teamsLed;
+
+  // Times que este staff lidera ANTES desta edição — usado depois pra saber
+  // quais desconectar (os que saíram da lista) — ver loop de sincronização
+  // logo abaixo do update.
+  const previouslyLedTeamIds = (await prisma.teamLeader.findMany({ where: { staffId }, select: { teamId: true } })).map(
+    (t) => t.teamId
+  );
 
   // P45: antes de apagar os vínculos de prédio (logo abaixo), guarda o
   // nome do último prédio pro relatório de saída (lib/p45Report.ts) —
@@ -131,7 +148,22 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     include: { buildingsAsTeamLeader: { include: { building: true } } },
   });
 
-  return NextResponse.json(toJSONSafe(mapStaff(updated)));
+  // Sincroniza TeamLeader com a lista enviada: desconecta os times que
+  // saíram, conecta/atualiza horas dos que ficaram ou entraram. O
+  // deleteMany(staffBuilding) acima já apagou os vínculos legados
+  // role="team_leader" deste staff — connectTeamLeader recria os que ainda
+  // valem (ver lib/teams.ts).
+  const newTeamIds = new Set(teamsLed.map((t) => BigInt(t.teamId).toString()));
+  for (const teamId of previouslyLedTeamIds) {
+    if (!newTeamIds.has(teamId.toString())) {
+      await disconnectTeamLeader(teamId, staffId);
+    }
+  }
+  for (const t of teamsLed) {
+    await connectTeamLeader(BigInt(t.teamId), staffId, t.horas ?? null);
+  }
+
+  return NextResponse.json(toJSONSafe(mapStaff(updated, await getTeamsLed(staffId))));
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {

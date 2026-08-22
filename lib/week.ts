@@ -65,3 +65,64 @@ export function formatShortDate(weekStartISO: string, offsetDays: number): strin
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
+
+// --- Helpers de mês, usados pelo filtro mensal de /hours-control ---
+
+export function getMonthKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function formatMonthLabel(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, 1));
+  return d.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+// Primeiro e último dia (YYYY-MM-DD) do mês "YYYY-MM" — usado pra buscar
+// todos os lançamentos (BuildingHoursLog) cujo weekStart cai dentro do mês.
+export function getMonthRange(monthKey: string): { startISO: string; endISO: string } {
+  const [year, month] = monthKey.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 0)); // dia 0 do mês seguinte = último dia deste mês
+  return { startISO: toISODate(start), endISO: toISODate(end) };
+}
+
+// Quantas segundas-feiras (semanas lançáveis) caem dentro do mês — usado pra
+// escalar o orçamento semanal (UCD Hours) pro total do mês (weekly * essa
+// contagem), já que não guardamos um orçamento mensal separado.
+export function countMondaysInMonth(monthKey: string): number {
+  const { startISO, endISO } = getMonthRange(monthKey);
+  const start = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  let count = 0;
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() === 1) count++;
+  }
+  return count;
+}
+
+function addMonths(monthKey: string, delta: number): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return getMonthKey(d);
+}
+
+export function prevMonth(monthKey: string): string {
+  return addMonths(monthKey, -1);
+}
+
+export function nextMonth(monthKey: string): string {
+  return addMonths(monthKey, 1);
+}
+
+// Primeira segunda-feira dentro do mês — ponto de entrada ao abrir um time
+// a partir da visão mensal (edição continua sendo sempre semana a semana).
+export function firstMondayOfMonth(monthKey: string): string {
+  const { startISO, endISO } = getMonthRange(monthKey);
+  const start = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() === 1) return toISODate(d);
+  }
+  return startISO;
+}

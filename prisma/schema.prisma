@@ -65,6 +65,9 @@ model Staff {
 
   observations Feedback[]
   buildingsAsTeamLeader StaffBuilding[]
+  // Times que este staff lidera hoje (ver TeamLeader) — pode ser mais de um,
+  // e um time pode ter mais de um líder ao mesmo tempo (co-liderança).
+  teamsLed     TeamLeader[]
   loginAccount User?
 
   @@map("worker")
@@ -77,14 +80,82 @@ model Building {
   horasDisponiveis Float? @map("horas_disponiveis")
   workOrder String? @map("work_order")
 
+  // Time ao qual este prédio está alocado (ver model Team). Independente de
+  // quem é o team leader hoje — o prédio fica no time mesmo que o time
+  // esteja sem líder conectado no momento.
+  teamId BigInt? @map("team_id")
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
   staff         Staff[]
   teamLeaders   StaffBuilding[]
   slots         BuildingSlot[]
   covers        BuildingCover[]
   timesheets    Timesheet[]
   fortnightPlans FortnightPlan[]
+  hoursLogs     BuildingHoursLog[]
 
   @@map("predios")
+}
+
+// ---------- Horas gastas lançadas por semana (tabela nova: building_hours_log) ----------
+// horasDisponiveis (acima) é o orçamento semanal (UCD Hours) — fixo até
+// alguém mudar. Esta tabela é o real: o Master lança, semana a semana, quanto
+// foi de fato gasto naquele prédio (ver /hours-control), pra dar pra comparar
+// orçado x gasto e gerar o balanço. Uma linha por prédio+semana; nada aqui é
+// derivado automaticamente dos cleaners cadastrados (esse cálculo já existe
+// em outro lugar — dashboard/timesheets — e é só uma estimativa).
+model BuildingHoursLog {
+  id         BigInt   @id @default(autoincrement())
+  buildingId BigInt   @map("building_id")
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  weekStart  DateTime @map("week_start") @db.Date
+  hoursSpent Float    @map("hours_spent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([buildingId, weekStart])
+  @@map("building_hours_log")
+}
+
+// ---------- Time (tabela nova: team) ----------
+// Um time é a unidade estável: tem número e prédios alocados a ele
+// independente de quem é o team leader no momento (ver /teams). O(s) team
+// leader(s) são "conexões" (ver TeamLeader abaixo — um time pode ter mais de
+// um, ex.: dois team leaders dividindo o mesmo time) que podem ser trocadas
+// sem afetar os prédios do time — substitui o antigo modelo onde o team
+// leader "era dono" direto dos prédios via StaffBuilding.role="team_leader"
+// (link legado, mantido no banco mas não usado mais por esse fluxo — ver
+// /team-leaders).
+model Team {
+  id     BigInt @id @default(autoincrement())
+  number Int?
+
+  leaders   TeamLeader[]
+  buildings Building[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("team")
+}
+
+// ---------- Líder(es) de um time (tabela nova: team_leader) ----------
+// N:N entre Team e Staff: um time pode ter mais de um líder (co-liderança) e
+// o mesmo staff pode liderar mais de um time. `horas` é por vínculo (mesma
+// pessoa pode ter cargas diferentes em times diferentes) — substitui o antigo
+// Team.leaderId/leaderHours (single).
+model TeamLeader {
+  teamId  BigInt @map("team_id")
+  staffId BigInt @map("staff_id")
+  horas   Float?
+
+  team  Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([teamId, staffId])
+  @@map("team_leader")
 }
 
 // ---------- Vagas fixas do prédio (posições com horas definidas, independente de quem ocupa hoje) ----------

@@ -8,6 +8,8 @@ import { LEAVE_REASON_LABELS, type LeaveReason } from "@/lib/types";
 type Building = { id: string; nome: string };
 type Role = "cleaner" | "team_leader";
 type Assignment = { buildingId: string; role: Role; horas: number | null };
+type Team = { id: string; number: number | null; leaderName: string | null };
+type TeamLed = { teamId: string; horas: number | null };
 type Status = "p45" | "le" | "blocked" | "sick" | null;
 
 export type StaffFormValues = {
@@ -16,6 +18,7 @@ export type StaffFormValues = {
   staffNumber: string;
   telefone: string;
   assignments: Assignment[];
+  teamsLed: TeamLed[];
   status?: Status;
   blockedAt?: string | null;
   lastWorkingDay?: string | null;
@@ -42,10 +45,14 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const isEdit = Boolean(initial?.id);
 
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [nome, setNome] = useState(initial?.nome ?? "");
   const [staffNumber, setStaffNumber] = useState(initial?.staffNumber ?? "");
   const [telefone, setTelefone] = useState(initial?.telefone ?? "");
-  const [assignments, setAssignments] = useState<Assignment[]>(initial?.assignments ?? []);
+  const [assignments, setAssignments] = useState<Assignment[]>(
+    (initial?.assignments ?? []).filter((a) => a.role === "cleaner")
+  );
+  const [teamsLed, setTeamsLed] = useState<TeamLed[]>(initial?.teamsLed ?? []);
   const [status, setStatus] = useState<Status>(initial?.status ?? null);
   const [blockedAt, setBlockedAt] = useState(initial?.blockedAt?.slice(0, 10) ?? "");
   const [lastWorkingDay, setLastWorkingDay] = useState(initial?.lastWorkingDay?.slice(0, 10) ?? "");
@@ -60,12 +67,20 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
 
   useEffect(() => {
     loadBuildings();
+    loadTeams();
   }, []);
 
   function loadBuildings() {
     fetch("/api/buildings")
       .then((r) => r.json())
       .then(setBuildings)
+      .catch(() => {});
+  }
+
+  function loadTeams() {
+    fetch("/api/teams")
+      .then((r) => r.json())
+      .then(setTeams)
       .catch(() => {});
   }
 
@@ -90,18 +105,13 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     }
   }
 
-  // Um vínculo é identificado por prédio+papel — o mesmo prédio pode
-  // aparecer duas vezes (uma como cleaner, outra como team leader).
+  // Vínculo de cleaner: um por prédio (o mesmo staff não repete o mesmo
+  // prédio duas vezes aqui). Team leader não é mais um vínculo de prédio —
+  // ver teamsLed abaixo, que conecta o staff a um Team inteiro.
   function addAssignment() {
-    const used = new Set(assignments.map((a) => `${a.buildingId}:${a.role}`));
-    for (const b of buildings) {
-      for (const r of ["cleaner", "team_leader"] as Role[]) {
-        if (!used.has(`${b.id}:${r}`)) {
-          setAssignments((prev) => [...prev, { buildingId: b.id, role: r, horas: null }]);
-          return;
-        }
-      }
-    }
+    const used = new Set(assignments.map((a) => a.buildingId));
+    const next = buildings.find((b) => !used.has(b.id));
+    if (next) setAssignments((prev) => [...prev, { buildingId: next.id, role: "cleaner", horas: null }]);
   }
 
   function updateAssignment(index: number, patch: Partial<Assignment>) {
@@ -112,9 +122,27 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     setAssignments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Cada prédio comporta até 2 vínculos (cleaner + team leader).
-  const usedCombos = new Set(assignments.map((a) => `${a.buildingId}:${a.role}`));
-  const hasBuildingAvailable = usedCombos.size < buildings.length * 2;
+  const usedBuildingIds = new Set(assignments.map((a) => a.buildingId));
+  const hasBuildingAvailable = usedBuildingIds.size < buildings.length;
+
+  // Um time pode ter mais de um líder (co-liderança), então todos entram na
+  // lista — só filtra os já escolhidos NESTE formulário (ver options abaixo).
+  const availableTeams = teams;
+  const usedTeamIds = new Set(teamsLed.map((t) => t.teamId));
+  const hasTeamAvailable = availableTeams.some((t) => !usedTeamIds.has(t.id));
+
+  function addTeamLed() {
+    const next = availableTeams.find((t) => !usedTeamIds.has(t.id));
+    if (next) setTeamsLed((prev) => [...prev, { teamId: next.id, horas: null }]);
+  }
+
+  function updateTeamLed(index: number, patch: Partial<TeamLed>) {
+    setTeamsLed((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)));
+  }
+
+  function removeTeamLed(index: number) {
+    setTeamsLed((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,6 +154,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       staffNumber,
       telefone,
       assignments,
+      teamsLed,
       status,
       blockedAt: status === "blocked" && blockedAt ? blockedAt : null,
       lastWorkingDay: (status === "p45" || status === "le") && lastWorkingDay ? lastWorkingDay : null,
@@ -351,7 +380,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       <>
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">
-          Buildings
+          Buildings <span className="font-normal text-ink/40">(as cleaner)</span>
         </label>
 
         <div className="space-y-2">
@@ -360,17 +389,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           )}
 
           {assignments.map((a, i) => {
-            // Combos (prédio+papel) já usados por OUTRA linha — só esses
-            // ficam de fora; o mesmo prédio pode aparecer de novo numa
-            // linha com o papel oposto (cleaner + team leader juntos).
-            const otherCombos = new Set(
-              assignments.filter((_, j) => j !== i).map((x) => `${x.buildingId}:${x.role}`)
-            );
-            const usedElsewhere = new Set(
-              assignments
-                .filter((x, j) => j !== i && x.role === a.role)
-                .map((x) => x.buildingId)
-            );
+            const usedElsewhere = new Set(assignments.filter((_, j) => j !== i).map((x) => x.buildingId));
             const options = buildings.filter((b) => b.id === a.buildingId || !usedElsewhere.has(b.id));
 
             return (
@@ -389,28 +408,6 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
                     </option>
                   ))}
                 </select>
-
-                <div className="flex gap-1">
-                  {(["cleaner", "team_leader"] as Role[]).map((r) => {
-                    const conflict = r !== a.role && otherCombos.has(`${a.buildingId}:${r}`);
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        disabled={conflict}
-                        title={conflict ? "There's already an assignment with this role in this building" : undefined}
-                        onClick={() => updateAssignment(i, { role: r })}
-                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
-                          a.role === r
-                            ? "border-petrol bg-petrol text-white"
-                            : "border-line bg-white text-ink hover:border-petrol disabled:cursor-not-allowed disabled:opacity-40"
-                        }`}
-                      >
-                        {r === "cleaner" ? "Cleaner" : "Team Leader"}
-                      </button>
-                    );
-                  })}
-                </div>
 
                 <input
                   type="number"
@@ -448,6 +445,76 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           <Plus size={14} />
           Add assignment
         </button>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-ink">
+          Teams <span className="font-normal text-ink/40">(as team leader)</span>
+        </label>
+
+        <div className="space-y-2">
+          {teamsLed.length === 0 && (
+            <p className="text-sm text-ink/40">Not leading any team yet.</p>
+          )}
+
+          {teamsLed.map((t, i) => {
+            const usedElsewhere = new Set(teamsLed.filter((_, j) => j !== i).map((x) => x.teamId));
+            const options = availableTeams.filter((tm) => tm.id === t.teamId || !usedElsewhere.has(tm.id));
+
+            return (
+              <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-white p-3">
+                <select
+                  value={t.teamId}
+                  onChange={(e) => updateTeamLed(i, { teamId: e.target.value })}
+                  className="min-w-[160px] flex-1 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+                >
+                  {options.map((tm) => (
+                    <option key={tm.id} value={tm.id}>
+                      {tm.number != null ? `Team ${tm.number}` : "Team —"}
+                      {tm.leaderName ? ` — ${tm.leaderName}` : ""}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="number"
+                  min={0}
+                  step={0.25}
+                  value={t.horas ?? ""}
+                  onChange={(e) =>
+                    updateTeamLed(i, {
+                      horas: e.target.value === "" ? null : Number(e.target.value.replace(",", ".")),
+                    })
+                  }
+                  placeholder="TL h/wk"
+                  className="w-24 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => removeTeamLed(i)}
+                  title="Disconnect from this team"
+                  className="rounded p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={addTeamLed}
+          disabled={!hasTeamAvailable}
+          className="mt-2 flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
+        >
+          <Plus size={14} />
+          Add team
+        </button>
+        <p className="mt-1 text-xs text-ink/40">
+          A team&apos;s buildings are managed in Teams, not here — this only connects who leads it.
+        </p>
       </div>
 
       <div>

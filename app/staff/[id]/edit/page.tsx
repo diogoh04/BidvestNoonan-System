@@ -41,6 +41,11 @@ export default async function EditStaffPage({ params }: { params: { id: string }
                   role: b.role,
                   horas: b.horas ?? null,
                 })) ?? [],
+              teamsLed:
+                staff.teamsLed?.map((t: any) => ({
+                  teamId: t.teamId,
+                  horas: t.horas ?? null,
+                })) ?? [],
               status: staff.status ?? null,
               blockedAt: staff.blockedAt ?? null,
               lastWorkingDay: staff.lastWorkingDay ?? null,

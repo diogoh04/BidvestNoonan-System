@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
+import { syncBuildingTeamChange } from "@/lib/teams";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -19,7 +20,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  const building = await prisma.building.findUnique({ where: { id: buildingId } });
+  const building = await prisma.building.findUnique({
+    where: { id: buildingId },
+    include: { team: { include: { leaders: { include: { staff: true } } } } },
+  });
   if (!building) return NextResponse.json({ error: "Building not found" }, { status: 404 });
 
   const links = await prisma.staffBuilding.findMany({
@@ -52,6 +56,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       nome: building.nome,
       horasDisponiveis: building.horasDisponiveis,
       workOrder: building.workOrder,
+      teamId: building.teamId ? building.teamId.toString() : null,
+      teamNumber: building.team?.number ?? null,
+      teamLeaderName: building.team?.leaders.length ? building.team.leaders.map((l) => l.staff.nome).join(", ") : null,
       slots: slots.map((s) => ({ id: s.id.toString(), horas: s.horas })),
       covers: covers.map((c) => ({
         id: c.id.toString(),
@@ -98,11 +105,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.workOrder = wo;
   }
 
+  let teamChange: { old: bigint | null; new: bigint | null } | null = null;
+  if ("teamId" in body) {
+    const teamId = body.teamId;
+    if (teamId !== null && typeof teamId !== "string") {
+      return NextResponse.json({ error: "Invalid team" }, { status: 400 });
+    }
+    const buildingId = BigInt(params.id);
+    const current = await prisma.building.findUnique({ where: { id: buildingId }, select: { teamId: true } });
+    if (!current) return NextResponse.json({ error: "Building not found" }, { status: 404 });
+    const newTeamId = teamId !== null ? BigInt(teamId) : null;
+    teamChange = { old: current.teamId, new: newTeamId };
+    data.teamId = newTeamId;
+  }
+
   try {
     const updated = await prisma.building.update({
       where: { id: BigInt(params.id) },
       data,
     });
+
+    if (teamChange) {
+      await syncBuildingTeamChange(updated.id, teamChange.old, teamChange.new);
+    }
 
     return NextResponse.json(
       toJSONSafe({
@@ -110,6 +135,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         nome: updated.nome,
         horasDisponiveis: updated.horasDisponiveis,
         workOrder: updated.workOrder,
+        teamId: updated.teamId ? updated.teamId.toString() : null,
       })
     );
   } catch {

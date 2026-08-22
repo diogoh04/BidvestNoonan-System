@@ -29,7 +29,7 @@ export default function Header({ role }: { role: AppRole }) {
               <span className="hidden sm:inline">Users</span>
             </Link>
           )}
-          {(role === "supervisor" || role === "master") && (
+          {role === "supervisor" && (
             <Link
               href="/review"
               className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"

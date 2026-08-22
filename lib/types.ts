@@ -148,6 +148,10 @@ export type StaffDTO = {
   telefone: string | null;
   staffNumber: string | null;
   buildings: { id: string; nome: string; role: Role; horas: number | null }[];
+  // Times que este staff lidera hoje (ver Team.leaderId) — desconectado do
+  // conceito de prédio: o vínculo é com o Team, que já carrega os prédios
+  // dele (ver /teams). Também alimenta o formulário de edição do staff.
+  teamsLed: { teamId: string; number: number | null; horas: number | null }[];
   status: StaffStatus | null;
   blockedAt: string | null;
   // Detalhes da saída — só preenchidos quando status === "p45" (ver

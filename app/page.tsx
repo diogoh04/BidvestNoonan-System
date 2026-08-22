@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users, Building2, ClipboardList, Archive, LayoutDashboard, UserCog, FileCheck2, Home } from "lucide-react";
+import { Building2, ClipboardList, Archive, LayoutDashboard, FileCheck2, Home, Table2, Gauge } from "lucide-react";
 import Header from "@/components/Header";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -19,14 +19,27 @@ export default async function DashboardPage() {
           {user.role === "master" && (
             <>
               <Link
-                href="/team-leaders"
+                href="/teams"
                 className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
               >
-                <Users size={40} className="text-petrol" />
+                <Table2 size={40} className="text-petrol" />
                 <div>
-                  <div className="font-display text-2xl font-bold text-ink">Team Leader</div>
+                  <div className="font-display text-2xl font-bold text-ink">Teams</div>
                   <div className="mt-1 text-sm text-ink/50">
-                    View by leader and the buildings under their responsibility
+                    Edit team number, TL hours and every building in one place
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                href="/hours-control"
+                className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+              >
+                <Gauge size={40} className="text-petrol" />
+                <div>
+                  <div className="font-display text-2xl font-bold text-ink">Hours Control</div>
+                  <div className="mt-1 text-sm text-ink/50">
+                    UCD Hours vs hours actually spent, by team and week
                   </div>
                 </div>
               </Link>
@@ -76,17 +89,6 @@ export default async function DashboardPage() {
                 <div>
                   <div className="font-display text-2xl font-bold text-ink">Dashboard</div>
                   <div className="mt-1 text-sm text-ink/50">Overview: staff, slots and hours by building</div>
-                </div>
-              </Link>
-
-              <Link
-                href="/users"
-                className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
-              >
-                <UserCog size={40} className="text-petrol" />
-                <div>
-                  <div className="font-display text-2xl font-bold text-ink">Users</div>
-                  <div className="mt-1 text-sm text-ink/50">Access accounts: Master, Supervisor, Team Leader</div>
                 </div>
               </Link>
             </>

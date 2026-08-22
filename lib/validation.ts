@@ -11,11 +11,26 @@ export const staffInputSchema = z
     // permitindo que o mesmo staff seja team leader em um prédio e cleaner
     // em outro — e também team leader E cleaner no mesmo prédio ao mesmo
     // tempo (dois vínculos, um por papel).
+    // Só vínculos de cleaner (prédio + horas) — ver teamsLed abaixo pra
+    // team leader, que não é mais um vínculo de prédio.
     assignments: z
       .array(
         z.object({
           buildingId: z.string(),
           role: z.enum(["cleaner", "team_leader"]),
+          horas: z.number().nullable().optional(),
+        })
+      )
+      .default([]),
+    // Times que este staff passa a liderar (ver model TeamLeader) — um time
+    // pode ter mais de um líder, então isso só ADICIONA/atualiza este staff
+    // como líder de cada item (ver PUT /api/staff/[id] e
+    // lib/teams.ts:connectTeamLeader). Times que o staff liderava e saíram
+    // dessa lista são desconectados ao salvar (não afeta outros líderes).
+    teamsLed: z
+      .array(
+        z.object({
+          teamId: z.string(),
           horas: z.number().nullable().optional(),
         })
       )
@@ -51,6 +66,18 @@ export const staffInputSchema = z
         });
       }
       seen.add(key);
+    }
+
+    const seenTeams = new Set<string>();
+    for (const [i, t] of data.teamsLed.entries()) {
+      if (seenTeams.has(t.teamId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Duplicate team in the list",
+          path: ["teamsLed", i, "teamId"],
+        });
+      }
+      seenTeams.add(t.teamId);
     }
 
     if (data.status === "p45" || data.status === "le") {

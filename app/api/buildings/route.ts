@@ -20,6 +20,8 @@ export async function GET() {
       buildings.map((b) => ({
         id: b.id.toString(),
         nome: b.nome,
+        horasDisponiveis: b.horasDisponiveis,
+        teamId: b.teamId ? b.teamId.toString() : null,
         totalCleaners: b.teamLeaders.filter((l) => l.role === "cleaner").length,
         totalTeamLeaders: b.teamLeaders.filter((l) => l.role === "team_leader").length,
       }))

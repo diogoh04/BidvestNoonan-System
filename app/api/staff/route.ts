@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { staffInputSchema } from "@/lib/validation";
 import { toJSONSafe, StaffDTO } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
+import { connectTeamLeader } from "@/lib/teams";
 
-function mapStaff(w: any): StaffDTO {
+function mapStaff(w: any, teamsLed: StaffDTO["teamsLed"] = []): StaffDTO {
   return {
     id: w.id.toString(),
     nome: w.nome,
@@ -17,6 +18,7 @@ function mapStaff(w: any): StaffDTO {
       role: sb.role,
       horas: sb.horas,
     })),
+    teamsLed,
     status: w.status ?? null,
     blockedAt: w.blockedAt ? w.blockedAt.toISOString() : null,
     lastWorkingDay: w.lastWorkingDay ? w.lastWorkingDay.toISOString() : null,
@@ -101,7 +103,7 @@ export async function GET(req: NextRequest) {
     orderBy: { nome: "asc" },
   });
 
-  return NextResponse.json(toJSONSafe(staff.map(mapStaff)));
+  return NextResponse.json(toJSONSafe(staff.map((s) => mapStaff(s))));
 }
 
 // POST /api/staff  - cadastra cleaner ou team leader
@@ -121,8 +123,9 @@ export async function POST(req: NextRequest) {
   const data = parsed.data;
 
   // Staff com status especial (P45/LE/Blocked) não tem vínculo real de
-  // prédio — ignora quaisquer assignments enviados nesse caso.
+  // prédio — ignora quaisquer assignments/teamsLed enviados nesse caso.
   const assignments = data.status ? [] : data.assignments;
+  const teamsLed = data.status ? [] : data.teamsLed;
 
   const created = await prisma.staff.create({
     data: {
@@ -160,5 +163,13 @@ export async function POST(req: NextRequest) {
     include: { buildingsAsTeamLeader: { include: { building: true } } },
   });
 
-  return NextResponse.json(toJSONSafe(mapStaff(created)), { status: 201 });
+  // Conecta o staff recém-criado como líder de cada time selecionado (ver
+  // lib/teams.ts:connectTeamLeader — já cuida do vínculo legado de acesso).
+  for (const t of teamsLed) {
+    await connectTeamLeader(BigInt(t.teamId), created.id, t.horas ?? null);
+  }
+
+  const resultTeamsLed = teamsLed.map((t) => ({ teamId: t.teamId, number: null, horas: t.horas ?? null }));
+
+  return NextResponse.json(toJSONSafe(mapStaff(created, resultTeamsLed)), { status: 201 });
 }

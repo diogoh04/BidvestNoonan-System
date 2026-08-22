@@ -1,11 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
-import BuildingStaffClient from "./BuildingStaffClient";
-import BuildingHoursCard from "@/components/BuildingHoursCard";
-import WorkOrderCard from "@/components/WorkOrderCard";
-import BuildingSlotsCard from "@/components/BuildingSlotsCard";
-import BuildingStatsBadge from "@/components/BuildingStatsBadge";
+import BuildingCard from "@/components/BuildingCard";
 
 async function getBaseUrl() {
   const h = headers();
@@ -30,49 +26,7 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
     <>
       <Header role="master" />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Building</p>
-              <h1 className="font-display text-2xl font-bold text-ink">{building.nome}</h1>
-            </div>
-            <BuildingHoursCard buildingId={building.id} initialHours={building.horasDisponiveis} />
-            <WorkOrderCard buildingId={building.id} initialWorkOrder={building.workOrder} />
-          </div>
-          <BuildingStatsBadge
-            horasDisponiveis={building.horasDisponiveis}
-            cleaners={building.cleaners}
-            slots={building.slots}
-          />
-        </div>
-
-        <div className="mt-4">
-          <BuildingSlotsCard buildingId={building.id} initialSlots={building.slots} />
-        </div>
-
-        <div className="mt-8 space-y-8">
-          <section>
-            <h2 className="mb-3 font-display text-lg font-bold text-petrol">
-              Team Leader{building.teamLeaders.length !== 1 ? "s" : ""}
-            </h2>
-            <BuildingStaffClient
-              staff={building.teamLeaders}
-              emptyLabel="No team leader assigned to this building."
-              buildingId={building.id}
-              role="team_leader"
-            />
-          </section>
-
-          <section>
-            <h2 className="mb-3 font-display text-lg font-bold text-petrol">Cleaners</h2>
-           <BuildingStaffClient
-                staff={building.cleaners}
-                emptyLabel="No cleaner assigned to this building."
-                slots={building.slots}
-                buildingId={building.id}
-                role="cleaner"/>
-          </section>
-        </div>
+        <BuildingCard building={building} />
       </main>
     </>
   );

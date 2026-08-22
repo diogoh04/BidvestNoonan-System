@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 
+// Legado: esta página (/team-leaders) não é mais um dos pontos de entrada
+// principais (ver /teams) e continua lendo StaffBuilding.role="team_leader"
+// direto. Depois da migration 15, esses vínculos são apagados (viram Team),
+// então esta rota passa a devolver 404 pra todo mundo — o que é esperado.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!hasRole(user, "master")) {
