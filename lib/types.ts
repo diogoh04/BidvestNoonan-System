@@ -232,6 +232,24 @@ export type DashboardDTO = {
     hoursDelta: number;
     buildingsCounted: number;
   };
+  // Balanço "fixo" (valor ao vivo, não por semana como em /hours-control):
+  // UCD Hours (o que a faculdade libera) vs Building Hours (o que a gente
+  // de fato repassa pro team leader, Building.horasDisponiveis). hoursDelta
+  // positivo = ainda sobra UCD pra repassar; negativo = já repassamos mais
+  // do que a UCD liberou.
+  buildingsUcdBalance: {
+    buildingId: string;
+    nome: string;
+    ucdHours: number;
+    horasDisponiveis: number;
+    hoursDelta: number;
+  }[];
+  grandTotalUcd: {
+    ucdHours: number;
+    horasDisponiveis: number;
+    hoursDelta: number;
+    buildingsCounted: number;
+  };
 };
 
 // BigInt não serializa em JSON.stringify por padrão — convertendo recursivamente para string.

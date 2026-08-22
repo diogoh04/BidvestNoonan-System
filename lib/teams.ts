@@ -111,6 +111,7 @@ export async function getTeamsData(onlyTeamId?: bigint) {
     return {
       id: building.id.toString(),
       nome: building.nome,
+      ucdHours: building.ucdHours,
       horasDisponiveis: building.horasDisponiveis,
       workOrder: building.workOrder,
       slots: allSlots.filter((s) => s.buildingId === building.id).map((s) => ({ id: s.id.toString(), horas: s.horas })),

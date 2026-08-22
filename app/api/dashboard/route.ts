@@ -34,13 +34,19 @@ export async function GET() {
     const openSlots = computeOpenSlots(slots, cleanerHours);
 
     const hoursDelta = b.horasDisponiveis != null ? b.horasDisponiveis - horasGastas : null;
+    // Segundo balanço, independente do de cima: UCD (origem) vs Building
+    // Hours (o que de fato repassamos) — mesmo par de campos comparado em
+    // /hours-control, mas aqui sempre com o valor ao vivo (não por semana).
+    const ucdHoursDelta = b.ucdHours != null && b.horasDisponiveis != null ? b.ucdHours - b.horasDisponiveis : null;
 
     return {
       buildingId: b.id.toString(),
       nome: b.nome,
+      ucdHours: b.ucdHours,
       horasDisponiveis: b.horasDisponiveis,
       horasGastas,
       hoursDelta,
+      ucdHoursDelta,
       openSlots: openSlots.map((s) => ({ horas: s.horas })),
     };
   });
@@ -114,6 +120,30 @@ export async function GET() {
     buildingsCounted: buildingsWithLimit.length,
   };
 
+  // Balanço UCD Hours vs Building Hours — mesmo padrão do balanço acima, só
+  // trocando o par de campos comparado (ver comentário no lib/types.ts).
+  const buildingsWithUcd = perBuilding.filter(
+    (b): b is typeof b & { ucdHours: number; horasDisponiveis: number; ucdHoursDelta: number } =>
+      b.ucdHours != null && b.horasDisponiveis != null
+  );
+  const buildingsUcdBalance = buildingsWithUcd
+    .filter((b) => b.ucdHoursDelta !== 0)
+    .map((b) => ({
+      buildingId: b.buildingId,
+      nome: b.nome,
+      ucdHours: b.ucdHours,
+      horasDisponiveis: b.horasDisponiveis,
+      hoursDelta: b.ucdHoursDelta,
+    }));
+  const totalUcdHours = buildingsWithUcd.reduce((sum, b) => sum + b.ucdHours, 0);
+  const totalUcdHorasDisponiveis = buildingsWithUcd.reduce((sum, b) => sum + b.horasDisponiveis, 0);
+  const grandTotalUcd = {
+    ucdHours: totalUcdHours,
+    horasDisponiveis: totalUcdHorasDisponiveis,
+    hoursDelta: totalUcdHours - totalUcdHorasDisponiveis,
+    buildingsCounted: buildingsWithUcd.length,
+  };
+
   return NextResponse.json(
     toJSONSafe({
       counts: { totalStaff, totalCleaners, totalTeamLeaders },
@@ -122,6 +152,8 @@ export async function GET() {
       totalOpenSlots,
       buildingsHoursBalance,
       grandTotal,
+      buildingsUcdBalance,
+      grandTotalUcd,
     })
   );
 }

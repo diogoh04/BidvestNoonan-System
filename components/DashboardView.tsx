@@ -92,7 +92,15 @@ function HourSizeTooltip({
 }
 
 export default function DashboardView({ data }: { data: DashboardDTO }) {
-  const { counts, buildingsOpenSlots, openSlotsByHours, buildingsHoursBalance, grandTotal } = data;
+  const {
+    counts,
+    buildingsOpenSlots,
+    openSlotsByHours,
+    buildingsHoursBalance,
+    grandTotal,
+    buildingsUcdBalance,
+    grandTotalUcd,
+  } = data;
 
   return (
     <div className="space-y-8">
@@ -188,6 +196,61 @@ export default function DashboardView({ data }: { data: DashboardDTO }) {
                 <div className="text-xs text-ink/50">
                   {grandTotal.horasDisponiveis}h available - {grandTotal.horasGastas}h used, across{" "}
                   {grandTotal.buildingsCounted} building{grandTotal.buildingsCounted !== 1 ? "s" : ""}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-6">
+        <h2 className="mb-4 font-display text-lg font-bold text-petrol">UCD Hours vs Building Hours</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+          {buildingsUcdBalance.length === 0 ? (
+            <p className="text-sm text-ink/50">
+              {grandTotalUcd.buildingsCounted === 0
+                ? "No building with both UCD Hours and Building Hours configured."
+                : "All buildings are balanced between UCD Hours and Building Hours."}
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={Math.max(120, buildingsUcdBalance.length * 44)}>
+              <BarChart data={buildingsUcdBalance} layout="vertical" margin={{ left: 8, right: 32 }}>
+                <CartesianGrid horizontal={false} stroke={LINE} />
+                <XAxis type="number" tick={{ fontSize: 12 }} />
+                <YAxis dataKey="nome" type="category" width={140} tick={{ fontSize: 12 }} />
+                <ReferenceLine x={0} stroke={LINE} />
+                <Tooltip
+                  cursor={{ fill: "#f5f7f7" }}
+                  contentStyle={tooltipStyle}
+                  formatter={(value: number) => [hoursDeltaLabel(value), ""]}
+                />
+                <Bar dataKey="hoursDelta" barSize={20} isAnimationActive={false}>
+                  {buildingsUcdBalance.map((b) => (
+                    <Cell key={b.buildingId} fill={b.hoursDelta < 0 ? DANGER : b.hoursDelta > 0 ? SUCCESS : LINE} />
+                  ))}
+                  <LabelList
+                    dataKey="hoursDelta"
+                    position="right"
+                    formatter={(v: number) => `${v > 0 ? "+" : ""}${v}h`}
+                    style={{ fill: "#12202b", fontSize: 12 }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+
+          <div className="flex flex-col justify-center gap-3 rounded-md border border-line bg-surface p-6">
+            <div className="font-mono text-xs uppercase tracking-[0.3em] text-ink/40">Total balance</div>
+            {grandTotalUcd.buildingsCounted === 0 ? (
+              <div className="text-sm text-ink/50">No building with both UCD Hours and Building Hours configured.</div>
+            ) : (
+              <>
+                <div className={`font-display text-4xl font-bold ${hoursDeltaColor(grandTotalUcd.hoursDelta)}`}>
+                  {hoursDeltaLabel(grandTotalUcd.hoursDelta)}
+                </div>
+                <div className="text-xs text-ink/50">
+                  {grandTotalUcd.ucdHours}h UCD - {grandTotalUcd.horasDisponiveis}h building, across{" "}
+                  {grandTotalUcd.buildingsCounted} building{grandTotalUcd.buildingsCounted !== 1 ? "s" : ""}
                 </div>
               </>
             )}

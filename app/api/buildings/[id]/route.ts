@@ -55,6 +55,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     toJSONSafe({
       id: building.id.toString(),
       nome: building.nome,
+      ucdHours: building.ucdHours,
       horasDisponiveis: building.horasDisponiveis,
       workOrder: building.workOrder,
       teamId: building.teamId ? building.teamId.toString() : null,
@@ -98,6 +99,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.horasDisponiveis = horas;
   }
 
+  if ("ucdHours" in body) {
+    const horas = body.ucdHours;
+    if (horas !== null && (typeof horas !== "number" || horas < 0)) {
+      return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
+    }
+    data.ucdHours = horas;
+  }
+
   if ("workOrder" in body) {
     const wo = body.workOrder;
     if (wo !== null && typeof wo !== "string") {
@@ -134,6 +143,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       toJSONSafe({
         id: updated.id.toString(),
         nome: updated.nome,
+        ucdHours: updated.ucdHours,
         horasDisponiveis: updated.horasDisponiveis,
         workOrder: updated.workOrder,
         teamId: updated.teamId ? updated.teamId.toString() : null,
@@ -156,7 +166,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   // pra sempre com o prédio nulo (ver lib/staffHistory.ts).
   await closeOpenForBuilding(buildingId);
 
-  await prisma.staff.updateMany({ where: { buildingId }, data: { buildingId: null } });
   await prisma.building.delete({ where: { id: buildingId } });
 
   return NextResponse.json({ ok: true });

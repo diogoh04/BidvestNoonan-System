@@ -4,13 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { Pencil, Check, X } from "lucide-react";
 
-type Row = { id: string; nome: string; ucdHours: number | null; hoursSpent: number | null };
+type Row = { id: string; nome: string; ucdHours: number | null; available: number | null; hoursSpent: number | null };
 
-// UCD Hours é só leitura aqui — é editado em /buildings/[id] e /teams/[id]
-// (BuildingHoursCard). O valor mostrado já é o congelado daquela semana
+// UCD Hours e Building Hours são só leitura aqui — são editados em
+// /buildings/[id] e /teams/[id] (UcdHoursCard e BuildingHoursCard,
+// respectivamente). UCD Hours já é o valor congelado daquela semana
 // (BuildingHoursLog.ucdHours), não o valor ao vivo do prédio — ver
-// comentário no schema.prisma. Hours Spent é o único campo editável nesta
-// tela, específico da semana escolhida.
+// comentário no schema.prisma; Building Hours sempre mostra o valor ao vivo
+// (não tem snapshot por semana, é só informativo aqui). Hours Spent é o
+// único campo editável nesta tela, específico da semana escolhida.
+// O Balance compara Building Hours (o que foi de fato liberado pro team
+// leader) contra o gasto — não o orçamento da UCD, que é só a origem do
+// recurso (ver highlight vermelho no Building Hours quando ultrapassa UCD).
 export default function HoursControlTable({ weekStart, rows: initialRows }: { weekStart: string; rows: Row[] }) {
   const [rows, setRows] = useState(initialRows);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,8 +52,10 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
   }
 
   const totalUcd = rows.reduce((sum, r) => sum + (r.ucdHours ?? 0), 0);
+  const totalAvailable = rows.reduce((sum, r) => sum + (r.available ?? 0), 0);
   const totalSpent = rows.reduce((sum, r) => sum + (r.hoursSpent ?? 0), 0);
-  const totalBalance = totalUcd - totalSpent;
+  const totalBalance = totalAvailable - totalSpent;
+  const totalOverUcd = totalAvailable > totalUcd;
 
   return (
     <table className="w-full border-collapse text-sm">
@@ -56,6 +63,7 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
         <tr className="text-left text-xs uppercase tracking-wide text-ink/40">
           <th className="border-b border-line px-3 py-2 font-medium">Building</th>
           <th className="border-b border-line px-3 py-2 font-medium">UCD Hours</th>
+          <th className="border-b border-line px-3 py-2 font-medium">Building Hours</th>
           <th className="border-b border-line px-3 py-2 font-medium">Hours Spent</th>
           <th className="border-b border-line px-3 py-2 font-medium">Balance</th>
         </tr>
@@ -63,13 +71,15 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
       <tbody>
         {rows.length === 0 && (
           <tr>
-            <td colSpan={4} className="px-3 py-6 text-center text-ink/40">
+            <td colSpan={5} className="px-3 py-6 text-center text-ink/40">
               No building allocated to this team yet.
             </td>
           </tr>
         )}
         {rows.map((r) => {
-          const balance = r.ucdHours != null && r.hoursSpent != null ? r.ucdHours - r.hoursSpent : null;
+          const balance = r.available != null && r.hoursSpent != null ? r.available - r.hoursSpent : null;
+          const ucdBalance = r.ucdHours != null && r.available != null ? r.ucdHours - r.available : null;
+          const overUcd = ucdBalance != null && ucdBalance < 0;
           const isEditing = editingId === r.id;
           return (
             <tr key={r.id} className="border-b border-line/60">
@@ -79,6 +89,14 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
                 </Link>
               </td>
               <td className="px-3 py-2 text-ink/70">{r.ucdHours ?? "—"}</td>
+              <td className="px-3 py-2">
+                <div className={overUcd ? "font-semibold text-danger" : "text-ink/70"}>{r.available ?? "—"}</div>
+                {ucdBalance != null && (
+                  <div className={`text-xs font-medium ${ucdBalance < 0 ? "text-danger" : "text-success"}`}>
+                    {ucdBalance < 0 ? `Short ${Math.abs(ucdBalance)}h` : `Surplus ${ucdBalance}h`}
+                  </div>
+                )}
+              </td>
               <td className="px-3 py-2">
                 {isEditing ? (
                   <span className="inline-flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1">
@@ -127,6 +145,7 @@ export default function HoursControlTable({ weekStart, rows: initialRows }: { we
           <tr className="font-medium">
             <td className="px-3 py-2 text-ink/50">Total</td>
             <td className="px-3 py-2">{totalUcd}h</td>
+            <td className={`px-3 py-2 ${totalOverUcd ? "text-danger" : ""}`}>{totalAvailable}h</td>
             <td className="px-3 py-2">{totalSpent}h</td>
             <td className="px-3 py-2">
               <span className={totalBalance < 0 ? "text-danger" : "text-success"}>

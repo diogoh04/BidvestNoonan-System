@@ -1,5 +1,6 @@
 import BuildingStaffClient from "@/components/BuildingStaffClient";
 import BuildingHoursCard from "@/components/BuildingHoursCard";
+import UcdHoursCard from "@/components/UcdHoursCard";
 import WorkOrderCard from "@/components/WorkOrderCard";
 import BuildingSlotsCard from "@/components/BuildingSlotsCard";
 import BuildingStatsBadge from "@/components/BuildingStatsBadge";
@@ -17,6 +18,7 @@ type StaffLine = {
 export type BuildingCardData = {
   id: string;
   nome: string;
+  ucdHours: number | null;
   horasDisponiveis: number | null;
   workOrder: string | null;
   teamId?: string | null;
@@ -51,6 +53,7 @@ export default function BuildingCard({
             <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Building</p>
             <h2 className="font-display text-2xl font-bold text-ink">{building.nome}</h2>
           </div>
+          <UcdHoursCard buildingId={building.id} initialHours={building.ucdHours} />
           <BuildingHoursCard buildingId={building.id} initialHours={building.horasDisponiveis} />
           <WorkOrderCard buildingId={building.id} initialWorkOrder={building.workOrder} />
           {teamContext ? (

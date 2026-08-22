@@ -20,17 +20,6 @@ model Staff {
   horasSemana Float?   @map("horas_semana")
   staffNumber String?  @map("staff_number") @db.VarChar(255)
 
-  // Legado: papel global não é mais usado pela aplicação (ver StaffBuilding.role,
-  // que guarda o papel por vínculo staff+prédio). Coluna mantida sem uso.
-  role        String   @default("cleaner") @db.VarChar(20)
-
-  // Prédio fixo — usado só para cleaner. Team leader usa a tabela de vínculo StaffBuilding.
-  buildingId  BigInt?  @map("predios")
-  building    Building? @relation(fields: [buildingId], references: [id])
-
-  // Coluna legada (texto livre), mantida no banco mas não usada pela aplicação
-  predioLegado String? @map("predio") @db.VarChar(255)
-
   // Status especial ("p45" | "le" | "blocked" | null = ativo). Quando
   // preenchido, o staff não tem vínculo real com prédio (StaffBuilding) —
   // ver seção "Outros" na home.
@@ -78,6 +67,16 @@ model Staff {
 model Building {
   id   BigInt @id @default(autoincrement())
   nome String @unique @db.VarChar(255)
+  // Horas que a UCD (faculdade/cliente) libera pra gente naquele prédio —
+  // o orçamento de origem. Editado em /buildings/[id] e /teams/[id]
+  // (UcdHoursCard). Pode ser diferente de horasDisponiveis (ver abaixo):
+  // nem toda hora que a UCD libera é necessariamente já repassada pro time.
+  ucdHours Float? @map("ucd_hours")
+  // Horas que a gente de fato libera/repassa pro team leader gerir naquele
+  // prédio (o que aparece como "Xh available" no cabeçalho do prédio,
+  // editado em /buildings/[id] e /teams/[id] via BuildingHoursCard). É o
+  // valor usado por BuildingStatsBadge pra comparar contra as horas
+  // semanais somadas dos cleaners cadastrados (Surplus/Short).
   horasDisponiveis Float? @map("horas_disponiveis")
   workOrder String? @map("work_order")
 
@@ -87,7 +86,6 @@ model Building {
   teamId BigInt? @map("team_id")
   team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
-  staff         Staff[]
   teamLeaders   StaffBuilding[]
   slots         BuildingSlot[]
   covers        BuildingCover[]
@@ -100,12 +98,12 @@ model Building {
 }
 
 // ---------- Horas gastas lançadas por semana (tabela nova: building_hours_log) ----------
-// Building.horasDisponiveis (UCD Hours) é editado em /buildings/[id] e
-// /teams/[id] (BuildingHoursCard) — é o valor AO VIVO, sempre o atual. Esta
-// tabela é o real: o Master lança, semana a semana, quanto foi de fato
-// gasto naquele prédio (ver /hours-control), pra dar pra comparar orçado x
-// gasto e gerar o balanço. `ucdHours` aqui é um SNAPSHOT do valor ao vivo,
-// tirado só na primeira vez que a semana é lançada (ver PUT
+// Building.ucdHours é editado em /buildings/[id] e /teams/[id]
+// (UcdHoursCard) — é o valor AO VIVO, sempre o atual. Esta tabela é o real:
+// o Master lança, semana a semana, quanto foi de fato gasto naquele prédio
+// (ver /hours-control), pra dar pra comparar orçado (UCD) x gasto e gerar o
+// balanço. `ucdHours` aqui é um SNAPSHOT do valor ao vivo do prédio, tirado
+// só na primeira vez que a semana é lançada (ver PUT
 // /api/buildings/[id]/hours-log) — depois disso fica congelado, mesmo que o
 // valor ao vivo do prédio mude depois (orçamento de mês passado não pode
 // mudar retroativamente só porque o orçamento deste mês mudou). Semanas

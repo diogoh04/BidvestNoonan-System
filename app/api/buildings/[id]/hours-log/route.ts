@@ -6,7 +6,7 @@ import { getCurrentUser, hasRole } from "@/lib/auth";
 // Lança (ou edita) quanto foi gasto neste prédio numa semana específica —
 // ver comentário do model BuildingHoursLog no schema.prisma. Upsert: uma
 // linha por prédio+semana. UCD Hours é editado só em /buildings/[id] e
-// /teams/[id] (BuildingHoursCard) — aqui só CONGELA (snapshot) o valor ao
+// /teams/[id] (UcdHoursCard) — aqui só CONGELA (snapshot) o valor ao
 // vivo do prédio na primeira vez que a semana é lançada; edições
 // seguintes a essa mesma semana mudam só hoursSpent, nunca o snapshot.
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
@@ -36,8 +36,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (ucdHours === null) {
     // Primeira vez que essa semana é lançada (ou uma linha antiga sem
     // snapshot ainda) — congela o valor ao vivo agora.
-    const building = await prisma.building.findUnique({ where: { id: buildingId }, select: { horasDisponiveis: true } });
-    ucdHours = building?.horasDisponiveis ?? null;
+    const building = await prisma.building.findUnique({ where: { id: buildingId }, select: { ucdHours: true } });
+    ucdHours = building?.ucdHours ?? null;
   }
 
   const log = await prisma.buildingHoursLog.upsert({

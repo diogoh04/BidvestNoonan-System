@@ -69,18 +69,28 @@ export default async function HoursControlPage({
 
   const unassigned = buildings.filter((b: any) => !b.teamId);
 
-  function buildingRow(b: { id: string; nome: string; horasDisponiveis: number | null }) {
+  function buildingRow(b: { id: string; nome: string; ucdHours: number | null; horasDisponiveis: number | null }) {
     const buildingLogs = logsByBuilding.get(b.id) ?? [];
     let budget: number | null = null;
     let spent: number | null = null;
     for (const monday of mondays) {
       const log = buildingLogs.find((l) => l.weekStart === monday);
-      const ucd = log?.ucdHours ?? b.horasDisponiveis;
+      const ucd = log?.ucdHours ?? b.ucdHours;
       if (ucd != null) budget = (budget ?? 0) + ucd;
       if (log) spent = (spent ?? 0) + log.hoursSpent;
     }
-    const balance = budget != null && spent != null ? budget - spent : null;
-    return { ...b, budget, spent, balance };
+    const available = b.horasDisponiveis;
+    // O balanço (Surplus/Short) compara o que foi de fato liberado pro team
+    // leader (Building Hours) contra o gasto — não o orçamento da UCD, que é
+    // só a origem do recurso (ver overUcd abaixo pra essa outra comparação).
+    const balance = available != null && spent != null ? available - spent : null;
+    // Segundo balanço, independente do de cima: UCD (origem) vs Building
+    // Hours (o que de fato repassamos) — quanto ainda sobra da UCD pra
+    // repassar (Surplus) ou quanto já repassamos a mais do que ela liberou
+    // (Short). Sinaliza (overUcd) quando é esse último caso.
+    const ucdBalance = budget != null && available != null ? budget - available : null;
+    const overUcd = ucdBalance != null && ucdBalance < 0;
+    return { ...b, budget, available, spent, balance, ucdBalance, overUcd };
   }
 
   const teamGroups = teams.map((team: any) => ({
@@ -91,8 +101,11 @@ export default async function HoursControlPage({
 
   const allRows = [...teamGroups.flatMap((t: any) => t.rows), ...unassignedRows];
   const grandBudget = allRows.reduce((s, r) => s + (r.budget ?? 0), 0);
+  const grandAvailable = allRows.reduce((s, r) => s + (r.available ?? 0), 0);
   const grandSpent = allRows.reduce((s, r) => s + (r.spent ?? 0), 0);
-  const grandBalance = grandBudget - grandSpent;
+  const grandBalance = grandAvailable - grandSpent;
+  const grandUcdBalance = grandBudget - grandAvailable;
+  const grandOverUcd = grandUcdBalance < 0;
 
   return (
     <>
@@ -102,7 +115,8 @@ export default async function HoursControlPage({
           <div>
             <h1 className="font-display text-2xl font-bold text-ink">Hours Control</h1>
             <p className="mt-1 text-sm text-ink/50">
-              UCD Hours (budget) vs hours actually spent, by team. Click a team to log a different week.
+              Building Hours (released to team leaders) vs hours actually spent, by team — UCD Hours is what the
+              college releases us. Click a team to log a different week.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -119,6 +133,15 @@ export default async function HoursControlPage({
           <div>
             <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Total UCD Hours</p>
             <p className="font-display text-xl font-bold text-ink">{grandBudget}h</p>
+            <p className={`text-xs font-medium ${grandOverUcd ? "text-danger" : "text-success"}`}>
+              {balanceLabel(grandUcdBalance)}
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Total Building Hours</p>
+            <p className={`font-display text-xl font-bold ${grandOverUcd ? "text-danger" : "text-ink"}`}>
+              {grandAvailable}h
+            </p>
           </div>
           <div>
             <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Total Hours Spent</p>
@@ -137,8 +160,10 @@ export default async function HoursControlPage({
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {teamGroups.map((team: any) => {
             const totalBudget = team.rows.reduce((s: number, r: any) => s + (r.budget ?? 0), 0);
+            const totalAvailable = team.rows.reduce((s: number, r: any) => s + (r.available ?? 0), 0);
             const totalSpent = team.rows.reduce((s: number, r: any) => s + (r.spent ?? 0), 0);
-            const balance = totalBudget - totalSpent;
+            const balance = totalAvailable - totalSpent;
+            const teamOverUcd = totalAvailable > totalBudget;
 
             return (
               <Link
@@ -155,7 +180,11 @@ export default async function HoursControlPage({
                       <div className="font-medium text-ink">{team.leaderName ?? "No leader connected"}</div>
                       <div className="flex items-center gap-1 font-mono text-xs text-ink/50">
                         <Gauge size={11} />
-                        {totalBudget}h budget · {totalSpent}h spent
+                        {totalBudget}h UCD ·{" "}
+                        <span className={teamOverUcd ? "font-semibold text-danger" : undefined}>
+                          {totalAvailable}h building
+                        </span>{" "}
+                        · {totalSpent}h spent
                       </div>
                     </div>
                   </div>
@@ -167,6 +196,7 @@ export default async function HoursControlPage({
                     <tr className="text-left text-xs uppercase tracking-wide text-ink/40">
                       <th className="px-4 py-2 font-medium">Building</th>
                       <th className="px-4 py-2 font-medium">UCD Hours</th>
+                      <th className="px-4 py-2 font-medium">Building Hours</th>
                       <th className="px-4 py-2 font-medium">Spent</th>
                       <th className="px-4 py-2 font-medium">Balance</th>
                     </tr>
@@ -174,7 +204,7 @@ export default async function HoursControlPage({
                   <tbody>
                     {team.rows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-4 py-3 text-ink/40">
+                        <td colSpan={5} className="px-4 py-3 text-ink/40">
                           No building allocated
                         </td>
                       </tr>
@@ -183,6 +213,14 @@ export default async function HoursControlPage({
                       <tr key={r.id} className="border-t border-line/60">
                         <td className="px-4 py-2 text-ink">{r.nome}</td>
                         <td className="px-4 py-2 text-ink/70">{r.budget ?? "—"}</td>
+                        <td className="px-4 py-2">
+                          <div className={r.overUcd ? "font-semibold text-danger" : "text-ink/70"}>{r.available ?? "—"}</div>
+                          {r.ucdBalance != null && (
+                            <div className={`text-xs font-medium ${r.ucdBalance < 0 ? "text-danger" : "text-success"}`}>
+                              {r.ucdBalance < 0 ? `-${Math.abs(r.ucdBalance)}h` : `+${r.ucdBalance}h`}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-2 text-ink/70">{r.spent ?? "—"}</td>
                         <td className={`px-4 py-2 ${r.balance == null ? "text-ink/30" : r.balance < 0 ? "text-danger" : "text-success"}`}>
                           {r.balance == null ? "—" : r.balance < 0 ? `-${Math.abs(r.balance)}h` : `+${r.balance}h`}
@@ -215,6 +253,7 @@ export default async function HoursControlPage({
                   <tr className="text-left text-xs uppercase tracking-wide text-ink/40">
                     <th className="px-4 py-2 font-medium">Building</th>
                     <th className="px-4 py-2 font-medium">UCD Hours</th>
+                    <th className="px-4 py-2 font-medium">Building Hours</th>
                     <th className="px-4 py-2 font-medium">Spent</th>
                     <th className="px-4 py-2 font-medium">Balance</th>
                     <th className="px-4 py-2 font-medium"></th>
@@ -225,6 +264,14 @@ export default async function HoursControlPage({
                     <tr key={r.id} className="border-t border-line/60">
                       <td className="px-4 py-2 text-ink">{r.nome}</td>
                       <td className="px-4 py-2 text-ink/70">{r.budget ?? "—"}</td>
+                      <td className="px-4 py-2">
+                        <div className={r.overUcd ? "font-semibold text-danger" : "text-ink/70"}>{r.available ?? "—"}</div>
+                        {r.ucdBalance != null && (
+                          <div className={`text-xs font-medium ${r.ucdBalance < 0 ? "text-danger" : "text-success"}`}>
+                            {r.ucdBalance < 0 ? `-${Math.abs(r.ucdBalance)}h` : `+${r.ucdBalance}h`}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-ink/70">{r.spent ?? "—"}</td>
                       <td className={`px-4 py-2 ${r.balance == null ? "text-ink/30" : r.balance < 0 ? "text-danger" : "text-success"}`}>
                         {r.balance == null ? "—" : r.balance < 0 ? `-${Math.abs(r.balance)}h` : `+${r.balance}h`}

@@ -55,7 +55,8 @@ export default async function HoursControlTeamPage({
       nome: b.nome,
       // Semana já lançada -> valor congelado daquela semana; senão, o valor
       // ao vivo do prédio (ainda não existe snapshot pra essa semana).
-      ucdHours: log?.ucdHours ?? b.horasDisponiveis,
+      ucdHours: log?.ucdHours ?? b.ucdHours,
+      available: b.horasDisponiveis,
       hoursSpent: log?.hoursSpent ?? null,
     };
   });
