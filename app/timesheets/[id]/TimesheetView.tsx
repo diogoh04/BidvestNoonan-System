@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Printer, Plus, X } from "lucide-react";
+import { Printer, Plus, X, Pencil, Check } from "lucide-react";
 import { computeOpenSlots, type Slot } from "@/lib/openSlots";
 import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetPeriodType } from "@/lib/types";
 import StaffSearchInput from "@/components/StaffSearchInput";
+import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
 
 type StaffLine = {
   id: string;
@@ -123,6 +124,15 @@ function frontTableSizing(rowCount: number) {
   return { text: "text-[6px]", pad: "p-0", cellH: "h-3" };
 }
 
+// Larguras (%) das colunas fixas (Building/Hours/WO/Name/Staff Number) do
+// colgroup. Na quinzenal são o dobro de colunas de dia disputando o mesmo
+// espaço — reduz um pouco as fixas pra sobrar mais área pros dias, senão
+// eles ficam minúsculos.
+function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[] {
+  const factor = periodType === "biweekly" ? 2 / 3 : 1;
+  return pct.map((p) => p * factor);
+}
+
 // Mesma ideia do frontTableSizing, mas pro verso ("Building Covers") — hoje
 // era tudo fixo (text-[11px]/h-8), então com mais de 7 covers a tabela
 // crescia sem limite. O piso da primeira faixa reproduz o tamanho de hoje
@@ -146,6 +156,59 @@ export default function TimesheetView({ building }: { building: Building }) {
   const signCell = `border border-ink ${sz.pad} ${sz.cellH}`;
 
   const [hideNames, setHideNames] = useState(false);
+
+  // Modo edição: permite personalizar o nome do prédio (topo) e, por linha,
+  // o nome do prédio + WO — só nesta folha impressa. Salvo numa tabela
+  // separada (TimesheetSheetOverride, via /api/timesheet-overrides) — nunca
+  // escreve em Building/Team, então editar aqui nunca altera o cadastro.
+  const [editMode, setEditMode] = useState(false);
+  const [headerNome, setHeaderNome] = useState(building.nome);
+  const [rowOverrides, setRowOverrides] = useState<{ nomePredio: string; wo: string }[]>(() =>
+    rows.map(() => ({ nomePredio: building.nome, wo: building.workOrder ?? "" }))
+  );
+  const [coverOverrides, setCoverOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>(() =>
+    Object.fromEntries(building.covers.map((c) => [c.id, { nomePredio: building.nome, wo: building.workOrder ?? "" }]))
+  );
+  // Enquanto ninguém mexeu (ou editou igual pra todo mundo), continua
+  // mesclado igual antes. Só separa de verdade quando alguma linha ficou
+  // diferente das outras — assim o que foi digitado não some ao sair do
+  // modo edição.
+  const rowBuildingAllSame = rowOverrides.every((o) => o.nomePredio === rowOverrides[0]?.nomePredio);
+  const rowWoAllSame = rowOverrides.every((o) => o.wo === rowOverrides[0]?.wo);
+
+  // Carrega as personalizações salvas (se houver) assim que a folha abre, e
+  // salva (com debounce) sempre que algo muda — ver lib/timesheetSheetOverrides.
+  const saveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  function scheduleSaveOverride(key: string, scope: string, value: { nomePredio: string; wo: string }) {
+    if (saveTimeouts.current[key]) clearTimeout(saveTimeouts.current[key]);
+    saveTimeouts.current[key] = setTimeout(() => {
+      saveSheetOverride("building", building.id, scope, value);
+    }, 500);
+  }
+
+  useEffect(() => {
+    (async () => {
+      const overrides = indexSheetOverrides(await fetchSheetOverrides("building", [building.id]));
+      const header = overrides[`${building.id}:header`];
+      if (header) setHeaderNome(header.nomePredio ?? building.nome);
+      setRowOverrides((prev) =>
+        prev.map((o, i) => {
+          const r = overrides[`${building.id}:row:${i}`];
+          return r ? { nomePredio: r.nomePredio ?? building.nome, wo: r.workOrder ?? building.workOrder ?? "" } : o;
+        })
+      );
+      setCoverOverrides((prev) => {
+        const next = { ...prev };
+        for (const c of building.covers) {
+          const r = overrides[`${building.id}:cover:${c.id}`];
+          if (r) next[c.id] = { nomePredio: r.nomePredio ?? building.nome, wo: r.workOrder ?? building.workOrder ?? "" };
+        }
+        return next;
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+  }, [building.id]);
+
   // Molde em branco só na tela — não persiste nada (igual o resto da folha
   // de impressão), então é só um toggle local decidindo quantos dias mostrar.
   const [periodType, setPeriodType] = useState<TimesheetPeriodType>("weekly");
@@ -181,6 +244,10 @@ export default function TimesheetView({ building }: { building: Building }) {
       if (!res.ok) throw new Error("Could not add the cover");
       const created = await res.json();
       setCovers((prev) => [...prev, created]);
+      setCoverOverrides((prev) => ({
+        ...prev,
+        [created.id]: { nomePredio: building.nome, wo: building.workOrder ?? "" },
+      }));
       setCoverNome("");
       setCoverStaffNumber("");
       setCoverHoras("");
@@ -193,6 +260,10 @@ export default function TimesheetView({ building }: { building: Building }) {
 
   async function removeCover(id: string) {
     setCovers((prev) => prev.filter((c) => c.id !== id));
+    setCoverOverrides((prev) => {
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
     try {
       await fetch(`/api/buildings/${building.id}/covers/${id}`, { method: "DELETE" });
     } catch {
@@ -228,6 +299,16 @@ export default function TimesheetView({ building }: { building: Building }) {
           Hide staff names
         </label>
         <button
+          type="button"
+          onClick={() => setEditMode((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+            editMode ? "border-petrol bg-petrol text-white" : "border-line bg-white text-ink hover:border-petrol"
+          }`}
+        >
+          {editMode ? <Check size={14} /> : <Pencil size={14} />}
+          {editMode ? "Done editing" : "Edit"}
+        </button>
+        <button
           onClick={() => window.print()}
           className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
         >
@@ -242,7 +323,18 @@ export default function TimesheetView({ building }: { building: Building }) {
           Sign In &amp; Sign Out Book
         </h1>
         <div className="flex items-center gap-6">
-          <span className="font-display text-lg font-bold text-ink print:text-xs">{building.nome}</span>
+          {/* Sempre editável (não precisa clicar em "Edit") — só o nome, não
+              mexe no resto da folha. */}
+          <input
+            type="text"
+            value={headerNome}
+            onChange={(e) => {
+              setHeaderNome(e.target.value);
+              scheduleSaveOverride("header", "header", { nomePredio: e.target.value, wo: "" });
+            }}
+            size={Math.max(headerNome.length, 1)}
+            className="border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-xs"
+          />
           <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-9 print:w-9" />
         </div>
       </div>
@@ -277,7 +369,19 @@ export default function TimesheetView({ building }: { building: Building }) {
         </span>
       </div>
 
-      <table className={`mt-6 w-full border-collapse print:mt-2 ${sz.text}`}>
+      <table className={`mt-6 w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
+        <colgroup>
+          {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
+            <col key={i} style={{ width: `${w}%` }} />
+          ))}
+          {DAYS.map((d, i) => (
+            <>
+              <col key={d + "-in-col"} />
+              <col key={d + "-out-col"} />
+              {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+            </>
+          ))}
+        </colgroup>
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>
@@ -314,15 +418,53 @@ export default function TimesheetView({ building }: { building: Building }) {
           )}
           {rows.map((r, i) => (
             <tr key={i}>
-              {i === 0 && (
-                <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                  {building.nome}
+              {editMode ? (
+                <td className={`${cell} text-center font-bold align-middle`}>
+                  <input
+                    type="text"
+                    value={rowOverrides[i]?.nomePredio ?? ""}
+                    onChange={(e) => {
+                      const next = { nomePredio: e.target.value, wo: rowOverrides[i]?.wo ?? "" };
+                      setRowOverrides((prev) => prev.map((o, idx) => (idx === i ? next : o)));
+                      scheduleSaveOverride(`row:${i}`, `row:${i}`, next);
+                    }}
+                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                  />
+                </td>
+              ) : rowBuildingAllSame ? (
+                i === 0 && (
+                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                    {rowOverrides[0]?.nomePredio ?? building.nome}
+                  </td>
+                )
+              ) : (
+                <td className={`${cell} text-center font-bold align-middle`}>
+                  {rowOverrides[i]?.nomePredio ?? building.nome}
                 </td>
               )}
               <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
-              {i === 0 && (
-                <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                  {building.workOrder ?? ""}
+              {editMode ? (
+                <td className={`${cell} text-center font-bold align-middle`}>
+                  <input
+                    type="text"
+                    value={rowOverrides[i]?.wo ?? ""}
+                    onChange={(e) => {
+                      const next = { nomePredio: rowOverrides[i]?.nomePredio ?? "", wo: e.target.value };
+                      setRowOverrides((prev) => prev.map((o, idx) => (idx === i ? next : o)));
+                      scheduleSaveOverride(`row:${i}`, `row:${i}`, next);
+                    }}
+                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                  />
+                </td>
+              ) : rowWoAllSame ? (
+                i === 0 && (
+                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                    {rowOverrides[0]?.wo ?? building.workOrder ?? ""}
+                  </td>
+                )
+              ) : (
+                <td className={`${cell} text-center font-bold align-middle`}>
+                  {rowOverrides[i]?.wo ?? building.workOrder ?? ""}
                 </td>
               )}
               <td className={cell}>{hideNames ? "" : r.nome ?? ""}</td>
@@ -387,11 +529,9 @@ export default function TimesheetView({ building }: { building: Building }) {
 
         <table className={`w-full table-fixed border-collapse ${backSz.text}`}>
           <colgroup>
-            <col className="w-[9%]" />
-            <col className="w-[4%]" />
-            <col className="w-[7%]" />
-            <col className="w-[18%]" />
-            <col className="w-[13%]" />
+            {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
+              <col key={i} style={{ width: `${w}%` }} />
+            ))}
             {DAYS.map((d, i) => (
               <>
                 <col key={d + "-in-col"} />
@@ -429,9 +569,45 @@ export default function TimesheetView({ building }: { building: Building }) {
           <tbody>
             {covers.map((c) => (
               <tr key={c.id}>
-                <td className={`${backSignCell} text-center`}>{building.nome}</td>
+                <td className={`${backSignCell} text-center`}>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={coverOverrides[c.id]?.nomePredio ?? ""}
+                      onChange={(e) => {
+                        const next = {
+                          nomePredio: e.target.value,
+                          wo: coverOverrides[c.id]?.wo ?? building.workOrder ?? "",
+                        };
+                        setCoverOverrides((prev) => ({ ...prev, [c.id]: next }));
+                        scheduleSaveOverride(`cover:${c.id}`, `cover:${c.id}`, next);
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
+                    />
+                  ) : (
+                    coverOverrides[c.id]?.nomePredio ?? building.nome
+                  )}
+                </td>
                 <td className={`${backCell} text-center`}>{c.horas ?? ""}</td>
-                <td className={`${backCell} text-center`}>{building.workOrder ?? ""}</td>
+                <td className={`${backCell} text-center`}>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={coverOverrides[c.id]?.wo ?? ""}
+                      onChange={(e) => {
+                        const next = {
+                          nomePredio: coverOverrides[c.id]?.nomePredio ?? building.nome,
+                          wo: e.target.value,
+                        };
+                        setCoverOverrides((prev) => ({ ...prev, [c.id]: next }));
+                        scheduleSaveOverride(`cover:${c.id}`, `cover:${c.id}`, next);
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
+                    />
+                  ) : (
+                    coverOverrides[c.id]?.wo ?? (building.workOrder ?? "")
+                  )}
+                </td>
                 <td className={backCell}>
                   <span className="flex items-center justify-between gap-2">
                     {hideNames ? "" : c.nome ?? ""}

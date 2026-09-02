@@ -392,6 +392,33 @@ model FortnightPlan {
   @@map("fortnight_plan")
 }
 
+// ---------- Edições da folha impressa (tabela nova: timesheet_sheet_override) ----------
+// Guarda só as personalizações feitas na tela em /timesheets/[id],
+// /timesheets/leader/[id] e no editor combinado (Building/WO por linha +
+// nome em negrito do topo) — nunca escreve em predios/team/timesheet.
+// subjectType/subjectId é uma referência solta (sem FK, texto livre — mesmo
+// padrão de Staff.lastBuildingName) porque pode apontar tanto pra um
+// Building (linhas/covers de uma folha ao vivo, reaproveitado tanto em
+// /timesheets/[id] quanto na visão combinada do líder) quanto pra um Team
+// (nome combinado do topo da folha do líder, que junta vários prédios) ou
+// um Timesheet (linhas/covers/topo do editor combinado, específico daquela
+// semana). scope: "header" | "row:<índice>" | "cover:<coverId>".
+model TimesheetSheetOverride {
+  id          BigInt   @id @default(autoincrement())
+  subjectType String   @map("subject_type") @db.VarChar(20)
+  subjectId   BigInt   @map("subject_id")
+  scope       String   @db.VarChar(50)
+
+  nomePredio  String?  @map("nome_predio") @db.VarChar(255)
+  workOrder   String?  @map("work_order") @db.VarChar(255)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([subjectType, subjectId, scope])
+  @@map("timesheet_sheet_override")
+}
+
 // ---------- Ajuste pós-envio (tabela nova: adjustment) ----------
 // Registrado quando o Team Leader edita `entries` de uma folha semanal DEPOIS
 // do primeiro envio (draft -> submitted) — compara contra o que foi

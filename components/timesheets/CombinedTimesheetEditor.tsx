@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Printer, Plus, X } from "lucide-react";
+import { Printer, Plus, X, Pencil, Check } from "lucide-react";
 import {
   getTimesheetDayKeys,
   timesheetDayLabel,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/types";
 import { formatWeekRange, formatFortnightRange, formatShortDate, timesheetDayOffset } from "@/lib/week";
 import StaffSearchInput from "@/components/StaffSearchInput";
+import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
 
 const ESTATES_EVENTS_WO = "515736";
 const MIN_COVER_ROWS = 7;
@@ -56,6 +57,15 @@ function backTableSizing(rowCount: number) {
   if (rowCount <= 24) return { text: "text-xs print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-8 print:h-5" };
   if (rowCount <= 32) return { text: "text-xs print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-8 print:h-4" };
   return { text: "text-xs print:text-[7px]", pad: "p-1 print:p-0", cellH: "h-8 print:h-3" };
+}
+
+// Larguras (%) das colunas fixas (Building/Hours/WO/Name/Staff Number) do
+// colgroup. Na quinzenal são o dobro de colunas de dia disputando o mesmo
+// espaço — reduz um pouco as fixas pra sobrar mais área pros dias, senão
+// eles ficam minúsculos.
+function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[] {
+  const factor = periodType === "biweekly" ? 2 / 3 : 1;
+  return pct.map((p) => p * factor);
 }
 
 function BlankRow({
@@ -154,6 +164,67 @@ export default function CombinedTimesheetEditor({
   const [rowsByTimesheet, setRowsByTimesheet] = useState<Record<string, TimesheetRow[]>>({});
   const [error, setError] = useState<string | null>(null);
   const saveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Modo edição: permite personalizar o nome do prédio (topo) e, por linha,
+  // o nome do prédio + WO — só nesta folha. Salvo numa tabela separada
+  // (TimesheetSheetOverride, via /api/timesheet-overrides), uma por
+  // Timesheet (prédio+semana) — nunca escreve em Building/Team, então
+  // editar aqui nunca altera o cadastro.
+  const [editMode, setEditMode] = useState(false);
+  const [headerNome, setHeaderNome] = useState(() => timesheets.map((t) => t.buildingNome).join(", "));
+  const [rowOverrides, setRowOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>({});
+  const [coverOverrides, setCoverOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>({});
+  const overrideSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  function scheduleSaveOverride(debounceKey: string, subjectId: string, scope: string, value: { nomePredio: string; wo: string }) {
+    if (overrideSaveTimeouts.current[debounceKey]) clearTimeout(overrideSaveTimeouts.current[debounceKey]);
+    overrideSaveTimeouts.current[debounceKey] = setTimeout(() => {
+      saveSheetOverride("timesheet", subjectId, scope, value);
+    }, 500);
+  }
+  function scheduleSaveHeader(value: { nomePredio: string; wo: string }) {
+    const firstId = timesheets[0]?.id;
+    if (!firstId) return;
+    scheduleSaveOverride("header", firstId, "header", value);
+  }
+
+  // Carrega as personalizações salvas (se houver) assim que a folha abre.
+  useEffect(() => {
+    (async () => {
+      const ids = timesheets.map((t) => t.id);
+      const overrides = indexSheetOverrides(await fetchSheetOverrides("timesheet", ids));
+
+      const firstId = timesheets[0]?.id;
+      if (firstId) {
+        const header = overrides[`${firstId}:header`];
+        if (header) setHeaderNome(header.nomePredio ?? timesheets.map((t) => t.buildingNome).join(", "));
+      }
+
+      setRowOverrides((prev) => {
+        const next = { ...prev };
+        timesheets.forEach((t) => {
+          const tRows = t.entries.rows.filter((r) => r.kind !== "cover");
+          tRows.forEach((_, i) => {
+            const r = overrides[`${t.id}:row:${i}`];
+            if (r) next[`${t.id}:${i}`] = { nomePredio: r.nomePredio ?? t.buildingNome, wo: r.workOrder ?? t.buildingWorkOrder ?? "" };
+          });
+        });
+        return next;
+      });
+
+      setCoverOverrides((prev) => {
+        const next = { ...prev };
+        timesheets.forEach((t) => {
+          t.entries.rows.forEach((row, idx) => {
+            if (row.kind !== "cover") return;
+            const r = overrides[`${t.id}:cover:${idx}`];
+            if (r) next[`${t.id}:${idx}`] = { nomePredio: r.nomePredio ?? t.buildingNome, wo: r.workOrder ?? t.buildingWorkOrder ?? "" };
+          });
+        });
+        return next;
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+  }, [timesheets.map((t) => t.id).join(",")]);
 
   const [coverTimesheetId, setCoverTimesheetId] = useState(timesheets[0]?.id ?? "");
   const [coverNome, setCoverNome] = useState("");
@@ -281,13 +352,25 @@ export default function CombinedTimesheetEditor({
             </span>
           ))}
         </div>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
-        >
-          <Printer size={16} />
-          Print / Export PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+              editMode ? "border-petrol bg-petrol text-white" : "border-line bg-white text-ink hover:border-petrol"
+            }`}
+          >
+            {editMode ? <Check size={14} /> : <Pencil size={14} />}
+            {editMode ? "Done editing" : "Edit"}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
+          >
+            <Printer size={16} />
+            Print / Export PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 border-b-2 border-ink pb-3 print:pb-1">
@@ -296,9 +379,18 @@ export default function CombinedTimesheetEditor({
           Sign In &amp; Sign Out Book
         </h1>
         <div className="flex items-center gap-6">
-          <span className="font-display text-lg font-bold text-ink print:text-xs">
-            {timesheets.map((t) => t.buildingNome).join(", ")}
-          </span>
+          {/* Sempre editável (não precisa clicar em "Edit") — só o nome, não
+              mexe no resto da folha. */}
+          <input
+            type="text"
+            value={headerNome}
+            onChange={(e) => {
+              setHeaderNome(e.target.value);
+              scheduleSaveHeader({ nomePredio: e.target.value, wo: "" });
+            }}
+            size={Math.max(headerNome.length, 1)}
+            className="border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-xs"
+          />
           <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
         </div>
       </div>
@@ -334,7 +426,18 @@ export default function CombinedTimesheetEditor({
       <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
 
       <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
-      <table className={`w-full border-collapse print:mt-2 ${sz.text}`}>
+      <table className={`w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
+        <colgroup>
+          {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
+            <col key={i} style={{ width: `${w}%` }} />
+          ))}
+          {DAYS.map((d, i) => (
+            <>
+              <col key={d + "-col"} />
+              {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+            </>
+          ))}
+        </colgroup>
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>
@@ -392,13 +495,50 @@ export default function CombinedTimesheetEditor({
               ) : null;
 
             if (rows.length === 0) {
+              const emptyKey = `${t.id}:empty`;
               return (
                 <>
                   {spacerRow}
                   <tr key={t.id}>
-                    <td className={`${cell} text-center font-medium`}>{t.buildingNome}</td>
+                    <td className={`${cell} text-center font-medium`}>
+                      {editMode ? (
+                        <input
+                          type="text"
+                          value={rowOverrides[emptyKey]?.nomePredio ?? t.buildingNome}
+                          onChange={(e) => {
+                            const next = {
+                              nomePredio: e.target.value,
+                              wo: rowOverrides[emptyKey]?.wo ?? t.buildingWorkOrder ?? "",
+                            };
+                            setRowOverrides((prev) => ({ ...prev, [emptyKey]: next }));
+                            scheduleSaveOverride(emptyKey, t.id, "empty", next);
+                          }}
+                          className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
+                        />
+                      ) : (
+                        rowOverrides[emptyKey]?.nomePredio ?? t.buildingNome
+                      )}
+                    </td>
                     <td className={cell}></td>
-                    <td className={`${cell} text-center`}>{t.buildingWorkOrder ?? ""}</td>
+                    <td className={`${cell} text-center`}>
+                      {editMode ? (
+                        <input
+                          type="text"
+                          value={rowOverrides[emptyKey]?.wo ?? t.buildingWorkOrder ?? ""}
+                          onChange={(e) => {
+                            const next = {
+                              nomePredio: rowOverrides[emptyKey]?.nomePredio ?? t.buildingNome,
+                              wo: e.target.value,
+                            };
+                            setRowOverrides((prev) => ({ ...prev, [emptyKey]: next }));
+                            scheduleSaveOverride(emptyKey, t.id, "empty", next);
+                          }}
+                          className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
+                        />
+                      ) : (
+                        rowOverrides[emptyKey]?.wo ?? (t.buildingWorkOrder ?? "")
+                      )}
+                    </td>
                     <td className={`${cell} text-ink/30`} colSpan={2}>
                       no cleaner or slot registered
                     </td>
@@ -413,23 +553,67 @@ export default function CombinedTimesheetEditor({
               );
             }
 
+            // Enquanto ninguém mexeu (ou editou igual pra todo mundo), continua
+            // mesclado igual antes. Só separa de verdade quando alguma linha
+            // ficou diferente das outras — assim o que foi digitado não some
+            // ao sair do modo edição.
+            const tNomes = rows.map((_, i) => rowOverrides[`${t.id}:${i}`]?.nomePredio ?? t.buildingNome);
+            const buildingAllSame = tNomes.every((v) => v === tNomes[0]);
+            const tWos = rows.map((_, i) => rowOverrides[`${t.id}:${i}`]?.wo ?? t.buildingWorkOrder ?? "");
+            const woAllSame = tWos.every((v) => v === tWos[0]);
+
             return (
               <>
                 {spacerRow}
                 {rows.map((r, i) => {
                   const rowIndex = allRows.indexOf(r);
+                  const key = `${t.id}:${i}`;
                   return (
                     <tr key={t.id + i}>
-                      {i === 0 && (
-                        <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                          {t.buildingNome}
+                      {editMode ? (
+                        <td className={`${cell} text-center font-bold align-middle`}>
+                          <input
+                            type="text"
+                            value={rowOverrides[key]?.nomePredio ?? t.buildingNome}
+                            onChange={(e) => {
+                              const next = { nomePredio: e.target.value, wo: rowOverrides[key]?.wo ?? t.buildingWorkOrder ?? "" };
+                              setRowOverrides((prev) => ({ ...prev, [key]: next }));
+                              scheduleSaveOverride(key, t.id, `row:${i}`, next);
+                            }}
+                            className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                          />
                         </td>
+                      ) : buildingAllSame ? (
+                        i === 0 && (
+                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                            {tNomes[0]}
+                          </td>
+                        )
+                      ) : (
+                        <td className={`${cell} text-center font-bold align-middle`}>{tNomes[i]}</td>
                       )}
                       <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
-                      {i === 0 && (
-                        <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                          {t.buildingWorkOrder ?? ""}
+                      {editMode ? (
+                        <td className={`${cell} text-center font-bold align-middle`}>
+                          <input
+                            type="text"
+                            value={rowOverrides[key]?.wo ?? t.buildingWorkOrder ?? ""}
+                            onChange={(e) => {
+                              const next = { nomePredio: rowOverrides[key]?.nomePredio ?? t.buildingNome, wo: e.target.value };
+                              setRowOverrides((prev) => ({ ...prev, [key]: next }));
+                              scheduleSaveOverride(key, t.id, `row:${i}`, next);
+                            }}
+                            className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                          />
                         </td>
+                      ) : woAllSame ? (
+                        i === 0 && (
+                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                            {tWos[0]}
+                          </td>
+                        )
+                      ) : (
+                        <td className={`${cell} text-center font-bold align-middle`}>{tWos[i]}</td>
                       )}
                       <td className={cell}>{r.nome ?? <span className="text-ink/30">Open slot</span>}</td>
                       <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
@@ -511,7 +695,18 @@ export default function CombinedTimesheetEditor({
         <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
 
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
-        <table className={`w-full border-collapse ${backSz.text}`}>
+        <table className={`w-full table-fixed border-collapse ${backSz.text}`}>
+          <colgroup>
+            {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
+              <col key={i} style={{ width: `${w}%` }} />
+            ))}
+            {DAYS.map((d, i) => (
+              <>
+                <col key={d + "-col"} />
+                {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+              </>
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th rowSpan={2} className={`${backCell} align-middle`}>Building Covers</th>
@@ -548,11 +743,49 @@ export default function CombinedTimesheetEditor({
             </tr>
           </thead>
           <tbody>
-            {coversFlat.map(({ t, row, rowIndex }) => (
+            {coversFlat.map(({ t, row, rowIndex }) => {
+              const coverKey = `${t.id}:${rowIndex}`;
+              return (
               <tr key={t.id + rowIndex}>
-                <td className={`${backSignCell} text-center`}>{t.buildingNome}</td>
+                <td className={`${backSignCell} text-center`}>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={coverOverrides[coverKey]?.nomePredio ?? t.buildingNome}
+                      onChange={(e) => {
+                        const next = {
+                          nomePredio: e.target.value,
+                          wo: coverOverrides[coverKey]?.wo ?? t.buildingWorkOrder ?? "",
+                        };
+                        setCoverOverrides((prev) => ({ ...prev, [coverKey]: next }));
+                        scheduleSaveOverride(coverKey, t.id, `cover:${rowIndex}`, next);
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
+                    />
+                  ) : (
+                    coverOverrides[coverKey]?.nomePredio ?? t.buildingNome
+                  )}
+                </td>
                 <td className={`${backCell} text-center`}>{row.horas ?? ""}</td>
-                <td className={`${backCell} text-center`}>{t.buildingWorkOrder ?? ""}</td>
+                <td className={`${backCell} text-center`}>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={coverOverrides[coverKey]?.wo ?? t.buildingWorkOrder ?? ""}
+                      onChange={(e) => {
+                        const next = {
+                          nomePredio: coverOverrides[coverKey]?.nomePredio ?? t.buildingNome,
+                          wo: e.target.value,
+                        };
+                        setCoverOverrides((prev) => ({ ...prev, [coverKey]: next }));
+                        scheduleSaveOverride(coverKey, t.id, `cover:${rowIndex}`, next);
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
+                    />
+                  ) : (
+                    coverOverrides[coverKey]?.wo ?? (t.buildingWorkOrder ?? "")
+                  )}
+                </td>
                 <td className={backCell}>
                   <span className="flex items-center justify-between gap-2">
                     {row.nome ?? ""}
@@ -584,7 +817,8 @@ export default function CombinedTimesheetEditor({
                   </>
                 ))}
               </tr>
-            ))}
+              );
+            })}
             <BlankRow
               n={Math.max(MIN_COVER_ROWS - coversFlat.length, 1)}
               cell={backCell}
