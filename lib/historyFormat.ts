@@ -7,7 +7,10 @@ export type HistoryKind = "building" | "team_leader" | "team_leader_cover";
 export type StaffHistoryDTO = {
   id: string;
   kind: HistoryKind;
-  staffId: string;
+  // Nulo pra entrada manual sem cadastro de Staff (nome solto em
+  // staffNome/staffNumber abaixo) — ver POST /api/staff-history. Quando
+  // nulo, não tem pra onde linkar (não existe /staff/[id]/edit).
+  staffId: string | null;
   // Só vem preenchido no relatório geral (/api/staff-history), que lista
   // várias pessoas — no painel por staff (/api/staff/[id]/history) já se
   // sabe de quem é.

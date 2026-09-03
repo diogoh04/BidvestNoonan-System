@@ -148,9 +148,12 @@ export async function getTeamsData(onlyTeamId?: bigint) {
         .filter((c) => c.teamId === t.id)
         .map((c) => ({
           id: c.id.toString(),
-          staffId: c.staffId.toString(),
-          nome: c.staff.nome,
-          staffNumber: c.staff.staffNumber,
+          // team_leader_cover é sempre criado com staffId (ver
+          // openTeamLeaderCover) — só "building" pode ficar sem, pra
+          // entrada manual sem cadastro (ver POST /api/staff-history).
+          staffId: c.staffId!.toString(),
+          nome: c.staff!.nome,
+          staffNumber: c.staff!.staffNumber,
           startedAt: c.startedAt.toISOString(),
           endedAt: c.endedAt ? c.endedAt.toISOString() : null,
           note: c.note,

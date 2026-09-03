@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import BuildingCard from "@/components/BuildingCard";
+import BuildingStaffHistoryCard from "@/components/BuildingStaffHistoryCard";
 
 async function getBaseUrl() {
   const h = headers();
@@ -25,8 +26,11 @@ export default async function BuildingDetailPage({ params }: { params: { id: str
   return (
     <>
       <Header role="master" />
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <BuildingCard building={building} />
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px] lg:items-start">
+          <BuildingCard building={building} />
+          <BuildingStaffHistoryCard buildingId={building.id} />
+        </div>
       </main>
     </>
   );

@@ -185,9 +185,15 @@ export default function StaffHistoryPage() {
                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${KIND_STYLE[e.kind]}`}>
                   {HISTORY_KIND_LABELS[e.kind]}
                 </span>
-                <Link href={`/staff/${e.staffId}/edit`} className="font-medium text-ink hover:text-petrol hover:underline">
-                  {e.staffNome ?? "—"}
-                </Link>
+                {e.staffId ? (
+                  <Link href={`/staff/${e.staffId}/edit`} className="font-medium text-ink hover:text-petrol hover:underline">
+                    {e.staffNome ?? "—"}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-ink" title="No staff record — added by name only">
+                    {e.staffNome ?? "—"}
+                  </span>
+                )}
                 <span className="font-mono text-xs text-ink/40">#{e.staffNumber || "n/a"}</span>
                 <span className="text-ink/40">→</span>
                 <span className="text-ink">{historyTargetLabel(e)}</span>

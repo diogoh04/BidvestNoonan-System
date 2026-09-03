@@ -190,9 +190,19 @@ model TeamLeader {
 // buildingName/teamNumber são snapshot (sobrevivem a rename/exclusão do
 // prédio/time), mesmo padrão de Staff.lastBuildingName.
 model StaffHistory {
-  id      BigInt @id @default(autoincrement())
-  staffId BigInt @map("staff_id")
-  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  id      BigInt  @id @default(autoincrement())
+  // Nulo pra entrada manual de alguém sem cadastro de Staff (ex.: saiu há
+  // muito tempo, nunca chegou a ser cadastrado) — ver POST
+  // /api/staff-history e BuildingStaffHistoryCard. Nesse caso o nome (e,
+  // opcionalmente, o staff number) fica solto em staffNome/staffNumber
+  // abaixo em vez de vir do relacionamento. Continua Cascade: se o staff
+  // vinculado for apagado, a entrada dele some junto (comportamento de
+  // sempre) — só passa a ser opcional pra permitir a entrada solta.
+  staffId BigInt? @map("staff_id")
+  staff   Staff?  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  // Só preenchido quando staffId é nulo — texto livre digitado na tela.
+  staffNome   String? @map("staff_nome") @db.VarChar(255)
+  staffNumber String? @map("staff_number") @db.VarChar(50)
 
   kind String @db.VarChar(30)
 

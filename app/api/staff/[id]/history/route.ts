@@ -24,7 +24,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       entries.map((e) => ({
         id: e.id.toString(),
         kind: e.kind,
-        staffId: e.staffId.toString(),
+        // Filtrado por staffId acima, então nunca vem nulo aqui (só fica
+        // nulo em entrada manual sem cadastro — ver POST /api/staff-history).
+        staffId: e.staffId!.toString(),
         buildingId: e.buildingId ? e.buildingId.toString() : null,
         buildingName: e.buildingName,
         teamId: e.teamId ? e.teamId.toString() : null,
