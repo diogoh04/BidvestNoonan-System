@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X, Pencil, Check } from "lucide-react";
 import { computeOpenSlots, type Slot } from "@/lib/openSlots";
-import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetPeriodType } from "@/lib/types";
+import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetDayValue, type TimesheetPeriodType } from "@/lib/types";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
+import { fetchSignEntries, indexSignEntries, saveSignEntry } from "@/lib/timesheetSheetSigns";
 
 type StaffLine = {
   id: string;
@@ -71,6 +72,39 @@ function SignCell({ className, textClass }: { className: string; textClass: stri
     <td className={className}>
       <input
         type="text"
+        maxLength={5}
+        className={`h-full w-full border-none bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight ${textClass}`}
+      />
+    </td>
+  );
+}
+
+const EMPTY_SIGN: TimesheetDayValue = { in: null, out: null };
+
+// Igual o SignCell acima, mas controlado e salvo (linhas de staff/vaga,
+// covers e ESTATES EVENTS — ver TimesheetSheetSign). Mantém a mesma
+// estrutura de uma <td> por coluna (SIGN IN e SIGN OUT continuam colunas
+// separadas, como no colgroup/cabeçalho) — só passa a controlar o valor.
+// Componente de módulo de propósito: se fosse declarado dentro de
+// TimesheetView, cada tecla digitada recriaria a função e o React trataria
+// o <input> como um elemento novo, perdendo o foco a cada caractere.
+function PersistedSignCell({
+  value,
+  onChange,
+  className,
+  textClass,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className: string;
+  textClass: string;
+}) {
+  return (
+    <td className={className}>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         maxLength={5}
         className={`h-full w-full border-none bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight ${textClass}`}
       />
@@ -205,6 +239,34 @@ export default function TimesheetView({ building }: { building: Building }) {
         }
         return next;
       });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+  }, [building.id]);
+
+  // SIGN IN/SIGN OUT digitados nas linhas de staff/vaga, covers e ESTATES
+  // EVENTS — persistem numa tabela separada (TimesheetSheetSign, via
+  // /api/timesheet-signs). Sem semana associada de propósito (escolha do
+  // usuário): o valor digitado fica valendo até ser sobrescrito, não reseta
+  // toda semana. As linhas em branco (BlankRow) continuam sem persistir —
+  // não têm identidade estável pra amarrar um registro.
+  const [signValues, setSignValues] = useState<Record<string, TimesheetDayValue>>({});
+  const signSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  function updateSign(scope: string, field: "in" | "out", v: string) {
+    setSignValues((prev) => {
+      const current = prev[scope] ?? EMPTY_SIGN;
+      const next = { ...current, [field]: v };
+      if (signSaveTimeouts.current[scope]) clearTimeout(signSaveTimeouts.current[scope]);
+      signSaveTimeouts.current[scope] = setTimeout(() => {
+        saveSignEntry("building", building.id, scope, { in: next.in ?? "", out: next.out ?? "" });
+      }, 500);
+      return { ...prev, [scope]: next };
+    });
+  }
+
+  useEffect(() => {
+    (async () => {
+      const signs = indexSignEntries(await fetchSignEntries("building", [building.id]));
+      setSignValues(Object.fromEntries(Object.values(signs).map((r) => [r.scope, { in: r.signIn, out: r.signOut }])));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     })();
   }, [building.id]);
@@ -469,13 +531,29 @@ export default function TimesheetView({ building }: { building: Building }) {
               )}
               <td className={cell}>{hideNames ? "" : r.nome ?? ""}</td>
               <td className={`${cell} text-center`}>{hideNames ? "" : r.staffNumber ?? ""}</td>
-              {DAYS.map((d, di) => (
-                <>
-                  <SignCell key={d + i + "-in"} className={signCell} textClass={sz.text} />
-                  <SignCell key={d + i + "-out"} className={signCell} textClass={sz.text} />
-                  {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + i + "-spacer"} className={SPACER_CLASS}></td>}
-                </>
-              ))}
+              {DAYS.map((d, di) => {
+                const scope = `row:${i}:${d}`;
+                const val = signValues[scope] ?? EMPTY_SIGN;
+                return (
+                  <>
+                    <PersistedSignCell
+                      key={d + i + "-in"}
+                      className={signCell}
+                      textClass={sz.text}
+                      value={val.in ?? ""}
+                      onChange={(v) => updateSign(scope, "in", v)}
+                    />
+                    <PersistedSignCell
+                      key={d + i + "-out"}
+                      className={signCell}
+                      textClass={sz.text}
+                      value={val.out ?? ""}
+                      onChange={(v) => updateSign(scope, "out", v)}
+                    />
+                    {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + i + "-spacer"} className={SPACER_CLASS}></td>}
+                  </>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -622,13 +700,29 @@ export default function TimesheetView({ building }: { building: Building }) {
                   </span>
                 </td>
                 <td className={`${backCell} text-center`}>{hideNames ? "" : c.staffNumber ?? ""}</td>
-                {DAYS.map((d, di) => (
-                  <>
-                    <SignCell key={d + c.id + "-in"} className={backSignCell} textClass={backSz.text} />
-                    <SignCell key={d + c.id + "-out"} className={backSignCell} textClass={backSz.text} />
-                    {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + c.id + "-spacer"} className={SPACER_CLASS}></td>}
-                  </>
-                ))}
+                {DAYS.map((d, di) => {
+                  const scope = `cover:${c.id}:${d}`;
+                  const val = signValues[scope] ?? EMPTY_SIGN;
+                  return (
+                    <>
+                      <PersistedSignCell
+                        key={d + c.id + "-in"}
+                        className={backSignCell}
+                        textClass={backSz.text}
+                        value={val.in ?? ""}
+                        onChange={(v) => updateSign(scope, "in", v)}
+                      />
+                      <PersistedSignCell
+                        key={d + c.id + "-out"}
+                        className={backSignCell}
+                        textClass={backSz.text}
+                        value={val.out ?? ""}
+                        onChange={(v) => updateSign(scope, "out", v)}
+                      />
+                      {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + c.id + "-spacer"} className={SPACER_CLASS}></td>}
+                    </>
+                  );
+                })}
               </tr>
             ))}
             <BlankRow
@@ -666,13 +760,29 @@ export default function TimesheetView({ building }: { building: Building }) {
               <td className={`${backCell} text-center font-medium`}>{ESTATES_EVENTS_WO}</td>
               <td className={backCell}></td>
               <td className={backCell}></td>
-              {DAYS.map((d, di) => (
-                <>
-                  <SignCell key={d + "-events-in"} className={backSignCell} textClass={backSz.text} />
-                  <SignCell key={d + "-events-out"} className={backSignCell} textClass={backSz.text} />
-                  {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-events-spacer"} className={SPACER_CLASS}></td>}
-                </>
-              ))}
+              {DAYS.map((d, di) => {
+                const scope = `estatesEvents:${d}`;
+                const val = signValues[scope] ?? EMPTY_SIGN;
+                return (
+                  <>
+                    <PersistedSignCell
+                      key={d + "-events-in"}
+                      className={backSignCell}
+                      textClass={backSz.text}
+                      value={val.in ?? ""}
+                      onChange={(v) => updateSign(scope, "in", v)}
+                    />
+                    <PersistedSignCell
+                      key={d + "-events-out"}
+                      className={backSignCell}
+                      textClass={backSz.text}
+                      value={val.out ?? ""}
+                      onChange={(v) => updateSign(scope, "out", v)}
+                    />
+                    {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-events-spacer"} className={SPACER_CLASS}></td>}
+                  </>
+                );
+              })}
             </tr>
 
             <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />

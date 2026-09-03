@@ -127,6 +127,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const newTeamId = teamId !== null ? BigInt(teamId) : null;
     teamChange = { old: current.teamId, new: newTeamId };
     data.teamId = newTeamId;
+    // Entrando num time (novo ou trocando) sempre vai pro fim da ordem
+    // daquele time — ver Building.teamOrder no schema — em vez de empatar
+    // em 0 e pular pro meio da lista. O usuário reordena com as setas em
+    // /teams/[id] se quiser outra posição.
+    if (newTeamId != null && newTeamId !== current.teamId) {
+      const maxOrder = await prisma.building.aggregate({ where: { teamId: newTeamId }, _max: { teamOrder: true } });
+      data.teamOrder = (maxOrder._max.teamOrder ?? -1) + 1;
+    }
   }
 
   try {

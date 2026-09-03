@@ -85,7 +85,13 @@ export async function disconnectTeamLeader(teamId: bigint, staffId: bigint) {
 export async function getTeamsData(onlyTeamId?: bigint) {
   const teams = await prisma.team.findMany({
     where: onlyTeamId != null ? { id: onlyTeamId } : undefined,
-    include: { leaders: { include: { staff: true } }, buildings: true },
+    include: {
+      leaders: { include: { staff: true } },
+      // teamOrder = posição definida em /teams/[id] (setas pra cima/baixo);
+      // id como tie-break pra quem ainda está tudo em 0 (ordem de criação,
+      // igual antes dessa feature existir).
+      buildings: { orderBy: [{ teamOrder: "asc" }, { id: "asc" }] },
+    },
   });
 
   const buildingIds = teams.flatMap((t) => t.buildings.map((b) => b.id));

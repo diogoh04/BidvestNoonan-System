@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
-import BuildingCard from "@/components/BuildingCard";
+import TeamBuildingsOrderList from "@/components/TeamBuildingsOrderList";
 import TeamNumberCard from "@/components/TeamNumberCard";
 import ConnectTeamLeaderCard from "@/components/ConnectTeamLeaderCard";
 import TeamLeaderCoversCard from "@/components/TeamLeaderCoversCard";
@@ -67,16 +67,14 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
           <AddBuildingToTeamCard teamId={team.id} availableBuildings={availableBuildings} />
         </div>
 
-        <div className="mt-8 space-y-8">
-          {team.buildings.length === 0 && (
+        <div className="mt-8">
+          {team.buildings.length === 0 ? (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
               No building allocated to this team yet.
             </p>
+          ) : (
+            <TeamBuildingsOrderList teamId={team.id} initialBuildings={team.buildings} />
           )}
-
-          {team.buildings.map((b: any) => (
-            <BuildingCard key={b.id} building={b} bordered teamContext />
-          ))}
         </div>
       </main>
     </>

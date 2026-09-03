@@ -84,6 +84,14 @@ model Building {
   // quem é o team leader hoje — o prédio fica no time mesmo que o time
   // esteja sem líder conectado no momento.
   teamId BigInt? @map("team_id")
+  // Posição do prédio dentro do time (0, 1, 2...) — controla a ordem de
+  // exibição em /teams/[id] e, por consequência, a ordem em que os prédios
+  // aparecem na folha impressa (SIGN IN/OUT do líder e no editor semanal,
+  // ver getTeamsData e GET /api/timesheets). Editado via PUT
+  // /api/teams/[id]/buildings/order (setas pra cima/baixo na tela).
+  // Default 0 pra todos = empata e cai no tie-break por id (ordem de
+  // criação, comportamento de hoje) até alguém reordenar.
+  teamOrder Int @default(0) @map("team_order")
   team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   teamLeaders   StaffBuilding[]
@@ -417,6 +425,33 @@ model TimesheetSheetOverride {
 
   @@unique([subjectType, subjectId, scope])
   @@map("timesheet_sheet_override")
+}
+
+// ---------- Sign In/Out digitados na folha impressa (tabela nova: timesheet_sheet_sign) ----------
+// Guarda o texto digitado nas colunas SIGN IN/SIGN OUT de /timesheets/[id]
+// (folha por prédio, sem semana real associada — ver comentário em
+// TimesheetView.tsx). Mesmo padrão solto de subjectType/subjectId do
+// TimesheetSheetOverride acima (hoje só "building"). scope identifica a
+// célula: "row:<índice>:<diaKey>" (linha de staff/vaga), "cover:<coverId>:
+// <diaKey>" (cover) ou "estatesEvents:<diaKey>" (linha fixa ESTATES EVENTS).
+// De propósito NÃO cobre as linhas em branco de preenchimento livre
+// (BlankRow) — não têm identidade estável pra amarrar um registro.
+// Por escolha do usuário, não amarra a uma semana específica: o valor
+// digitado fica valendo até ser sobrescrito, não reseta toda semana.
+model TimesheetSheetSign {
+  id          BigInt   @id @default(autoincrement())
+  subjectType String   @map("subject_type") @db.VarChar(20)
+  subjectId   BigInt   @map("subject_id")
+  scope       String   @db.VarChar(50)
+
+  signIn      String?  @map("sign_in") @db.VarChar(20)
+  signOut     String?  @map("sign_out") @db.VarChar(20)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([subjectType, subjectId, scope])
+  @@map("timesheet_sheet_sign")
 }
 
 // ---------- Ajuste pós-envio (tabela nova: adjustment) ----------

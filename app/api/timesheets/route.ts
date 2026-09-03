@@ -62,7 +62,10 @@ export async function GET(req: NextRequest) {
   const timesheets = await prisma.timesheet.findMany({
     where,
     include: timesheetInclude,
-    orderBy: [{ weekStart: "desc" }, { building: { nome: "asc" } }],
+    // building.teamOrder = posição definida em /teams/[id], pra folha
+    // impressa/editor semanal seguir a mesma sequência; nome como tie-break
+    // pra quem ainda está tudo em 0 (comportamento de antes dessa feature).
+    orderBy: [{ weekStart: "desc" }, { building: { teamOrder: "asc" } }, { building: { nome: "asc" } }],
   });
 
   return NextResponse.json(toJSONSafe(timesheets.map(mapTimesheet)));
