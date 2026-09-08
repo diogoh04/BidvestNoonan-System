@@ -27,6 +27,7 @@ export async function GET() {
   const cleanerLinks = await prisma.staffBuilding.findMany({
     where: { buildingId: { in: buildingIds }, role: "cleaner" },
     include: { staff: true },
+    orderBy: [{ ordem: "asc" }, { id: "asc" }],
   });
 
   return NextResponse.json(
@@ -42,6 +43,7 @@ export async function GET() {
           .filter((c) => c.buildingId === l.buildingId)
           .map((c) => ({
             id: c.staff.id.toString(),
+            sbId: c.id.toString(),
             nome: c.staff.nome,
             staffNumber: c.staff.staffNumber,
             telefone: c.staff.telefone,

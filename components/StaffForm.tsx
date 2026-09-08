@@ -105,12 +105,12 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     }
   }
 
-  // Vínculo de cleaner: um por prédio (o mesmo staff não repete o mesmo
-  // prédio duas vezes aqui). Team leader não é mais um vínculo de prédio —
-  // ver teamsLed abaixo, que conecta o staff a um Team inteiro.
+  // Vínculo de cleaner: o mesmo staff PODE aparecer no mesmo prédio mais de
+  // uma vez (dois turnos/postos, cada um com suas horas). Team leader não é
+  // mais um vínculo de prédio — ver teamsLed abaixo, que conecta o staff a um
+  // Team inteiro.
   function addAssignment() {
-    const used = new Set(assignments.map((a) => a.buildingId));
-    const next = buildings.find((b) => !used.has(b.id));
+    const next = buildings[0];
     if (next) setAssignments((prev) => [...prev, { buildingId: next.id, role: "cleaner", horas: null }]);
   }
 
@@ -122,8 +122,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
     setAssignments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const usedBuildingIds = new Set(assignments.map((a) => a.buildingId));
-  const hasBuildingAvailable = usedBuildingIds.size < buildings.length;
+  const hasBuildingAvailable = buildings.length > 0;
 
   // Um time pode ter mais de um líder (co-liderança), então todos entram na
   // lista — só filtra os já escolhidos NESTE formulário (ver options abaixo).
@@ -389,9 +388,8 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
           )}
 
           {assignments.map((a, i) => {
-            const usedElsewhere = new Set(assignments.filter((_, j) => j !== i).map((x) => x.buildingId));
-            const options = buildings.filter((b) => b.id === a.buildingId || !usedElsewhere.has(b.id));
-
+            // Sem filtro de "já usado": o mesmo prédio pode ser escolhido em
+            // mais de uma linha (dois turnos/postos no mesmo prédio).
             return (
               <div
                 key={i}
@@ -402,7 +400,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
                   onChange={(e) => updateAssignment(i, { buildingId: e.target.value })}
                   className="min-w-[140px] flex-1 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
                 >
-                  {options.map((b) => (
+                  {buildings.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.nome}
                     </option>

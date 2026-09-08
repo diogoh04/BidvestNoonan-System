@@ -9,10 +9,20 @@ import RemoveFromTeamButton from "@/components/RemoveFromTeamButton";
 
 type StaffLine = {
   id: string;
+  // id do vínculo StaffBuilding — o mesmo staff pode ter mais de um vínculo
+  // de cleaner no mesmo prédio (ver schema.prisma).
+  sbId: string;
   nome: string | null;
   staffNumber: string | null;
   telefone: string | null;
   horasSemana?: number | null;
+  // Posição manual na folha (ver lib/timesheetRows.ts). Null = ordem
+  // automática por horas.
+  ordem?: number | null;
+  // Building/WO próprios desta pessoa na folha (ver StaffBuilding). Vazio =
+  // usa o do prédio.
+  predioLabel?: string | null;
+  workOrder?: string | null;
 };
 
 export type BuildingCardData = {
@@ -85,6 +95,8 @@ export default function BuildingCard({
           emptyLabel="No cleaner assigned to this building."
           slots={building.slots}
           buildingId={building.id}
+          buildingNome={building.nome}
+          buildingWorkOrder={building.workOrder}
           role="cleaner"
         />
       </div>

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X, Pencil, Check } from "lucide-react";
-import { computeOpenSlots, type Slot } from "@/lib/openSlots";
+import { type Slot } from "@/lib/openSlots";
+import { buildSheetRows } from "@/lib/timesheetRows";
 import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetPeriodType } from "@/lib/types";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
@@ -13,6 +14,13 @@ type StaffLine = {
   nome: string | null;
   staffNumber: string | null;
   horasSemana: number | null;
+  // Posição manual na folha (ver lib/timesheetRows.ts). Só nos cleaners.
+  ordem?: number | null;
+  sbId?: string;
+  // Building/WO próprios desta pessoa na folha (ver StaffBuilding). Vazio =
+  // usa o do prédio.
+  predioLabel?: string | null;
+  workOrder?: string | null;
 };
 
 type Cover = { id: string; nome: string | null; staffNumber: string | null; horas: number | null };
@@ -40,14 +48,21 @@ const MIN_COVER_ROWS = 7;
 const SPACER_CLASS = "w-2 border-0 bg-white p-0 print:bg-transparent";
 const SPACER_AFTER_INDEX = 4;
 
-function buildRows(cleaners: StaffLine[], slots: Slot[]) {
-  const rows: { nome: string | null; staffNumber: string | null; horas: number | null }[] = [
-    ...cleaners.map((c) => ({ nome: c.nome, staffNumber: c.staffNumber, horas: c.horasSemana })),
-    ...computeOpenSlots(slots, cleaners).map((s) => ({ nome: null, staffNumber: null, horas: s.horas })),
-  ];
-  // maior número de horas primeiro
-  rows.sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0));
-  return rows;
+// Ordem (automática por horas ou manual) fica em lib/timesheetRows.ts.
+function buildRows(b: BuildingSection) {
+  return buildSheetRows(
+    b.cleaners.map((c) => ({
+      nome: c.nome,
+      staffNumber: c.staffNumber,
+      horas: c.horasSemana,
+      ordem: c.ordem,
+      sbId: c.sbId ?? null,
+      predioLabel: c.predioLabel,
+      workOrder: c.workOrder,
+    })),
+    b.slots,
+    { nome: b.nome, workOrder: b.workOrder }
+  );
 }
 
 // Campo livre pra preencher na tela (data da semana). Não persiste — só pra
@@ -171,19 +186,49 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
   // /timesheets/[id].
   const [editMode, setEditMode] = useState(false);
   const [headerNome, setHeaderNome] = useState(teamLeader.buildings.map((b) => b.nome).join(", "));
+  // `rowOverrides` agora só guarda o rótulo do prédio quando ele NÃO tem
+  // nenhuma linha (scope "empty"). Building/WO das linhas de staff vêm do
+  // vínculo (ver sheetEdits abaixo).
   const [rowOverrides, setRowOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>(() => {
     const init: Record<string, { nomePredio: string; wo: string }> = {};
     teamLeader.buildings.forEach((b) => {
-      const bRows = buildRows(b.cleaners, b.slots);
-      if (bRows.length === 0) {
+      if (buildRows(b).length === 0) {
         init[`${b.id}:empty`] = { nomePredio: b.nome, wo: b.workOrder ?? "" };
       }
-      bRows.forEach((_, i) => {
-        init[`${b.id}:${i}`] = { nomePredio: b.nome, wo: b.workOrder ?? "" };
-      });
     });
     return init;
   });
+
+  // Building/WO por PESSOA (ver StaffBuilding.predioLabel/workOrder) — edições
+  // otimistas, keyed pelo sbId, seguem a pessoa em qualquer ordem. `rows` já
+  // vem com o valor resolvido do servidor; isto sobrepõe o que está sendo
+  // digitado agora.
+  const [sheetEdits, setSheetEdits] = useState<Record<string, { predio: string; wo: string }>>({});
+  const sheetSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const effPredio = (r: { sbId: string | null; predio: string | null }) =>
+    (r.sbId && sheetEdits[r.sbId] ? sheetEdits[r.sbId].predio : r.predio) ?? "";
+  const effWo = (r: { sbId: string | null; wo: string | null }) =>
+    (r.sbId && sheetEdits[r.sbId] ? sheetEdits[r.sbId].wo : r.wo) ?? "";
+  function updateSheet(
+    buildingId: string,
+    r: { sbId: string | null; predio: string | null; wo: string | null },
+    field: "predio" | "wo",
+    value: string
+  ) {
+    if (!r.sbId) return;
+    const sbId = r.sbId;
+    const current = sheetEdits[sbId] ?? { predio: r.predio ?? "", wo: r.wo ?? "" };
+    const next = { ...current, [field]: value };
+    setSheetEdits((prev) => ({ ...prev, [sbId]: next }));
+    if (sheetSaveTimeouts.current[sbId]) clearTimeout(sheetSaveTimeouts.current[sbId]);
+    sheetSaveTimeouts.current[sbId] = setTimeout(() => {
+      fetch(`/api/buildings/${buildingId}/staff/sheet`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sbId, predioLabel: next.predio, workOrder: next.wo }),
+      }).catch(() => {});
+    }, 500);
+  }
   const [coverOverrides, setCoverOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>(() => {
     const init: Record<string, { nomePredio: string; wo: string }> = {};
     teamLeader.buildings.forEach((b) => {
@@ -225,15 +270,10 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
       setRowOverrides((prev) => {
         const next = { ...prev };
         teamLeader.buildings.forEach((b) => {
-          const bRows = buildRows(b.cleaners, b.slots);
-          if (bRows.length === 0) {
+          if (buildRows(b).length === 0) {
             const r = byB[`${b.id}:empty`];
             if (r) next[`${b.id}:empty`] = { nomePredio: r.nomePredio ?? b.nome, wo: r.workOrder ?? b.workOrder ?? "" };
           }
-          bRows.forEach((_, i) => {
-            const r = byB[`${b.id}:row:${i}`];
-            if (r) next[`${b.id}:${i}`] = { nomePredio: r.nomePredio ?? b.nome, wo: r.workOrder ?? b.workOrder ?? "" };
-          });
         });
         return next;
       });
@@ -481,7 +521,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             </tr>
           )}
           {teamLeader.buildings.map((b, buildingIndex) => {
-            const rows = buildRows(b.cleaners, b.slots);
+            const rows = buildRows(b);
             const spacerRow =
               buildingIndex > 0 ? (
                 <tr key={b.id + "-spacer"}>
@@ -549,68 +589,68 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               );
             }
 
-            // Enquanto ninguém mexeu (ou editou igual pra todo mundo), continua
-            // mesclado igual antes. Só separa de verdade quando alguma linha
-            // ficou diferente das outras — assim o que foi digitado não some
-            // ao sair do modo edição.
-            const bOverrides = rows.map((_, i) => rowOverrides[`${b.id}:${i}`]);
-            const buildingAllSame = bOverrides.every((o) => o?.nomePredio === bOverrides[0]?.nomePredio);
-            const woAllSame = bOverrides.every((o) => o?.wo === bOverrides[0]?.wo);
+            // Enquanto todas as linhas mostram o mesmo Building/WO (ninguém deu
+            // rótulo próprio) a célula fica mesclada igual antes.
+            const predios = rows.map(effPredio);
+            const wos = rows.map(effWo);
+            const buildingAllSame = predios.every((v) => v === predios[0]);
+            const woAllSame = wos.every((v) => v === wos[0]);
 
             return (
               <>
                 {spacerRow}
                 {rows.map((r, i) => {
-                  const key = `${b.id}:${i}`;
                   return (
                   <tr key={b.id + i}>
                     {editMode ? (
                       <td className={`${cell} text-center font-bold align-middle`}>
-                        <input
-                          type="text"
-                          value={rowOverrides[key]?.nomePredio ?? ""}
-                          onChange={(e) => {
-                            const next = { nomePredio: e.target.value, wo: rowOverrides[key]?.wo ?? b.workOrder ?? "" };
-                            setRowOverrides((prev) => ({ ...prev, [key]: next }));
-                            scheduleSaveOverride(key, b.id, `row:${i}`, next);
-                          }}
-                          className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
-                        />
+                        {r.kind === "staff" ? (
+                          <input
+                            type="text"
+                            value={effPredio(r)}
+                            placeholder={b.nome}
+                            onChange={(e) => updateSheet(b.id, r, "predio", e.target.value)}
+                            className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                          />
+                        ) : (
+                          r.predio || b.nome
+                        )}
                       </td>
                     ) : buildingAllSame ? (
                       i === 0 && (
                         <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                          {rowOverrides[`${b.id}:0`]?.nomePredio ?? b.nome}
+                          {predios[0] || b.nome}
                         </td>
                       )
                     ) : (
                       <td className={`${cell} text-center font-bold align-middle`}>
-                        {rowOverrides[key]?.nomePredio ?? b.nome}
+                        {effPredio(r) || b.nome}
                       </td>
                     )}
                     <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
                     {editMode ? (
                       <td className={`${cell} text-center font-bold align-middle`}>
-                        <input
-                          type="text"
-                          value={rowOverrides[key]?.wo ?? ""}
-                          onChange={(e) => {
-                            const next = { nomePredio: rowOverrides[key]?.nomePredio ?? b.nome, wo: e.target.value };
-                            setRowOverrides((prev) => ({ ...prev, [key]: next }));
-                            scheduleSaveOverride(key, b.id, `row:${i}`, next);
-                          }}
-                          className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
-                        />
+                        {r.kind === "staff" ? (
+                          <input
+                            type="text"
+                            value={effWo(r)}
+                            placeholder={b.workOrder ?? ""}
+                            onChange={(e) => updateSheet(b.id, r, "wo", e.target.value)}
+                            className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                          />
+                        ) : (
+                          r.wo || (b.workOrder ?? "")
+                        )}
                       </td>
                     ) : woAllSame ? (
                       i === 0 && (
                         <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                          {rowOverrides[`${b.id}:0`]?.wo ?? b.workOrder ?? ""}
+                          {wos[0] || (b.workOrder ?? "")}
                         </td>
                       )
                     ) : (
                       <td className={`${cell} text-center font-bold align-middle`}>
-                        {rowOverrides[key]?.wo ?? b.workOrder ?? ""}
+                        {effWo(r) || (b.workOrder ?? "")}
                       </td>
                     )}
                     <td className={cell}>{hideNames ? "" : r.nome ?? ""}</td>

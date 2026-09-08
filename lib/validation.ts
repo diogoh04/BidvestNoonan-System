@@ -7,12 +7,10 @@ export const staffInputSchema = z
     // pessoa é contratada, e é preenchido depois (editando o cadastro).
     staffNumber: z.string().trim().optional().nullable(),
     telefone: z.string().trim().optional().nullable(),
-    // Um vínculo por prédio+papel: horas são independentes por vínculo,
-    // permitindo que o mesmo staff seja team leader em um prédio e cleaner
-    // em outro — e também team leader E cleaner no mesmo prédio ao mesmo
-    // tempo (dois vínculos, um por papel).
-    // Só vínculos de cleaner (prédio + horas) — ver teamsLed abaixo pra
-    // team leader, que não é mais um vínculo de prédio.
+    // Horas são independentes por vínculo. O mesmo staff pode ter mais de um
+    // vínculo "cleaner" no mesmo prédio (dois turnos/postos) — ver StaffForm
+    // e schema.prisma. Na prática o formulário só manda role "cleaner" aqui;
+    // team leader vai por teamsLed abaixo (não é mais vínculo de prédio).
     assignments: z
       .array(
         z.object({
@@ -55,17 +53,20 @@ export const staffInputSchema = z
     leDestinationCompany: z.string().trim().max(255).nullable().optional(),
   })
   .superRefine((data, ctx) => {
-    const seen = new Set<string>();
+    // O mesmo staff PODE ter mais de um vínculo "cleaner" no mesmo prédio
+    // (dois turnos/postos, cada um com suas horas — ver StaffForm). Só o
+    // vínculo "team_leader" continua sendo no máximo um por prédio.
+    const seenTeamLeader = new Set<string>();
     for (const [i, a] of data.assignments.entries()) {
-      const key = `${a.buildingId}:${a.role}`;
-      if (seen.has(key)) {
+      if (a.role !== "team_leader") continue;
+      if (seenTeamLeader.has(a.buildingId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Duplicate assignment (same building and role) in the list",
+          message: "Duplicate team leader assignment for the same building",
           path: ["assignments", i, "buildingId"],
         });
       }
-      seen.add(key);
+      seenTeamLeader.add(a.buildingId);
     }
 
     const seenTeams = new Set<string>();

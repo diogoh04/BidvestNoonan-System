@@ -65,7 +65,7 @@ export default async function MyBuildingsPage() {
                 <div className="space-y-2">
                   {b.cleaners.map((s: any) => (
                     <StaffRow
-                      key={s.id}
+                      key={s.sbId ?? s.id}
                       id={s.id}
                       nome={s.nome}
                       staffNumber={s.staffNumber}

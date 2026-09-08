@@ -30,6 +30,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const links = await prisma.staffBuilding.findMany({
     where: { buildingId },
     include: { staff: true },
+    orderBy: [{ ordem: "asc" }, { id: "asc" }],
   });
 
   const slots = await prisma.buildingSlot.findMany({
@@ -44,11 +45,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const mapLink = (l: (typeof links)[number]) => ({
     id: l.staff.id.toString(),
+    sbId: l.id.toString(),
     nome: l.staff.nome,
     staffNumber: l.staff.staffNumber,
     telefone: l.staff.telefone,
     role: l.role,
     horasSemana: l.horas ?? l.staff.horasSemana,
+    ordem: l.ordem,
+    predioLabel: l.predioLabel,
+    workOrder: l.workOrder,
   });
 
   return NextResponse.json(

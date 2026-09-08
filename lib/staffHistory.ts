@@ -55,22 +55,38 @@ export async function closeBuildingAssignment(staffId: bigint, buildingId: bigin
 // StaffBuilding, que é apagado e recriado a cada save — ver comentário no
 // schema.prisma), então fecha só o que realmente saiu e abre só o que
 // realmente entrou; o que não mudou fica intocado.
+//
+// O histórico é por prédio (uma trilha "trabalhou aqui de X até Y"), não por
+// vínculo — então quando o staff tem mais de um vínculo de cleaner no mesmo
+// prédio (dois turnos/postos), colapsa numa entrada só, com as horas somadas.
 export async function syncBuildingAssignments(
   staffId: bigint,
   assignments: { buildingId: bigint; horas: number | null }[]
 ) {
+  const byBuilding = new Map<string, { buildingId: bigint; horas: number | null }>();
+  for (const a of assignments) {
+    const key = a.buildingId.toString();
+    const acc = byBuilding.get(key);
+    if (acc) {
+      acc.horas = (acc.horas ?? 0) + (a.horas ?? 0);
+    } else {
+      byBuilding.set(key, { buildingId: a.buildingId, horas: a.horas });
+    }
+  }
+
   const open = await prisma.staffHistory.findMany({
     where: { staffId, kind: "building", endedAt: null },
     select: { buildingId: true },
   });
   const openIds = new Set(open.map((o) => o.buildingId!.toString()));
-  const newIds = new Set(assignments.map((a) => a.buildingId.toString()));
 
   for (const buildingId of openIds) {
-    if (!newIds.has(buildingId)) await closeBuildingAssignment(staffId, BigInt(buildingId));
+    if (!byBuilding.has(buildingId)) await closeBuildingAssignment(staffId, BigInt(buildingId));
   }
-  for (const a of assignments) {
-    if (!openIds.has(a.buildingId.toString())) await openBuildingAssignment(staffId, a.buildingId, { horas: a.horas });
+  for (const a of byBuilding.values()) {
+    if (!openIds.has(a.buildingId.toString())) {
+      await openBuildingAssignment(staffId, a.buildingId, { horas: a.horas });
+    }
   }
 }
 

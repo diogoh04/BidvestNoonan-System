@@ -14,6 +14,20 @@ import { openTeamLeadership, closeTeamLeadership } from "@/lib/staffHistory";
 //     TODOS os prédios do time.
 // Sem isso, o Team vira só uma "etiqueta" sem efeito real no acesso.
 
+// Cria o vínculo legado StaffBuilding.role="team_leader" se ainda não existir
+// (no máximo um por staff+prédio — ver índice único parcial na migration 27).
+// Substitui o antigo upsert por chave composta, que sumiu quando a PK de
+// StaffBuilding virou sintética (`id`) na migration 27.
+async function ensureTeamLeaderLink(staffId: bigint, buildingId: bigint) {
+  const existing = await prisma.staffBuilding.findFirst({
+    where: { staffId, buildingId, role: "team_leader" },
+    select: { id: true },
+  });
+  if (!existing) {
+    await prisma.staffBuilding.create({ data: { staffId, buildingId, role: "team_leader" } });
+  }
+}
+
 // Chamado por PATCH /api/buildings/[id] quando building.teamId muda.
 export async function syncBuildingTeamChange(buildingId: bigint, oldTeamId: bigint | null, newTeamId: bigint | null) {
   const [oldLeaders, newLeaders] = await Promise.all([
@@ -22,16 +36,12 @@ export async function syncBuildingTeamChange(buildingId: bigint, oldTeamId: bigi
   ]);
 
   for (const l of oldLeaders) {
-    await prisma.staffBuilding
-      .delete({ where: { staffId_buildingId_role: { staffId: l.staffId, buildingId, role: "team_leader" } } })
-      .catch(() => {});
+    await prisma.staffBuilding.deleteMany({
+      where: { staffId: l.staffId, buildingId, role: "team_leader" },
+    });
   }
   for (const l of newLeaders) {
-    await prisma.staffBuilding.upsert({
-      where: { staffId_buildingId_role: { staffId: l.staffId, buildingId, role: "team_leader" } },
-      update: {},
-      create: { staffId: l.staffId, buildingId, role: "team_leader" },
-    });
+    await ensureTeamLeaderLink(l.staffId, buildingId);
   }
 }
 
@@ -47,11 +57,7 @@ export async function connectTeamLeader(teamId: bigint, staffId: bigint, horas: 
 
   const buildings = await prisma.building.findMany({ where: { teamId }, select: { id: true } });
   for (const b of buildings) {
-    await prisma.staffBuilding.upsert({
-      where: { staffId_buildingId_role: { staffId, buildingId: b.id, role: "team_leader" } },
-      update: {},
-      create: { staffId, buildingId: b.id, role: "team_leader" },
-    });
+    await ensureTeamLeaderLink(staffId, b.id);
   }
 
   // Histórico (ver lib/staffHistory.ts) — idempotente, então chamar isso
@@ -101,6 +107,7 @@ export async function getTeamsData(onlyTeamId?: bigint) {
     prisma.staffBuilding.findMany({
       where: { buildingId: { in: buildingIds }, role: "cleaner" },
       include: { staff: true },
+      orderBy: [{ ordem: "asc" }, { id: "asc" }],
     }),
     prisma.buildingSlot.findMany({ where: { buildingId: { in: buildingIds } }, orderBy: { ordem: "asc" } }),
     prisma.buildingCover.findMany({ where: { buildingId: { in: buildingIds } }, orderBy: { createdAt: "asc" } }),
@@ -128,10 +135,14 @@ export async function getTeamsData(onlyTeamId?: bigint) {
         .filter((l) => l.buildingId === building.id)
         .map((l) => ({
           id: l.staff.id.toString(),
+          sbId: l.id.toString(),
           nome: l.staff.nome,
           staffNumber: l.staff.staffNumber,
           telefone: l.staff.telefone,
           horasSemana: l.horas ?? l.staff.horasSemana,
+          ordem: l.ordem,
+          predioLabel: l.predioLabel,
+          workOrder: l.workOrder,
         })),
     };
   }

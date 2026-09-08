@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X, Pencil, Check } from "lucide-react";
-import { computeOpenSlots, type Slot } from "@/lib/openSlots";
+import { type Slot } from "@/lib/openSlots";
+import { buildSheetRows } from "@/lib/timesheetRows";
 import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetDayValue, type TimesheetPeriodType } from "@/lib/types";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
@@ -14,6 +15,14 @@ type StaffLine = {
   nome: string | null;
   staffNumber: string | null;
   horasSemana: number | null;
+  // Posição manual na folha (ver lib/timesheetRows.ts). Só nos cleaners.
+  ordem?: number | null;
+  // id do vínculo StaffBuilding.
+  sbId?: string;
+  // Building/WO próprios desta pessoa na folha (ver StaffBuilding). Vazio =
+  // usa o do prédio.
+  predioLabel?: string | null;
+  workOrder?: string | null;
 };
 
 type Cover = { id: string; nome: string | null; staffNumber: string | null; horas: number | null };
@@ -37,18 +46,21 @@ const SPACER_AFTER_INDEX = 4;
 
 // Só cleaners + vagas em aberto — o(s) team leader(s) já aparecem na linha
 // "Team Leader" do cabeçalho, não precisam repetir como linha na tabela.
+// Ordem (automática por horas ou manual) fica em lib/timesheetRows.ts.
 function buildRows(building: Building) {
-  const rows: { nome: string | null; staffNumber: string | null; horas: number | null }[] = [
-    ...building.cleaners.map((c) => ({ nome: c.nome, staffNumber: c.staffNumber, horas: c.horasSemana })),
-    ...computeOpenSlots(building.slots, building.cleaners).map((s) => ({
-      nome: null,
-      staffNumber: null,
-      horas: s.horas,
+  return buildSheetRows(
+    building.cleaners.map((c) => ({
+      nome: c.nome,
+      staffNumber: c.staffNumber,
+      horas: c.horasSemana,
+      ordem: c.ordem,
+      sbId: c.sbId ?? null,
+      predioLabel: c.predioLabel,
+      workOrder: c.workOrder,
     })),
-  ];
-  // maior número de horas primeiro
-  rows.sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0));
-  return rows;
+    building.slots,
+    { nome: building.nome, workOrder: building.workOrder }
+  );
 }
 
 // Campo livre pra preencher na tela (data da semana). Não persiste — só pra
@@ -197,18 +209,42 @@ export default function TimesheetView({ building }: { building: Building }) {
   // escreve em Building/Team, então editar aqui nunca altera o cadastro.
   const [editMode, setEditMode] = useState(false);
   const [headerNome, setHeaderNome] = useState(building.nome);
-  const [rowOverrides, setRowOverrides] = useState<{ nomePredio: string; wo: string }[]>(() =>
-    rows.map(() => ({ nomePredio: building.nome, wo: building.workOrder ?? "" }))
-  );
   const [coverOverrides, setCoverOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>(() =>
     Object.fromEntries(building.covers.map((c) => [c.id, { nomePredio: building.nome, wo: building.workOrder ?? "" }]))
   );
-  // Enquanto ninguém mexeu (ou editou igual pra todo mundo), continua
-  // mesclado igual antes. Só separa de verdade quando alguma linha ficou
-  // diferente das outras — assim o que foi digitado não some ao sair do
-  // modo edição.
-  const rowBuildingAllSame = rowOverrides.every((o) => o.nomePredio === rowOverrides[0]?.nomePredio);
-  const rowWoAllSame = rowOverrides.every((o) => o.wo === rowOverrides[0]?.wo);
+
+  // Building/WO por PESSOA (ver StaffBuilding.predioLabel/workOrder) — edições
+  // otimistas, keyed pelo sbId (não pelo índice da linha), então seguem a
+  // pessoa em qualquer ordem. `rows` já vem com os valores resolvidos do
+  // servidor; `sheetEdits` sobrepõe o que está sendo digitado agora.
+  const [sheetEdits, setSheetEdits] = useState<Record<string, { predio: string; wo: string }>>({});
+  const sheetSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const effPredio = (r: (typeof rows)[number]) =>
+    (r.sbId && sheetEdits[r.sbId] ? sheetEdits[r.sbId].predio : r.predio) ?? "";
+  const effWo = (r: (typeof rows)[number]) =>
+    (r.sbId && sheetEdits[r.sbId] ? sheetEdits[r.sbId].wo : r.wo) ?? "";
+  function updateSheet(r: (typeof rows)[number], field: "predio" | "wo", value: string) {
+    if (!r.sbId) return;
+    const sbId = r.sbId;
+    const current = sheetEdits[sbId] ?? { predio: r.predio ?? "", wo: r.wo ?? "" };
+    const next = { ...current, [field]: value };
+    setSheetEdits((prev) => ({ ...prev, [sbId]: next }));
+    if (sheetSaveTimeouts.current[sbId]) clearTimeout(sheetSaveTimeouts.current[sbId]);
+    sheetSaveTimeouts.current[sbId] = setTimeout(() => {
+      fetch(`/api/buildings/${building.id}/staff/sheet`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sbId, predioLabel: next.predio, workOrder: next.wo }),
+      }).catch(() => {});
+    }, 500);
+  }
+
+  // Enquanto todas as linhas mostram o mesmo Building/WO (ninguém deu rótulo
+  // próprio) a célula fica mesclada igual antes.
+  const predios = rows.map(effPredio);
+  const wos = rows.map(effWo);
+  const rowBuildingAllSame = predios.every((v) => v === predios[0]);
+  const rowWoAllSame = wos.every((v) => v === wos[0]);
 
   // Carrega as personalizações salvas (se houver) assim que a folha abre, e
   // salva (com debounce) sempre que algo muda — ver lib/timesheetSheetOverrides.
@@ -225,12 +261,6 @@ export default function TimesheetView({ building }: { building: Building }) {
       const overrides = indexSheetOverrides(await fetchSheetOverrides("building", [building.id]));
       const header = overrides[`${building.id}:header`];
       if (header) setHeaderNome(header.nomePredio ?? building.nome);
-      setRowOverrides((prev) =>
-        prev.map((o, i) => {
-          const r = overrides[`${building.id}:row:${i}`];
-          return r ? { nomePredio: r.nomePredio ?? building.nome, wo: r.workOrder ?? building.workOrder ?? "" } : o;
-        })
-      );
       setCoverOverrides((prev) => {
         const next = { ...prev };
         for (const c of building.covers) {
@@ -482,51 +512,53 @@ export default function TimesheetView({ building }: { building: Building }) {
             <tr key={i}>
               {editMode ? (
                 <td className={`${cell} text-center font-bold align-middle`}>
-                  <input
-                    type="text"
-                    value={rowOverrides[i]?.nomePredio ?? ""}
-                    onChange={(e) => {
-                      const next = { nomePredio: e.target.value, wo: rowOverrides[i]?.wo ?? "" };
-                      setRowOverrides((prev) => prev.map((o, idx) => (idx === i ? next : o)));
-                      scheduleSaveOverride(`row:${i}`, `row:${i}`, next);
-                    }}
-                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
-                  />
+                  {r.kind === "staff" ? (
+                    <input
+                      type="text"
+                      value={effPredio(r)}
+                      placeholder={building.nome}
+                      onChange={(e) => updateSheet(r, "predio", e.target.value)}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                    />
+                  ) : (
+                    r.predio || building.nome
+                  )}
                 </td>
               ) : rowBuildingAllSame ? (
                 i === 0 && (
                   <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                    {rowOverrides[0]?.nomePredio ?? building.nome}
+                    {predios[0] || building.nome}
                   </td>
                 )
               ) : (
                 <td className={`${cell} text-center font-bold align-middle`}>
-                  {rowOverrides[i]?.nomePredio ?? building.nome}
+                  {effPredio(r) || building.nome}
                 </td>
               )}
               <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
               {editMode ? (
                 <td className={`${cell} text-center font-bold align-middle`}>
-                  <input
-                    type="text"
-                    value={rowOverrides[i]?.wo ?? ""}
-                    onChange={(e) => {
-                      const next = { nomePredio: rowOverrides[i]?.nomePredio ?? "", wo: e.target.value };
-                      setRowOverrides((prev) => prev.map((o, idx) => (idx === i ? next : o)));
-                      scheduleSaveOverride(`row:${i}`, `row:${i}`, next);
-                    }}
-                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
-                  />
+                  {r.kind === "staff" ? (
+                    <input
+                      type="text"
+                      value={effWo(r)}
+                      placeholder={building.workOrder ?? ""}
+                      onChange={(e) => updateSheet(r, "wo", e.target.value)}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-center font-bold outline-none focus:bg-petrolLight"
+                    />
+                  ) : (
+                    r.wo || (building.workOrder ?? "")
+                  )}
                 </td>
               ) : rowWoAllSame ? (
                 i === 0 && (
                   <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
-                    {rowOverrides[0]?.wo ?? building.workOrder ?? ""}
+                    {wos[0] || (building.workOrder ?? "")}
                   </td>
                 )
               ) : (
                 <td className={`${cell} text-center font-bold align-middle`}>
-                  {rowOverrides[i]?.wo ?? building.workOrder ?? ""}
+                  {effWo(r) || (building.workOrder ?? "")}
                 </td>
               )}
               <td className={cell}>{hideNames ? "" : r.nome ?? ""}</td>

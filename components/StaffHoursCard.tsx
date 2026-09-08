@@ -5,16 +5,19 @@ import { Clock, Pencil, Check, X } from "lucide-react";
 
 export default function StaffHoursCard({
   staffId,
+  sbId,
   initialHours,
   buildingId,
   role,
   onSaved,
 }: {
   staffId: string;
+  // id do vínculo StaffBuilding — identifica qual vínculo editar quando o
+  // staff tem mais de um no mesmo prédio (dois turnos/postos).
+  sbId?: string;
   initialHours: number | null;
   buildingId?: string;
-  // Papel deste vínculo ("cleaner" | "team_leader") — necessário quando o
-  // staff tem dois vínculos no mesmo prédio, cada um com suas horas.
+  // Papel do vínculo — fallback quando não há `sbId`.
   role?: "cleaner" | "team_leader";
   onSaved?: (horas: number | null) => void;
 }) {
@@ -36,7 +39,7 @@ export default function StaffHoursCard({
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ horasSemana: parsed, role }),
+        body: JSON.stringify({ horasSemana: parsed, sbId, role }),
       });
       if (!res.ok) throw new Error();
       setHours(parsed);

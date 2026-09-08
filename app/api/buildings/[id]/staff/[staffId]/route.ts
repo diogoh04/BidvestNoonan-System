@@ -12,33 +12,42 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  // O mesmo staff pode ter dois vínculos no mesmo prédio (cleaner e team
-  // leader) — precisa saber qual dos dois remover.
-  const role = new URL(req.url).searchParams.get("role");
-  if (role !== "cleaner" && role !== "team_leader") {
-    return NextResponse.json({ error: "Invalid or missing role" }, { status: 400 });
-  }
+  const staffId = BigInt(params.staffId);
+  const buildingId = BigInt(params.id);
 
-  try {
-    await prisma.staffBuilding.delete({
-      where: {
-        staffId_buildingId_role: {
-          staffId: BigInt(params.staffId),
-          buildingId: BigInt(params.id),
-          role,
-        },
-      },
-    });
+  // O mesmo staff pode ter vários vínculos no mesmo prédio (cleaner em dois
+  // turnos/postos, ou cleaner + team leader). `sbId` identifica exatamente
+  // qual remover; `role` (legado) ainda é aceito e remove o primeiro daquele
+  // papel.
+  const url = new URL(req.url);
+  const sbId = url.searchParams.get("sbId");
+  const role = url.searchParams.get("role");
 
-    // Histórico (ver lib/staffHistory.ts) — só faz sentido pra cleaner; o
-    // vínculo "team_leader" aqui é derivado de TeamLeader (lib/teams.ts já
-    // cuida do histórico de liderança quando o time é que muda).
-    if (role === "cleaner") {
-      await closeBuildingAssignment(BigInt(params.staffId), BigInt(params.id));
-    }
+  const target = sbId
+    ? await prisma.staffBuilding.findFirst({ where: { id: BigInt(sbId), staffId, buildingId } })
+    : role === "cleaner" || role === "team_leader"
+      ? await prisma.staffBuilding.findFirst({ where: { staffId, buildingId, role } })
+      : null;
 
-    return NextResponse.json({ ok: true });
-  } catch {
+  if (!target) {
     return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
   }
+
+  await prisma.staffBuilding.delete({ where: { id: target.id } });
+
+  // Histórico (ver lib/staffHistory.ts) — só faz sentido pra cleaner; o
+  // vínculo "team_leader" aqui é derivado de TeamLeader (lib/teams.ts já
+  // cuida do histórico de liderança quando o time é que muda). Só fecha a
+  // trilha do prédio se NÃO sobrou nenhum outro vínculo de cleaner desse
+  // staff nesse prédio.
+  if (target.role === "cleaner") {
+    const stillCleaner = await prisma.staffBuilding.findFirst({
+      where: { staffId, buildingId, role: "cleaner" },
+    });
+    if (!stillCleaner) {
+      await closeBuildingAssignment(staffId, buildingId);
+    }
+  }
+
+  return NextResponse.json({ ok: true });
 }

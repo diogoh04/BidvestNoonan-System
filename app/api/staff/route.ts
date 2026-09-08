@@ -15,6 +15,7 @@ function mapStaff(w: any, teamsLed: StaffDTO["teamsLed"] = []): StaffDTO {
     createdAt: w.createdAt ? w.createdAt.toISOString() : null,
     buildings: (w.buildingsAsTeamLeader ?? []).map((sb: any) => ({
       id: sb.building.id.toString(),
+      sbId: sb.id.toString(),
       nome: sb.building.nome,
       role: sb.role,
       horas: sb.horas,

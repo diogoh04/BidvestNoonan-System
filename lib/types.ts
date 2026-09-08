@@ -147,7 +147,9 @@ export type StaffDTO = {
   nome: string | null;
   telefone: string | null;
   staffNumber: string | null;
-  buildings: { id: string; nome: string; role: Role; horas: number | null }[];
+  // `sbId` = id do vínculo StaffBuilding (o mesmo staff pode ter mais de um
+  // vínculo "cleaner" no mesmo prédio — ver schema.prisma).
+  buildings: { id: string; sbId: string; nome: string; role: Role; horas: number | null }[];
   // Times que este staff lidera hoje (ver Team.leaderId) — desconectado do
   // conceito de prédio: o vínculo é com o Team, que já carrega os prédios
   // dele (ver /teams). Também alimenta o formulário de edição do staff.

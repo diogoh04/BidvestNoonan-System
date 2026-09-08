@@ -19,10 +19,14 @@ type StaffRowProps = {
   telefone: string | null;
   subtitle?: string;
   buildingId?: string;
-  // Papel deste vínculo específico ("cleaner" | "team_leader") — necessário
-  // pro DELETE quando o staff tem dois vínculos no mesmo prédio.
+  // id do vínculo StaffBuilding — identifica exatamente qual vínculo remover
+  // quando o staff tem mais de um no mesmo prédio (dois turnos/postos).
+  sbId?: string;
+  // Papel deste vínculo específico ("cleaner" | "team_leader") — fallback do
+  // DELETE quando não há `sbId`.
   role?: "cleaner" | "team_leader";
-  onDeleted?: (id: string) => void;
+  // Recebe o `sbId` removido (ou o id do staff, se não houver vínculo).
+  onDeleted?: (key: string) => void;
   // Team Leader vê e comenta, mas não edita/exclui staff (isso é admin,
   // exclusivo do Master) — o painel de histórico também é exclusivo dele.
   canManage?: boolean;
@@ -44,6 +48,7 @@ export default function StaffRow({
   telefone,
   subtitle,
   buildingId,
+  sbId,
   role,
   onDeleted,
   canManage = true,
@@ -140,14 +145,16 @@ export default function StaffRow({
     setError(null);
     try {
       const url =
-        buildingId && role
-          ? `/api/buildings/${buildingId}/staff/${id}?role=${role}`
-          : buildingId
-            ? `/api/buildings/${buildingId}/staff/${id}`
-            : `/api/staff/${id}`;
+        buildingId && sbId
+          ? `/api/buildings/${buildingId}/staff/${id}?sbId=${sbId}`
+          : buildingId && role
+            ? `/api/buildings/${buildingId}/staff/${id}?role=${role}`
+            : buildingId
+              ? `/api/buildings/${buildingId}/staff/${id}`
+              : `/api/staff/${id}`;
       const res = await fetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      onDeleted?.(id);
+      onDeleted?.(sbId ?? id);
     } catch (e: any) {
       setError(e.message);
       setSaving(false);

@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { computeOpenSlots } from "./openSlots";
+import { orderSheetRows } from "./timesheetRows";
 import {
   getTimesheetDayKeys,
   type TimesheetEntries,
@@ -19,18 +20,25 @@ export async function buildInitialEntries(
   periodType: TimesheetPeriodType = "weekly"
 ): Promise<TimesheetEntries> {
   const [links, slots, covers] = await Promise.all([
-    prisma.staffBuilding.findMany({ where: { buildingId, role: "cleaner" }, include: { staff: true } }),
+    prisma.staffBuilding.findMany({
+      where: { buildingId, role: "cleaner" },
+      include: { staff: true },
+      orderBy: [{ ordem: "asc" }, { id: "asc" }],
+    }),
     prisma.buildingSlot.findMany({ where: { buildingId }, orderBy: { ordem: "asc" } }),
     prisma.buildingCover.findMany({ where: { buildingId }, orderBy: { createdAt: "asc" } }),
   ]);
 
-  const cleanerRows: TimesheetRow[] = links.map((l) => ({
+  // `ordem` só influencia a ordenação (ver lib/timesheetRows.ts) — não vai
+  // pro JSON de entries.
+  const cleanerRows: (TimesheetRow & { ordem?: number | null })[] = links.map((l) => ({
     kind: "staff",
     refId: l.staff.id.toString(),
     nome: l.staff.nome,
     staffNumber: l.staff.staffNumber,
     horas: l.horas ?? l.staff.horasSemana,
     days: emptyDays(periodType),
+    ordem: l.ordem,
   }));
 
   const staffForSlots = links.map((l) => ({ horasSemana: l.horas ?? l.staff.horasSemana }));
@@ -47,8 +55,12 @@ export async function buildInitialEntries(
     days: emptyDays(periodType),
   }));
 
-  // maior número de horas primeiro, igual buildRows() da tela de impressão
-  const frontRows = [...cleanerRows, ...slotRows].sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0));
+  // Ordem automática (por horas) ou manual — mesma regra da folha de impressão.
+  // `ordem` é só pra ordenar; tira do objeto antes de virar linha do snapshot.
+  const frontRows: TimesheetRow[] = orderSheetRows(cleanerRows, slotRows).map((row) => {
+    const { ordem: _ordem, ...rest } = row as TimesheetRow & { ordem?: number | null };
+    return rest;
+  });
 
   const coverRows: TimesheetRow[] = covers.map((c) => ({
     kind: "cover",
