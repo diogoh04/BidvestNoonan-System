@@ -24,10 +24,11 @@ export function formatWeekRange(weekStartISO: string): string {
   return `${fmt(start)} — ${fmt(end)}`;
 }
 
-// Uma quinzena que começa em `fortnightStartISO` cobre 14 dias (a 2ª semana
-// não tem `weekStart` próprio no banco — ver Timesheet.periodType). Usado
-// pra descobrir se uma data escolhida pelo Team Leader já cai dentro de uma
-// quinzena existente, mesmo sem bater exatamente com o weekStart dela.
+// Uma quinzena que começa em `fortnightStartISO` cobre até 14 dias corridos
+// (10 dias úteis; a 2ª semana não tem `weekStart` próprio no banco — ver
+// Timesheet.periodType). Usado pra descobrir se uma data escolhida pelo Team
+// Leader já cai dentro de uma quinzena existente, mesmo sem bater exatamente
+// com o weekStart dela. +13 é o limite (início numa sexta).
 export function isWithinFortnight(fortnightStartISO: string, dateISO: string): boolean {
   const start = new Date(fortnightStartISO + "T00:00:00Z");
   const end = new Date(start);
@@ -36,17 +37,62 @@ export function isWithinFortnight(fortnightStartISO: string, dateISO: string): b
   return date >= start && date <= end;
 }
 
-// Mesma ideia do formatWeekRange, mas pra folha quinzenal: cobre da segunda
-// da primeira semana até a sexta da segunda semana (+13 dias em vez de +4).
+// DD/MM de uma data ISO.
+export function formatDDMM(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+// "DD/MM" se as datas forem iguais, senão "DD/MM to DD/MM" — usado nos itens
+// do relatório de ajuste.
+export function formatDateRange(fromISO: string, toISO: string): string {
+  return fromISO === toISO ? formatDDMM(fromISO) : `${formatDDMM(fromISO)} to ${formatDDMM(toISO)}`;
+}
+
+const WEEKDAY_SHORT = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+// "MON".."FRI" a partir de uma data ISO — usado no cabeçalho da folha, onde
+// o nome do dia agora vem da data real (a quinzena pode começar em qualquer
+// dia útil, não só na segunda).
+export function weekdayShort(iso: string): string {
+  return WEEKDAY_SHORT[new Date(iso + "T00:00:00Z").getUTCDay()] ?? "";
+}
+
+// Se `iso` cai num fim de semana, empurra pra segunda seguinte; senão
+// devolve igual. O início da quinzena tem que ser um dia útil.
+export function snapToWorkingDay(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  const dow = d.getUTCDay();
+  if (dow === 6) d.setUTCDate(d.getUTCDate() + 2);
+  else if (dow === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return toISODate(d);
+}
+
+// As 10 datas (ISO) da quinzena: dias úteis consecutivos a partir de
+// `startISO` (segunda a sexta, pulando o fim de semana). O índice bate com
+// getTimesheetDayKeys("biweekly") (W1_MONDAY = [0] ... W2_FRIDAY = [9]) —
+// mas o rótulo de cada coluna passa a vir da data, não da chave.
+export function fortnightWorkingDays(startISO: string): string[] {
+  const out: string[] = [];
+  const d = new Date(startISO + "T00:00:00Z");
+  while (out.length < 10) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) out.push(toISODate(new Date(d)));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+// Último dia útil da quinzena (a 10ª coluna).
+export function fortnightEndISO(startISO: string): string {
+  const days = fortnightWorkingDays(startISO);
+  return days[days.length - 1];
+}
+
+// Intervalo da quinzena pra exibição: 1º ao 10º dia útil a partir do início.
 export function formatFortnightRange(weekStartISO: string): string {
-  const start = new Date(weekStartISO + "T00:00:00Z");
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 13);
-
-  const fmt = (d: Date) =>
-    `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-
-  return `${fmt(start)} — ${fmt(end)}`;
+  const days = fortnightWorkingDays(weekStartISO);
+  return `${formatDDMM(days[0])} — ${formatDDMM(days[days.length - 1])}`;
 }
 
 // Índice (0-4 semanal, 0-9 quinzenal, ver getTimesheetDayKeys) → quantos dias

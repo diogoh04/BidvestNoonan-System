@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { passwordSchema } from "@/lib/validation";
 import { toJSONSafe } from "@/lib/types";
+import { userNameInclude, userDisplayName } from "@/lib/userName";
 
 const selfPasswordSchema = z.object({ password: passwordSchema });
 
@@ -16,12 +17,12 @@ export async function GET() {
 
   const found = await prisma.user.findUnique({
     where: { id: BigInt(user.userId) },
-    include: { staff: true },
+    include: userNameInclude,
   });
   if (!found) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json(
-    toJSONSafe({ username: found.username, nome: found.staff?.nome ?? null })
+    toJSONSafe({ username: found.username, nome: found.staff?.nome ?? userDisplayName(found) })
   );
 }
 

@@ -2,43 +2,67 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Plus, Trash2 } from "lucide-react";
 import MyTimesheetsListClient from "./MyTimesheetsListClient";
 import { formatFortnightRange, formatWeekRange } from "@/lib/week";
-import type { TimesheetDTO, FortnightPlanDTO, AdjustmentDTO } from "@/lib/types";
+import type { TimesheetDTO, FortnightPlanDTO, AdjustmentReportDTO } from "@/lib/types";
 
 type Tab = "fortnightly" | "weekly" | "adjustments";
-
-const TAB_OPTIONS: { value: Tab; label: string }[] = [
-  { value: "fortnightly", label: "Fortnightly sheets" },
-  { value: "weekly", label: "Weekly sheets" },
-  { value: "adjustments", label: "Adjustments" },
-];
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB");
 }
 
-// Central de "My Timesheets": Start New (botão no page.tsx, ao lado deste
-// componente) + 3 abas. Não existe componente de tabs no projeto — reusa o
-// mesmo padrão de botões toggle já usado em StaffForm/LancarClient.
+const STATUS_CLASS: Record<AdjustmentReportDTO["status"], string> = {
+  draft: "bg-surface text-ink/60",
+  submitted: "bg-amber-50 text-amber-700",
+  done: "bg-green-50 text-success",
+};
+
+// Central de "My Timesheets": abas Fortnightly / Weekly (legado) / Adjustments.
 export default function MyTimesheetsHubClient({
   initialTimesheets,
   initialFortnightPlans,
-  initialAdjustments,
+  initialReports,
 }: {
   initialTimesheets: TimesheetDTO[];
   initialFortnightPlans: FortnightPlanDTO[];
-  initialAdjustments: AdjustmentDTO[];
+  initialReports: AdjustmentReportDTO[];
 }) {
   const [tab, setTab] = useState<Tab>("fortnightly");
+  const [reports, setReports] = useState(
+    [...initialReports].sort((a, b) => {
+      const rank = (s: AdjustmentReportDTO["status"]) => (s === "submitted" ? 0 : s === "draft" ? 1 : 2);
+      return rank(a.status) - rank(b.status) || b.weekStart.localeCompare(a.weekStart);
+    })
+  );
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const hasLegacyWeekly = initialTimesheets.some((t) => t.periodType === "weekly");
   const launchedPlans = [...initialFortnightPlans].sort((a, b) => b.fortnightStart.localeCompare(a.fortnightStart));
-  const adjustments = [...initialAdjustments].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+  async function deleteReport(id: string) {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/adjustment-reports/${id}`, { method: "DELETE" });
+      if (res.ok) setReports((prev) => prev.filter((r) => r.id !== id));
+    } finally {
+      setDeletingId(null);
+      setConfirmingId(null);
+    }
+  }
+
+  const tabs: { value: Tab; label: string }[] = [
+    { value: "fortnightly", label: "Fortnightly sheets" },
+    ...(hasLegacyWeekly ? ([{ value: "weekly", label: "Weekly (legacy)" }] as const) : []),
+    { value: "adjustments", label: "Adjustments" },
+  ];
 
   return (
     <div className="mt-6">
       <div className="flex flex-wrap gap-2">
-        {TAB_OPTIONS.map((opt) => (
+        {tabs.map((opt) => (
           <button
             key={opt.value}
             type="button"
@@ -56,23 +80,15 @@ export default function MyTimesheetsHubClient({
 
       {tab === "fortnightly" && (
         <div className="mt-4 space-y-6">
-          <div>
-            <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">In progress</h2>
-            {/* Rascunhos ainda não lançados — inclui também quinzenais
-                antigas (legado) já enviadas/concluídas, que continuam
-                editáveis do jeito de sempre, sem Launch/Adjustment. */}
-            <MyTimesheetsListClient
-              initialTimesheets={initialTimesheets}
-              periodTypeFilter="biweekly"
-              emptyLabel="No fortnight in progress."
-            />
-          </div>
+          <MyTimesheetsListClient
+            initialTimesheets={initialTimesheets}
+            periodTypeFilter="biweekly"
+            emptyLabel="No fortnight logged yet. Use “New fortnight”."
+          />
 
-          <div>
-            <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">Launched</h2>
-            {launchedPlans.length === 0 ? (
-              <p className="text-sm text-ink/40">No fortnight launched yet.</p>
-            ) : (
+          {launchedPlans.length > 0 && (
+            <div>
+              <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">Launched (legacy)</h2>
               <div className="space-y-2">
                 {launchedPlans.map((p) => (
                   <Link
@@ -90,8 +106,8 @@ export default function MyTimesheetsHubClient({
                   </Link>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -100,36 +116,78 @@ export default function MyTimesheetsHubClient({
           <MyTimesheetsListClient
             initialTimesheets={initialTimesheets}
             periodTypeFilter="weekly"
-            emptyLabel="No week logged yet. Start a new fortnight and launch it to get started."
+            emptyLabel="No weekly sheet."
           />
         </div>
       )}
 
       {tab === "adjustments" && (
-        <div className="mt-4 space-y-2">
-          {adjustments.length === 0 && (
-            <p className="text-sm text-ink/40">No adjustments — weekly sheets still match what was sent.</p>
-          )}
-          {adjustments.map((a) => (
-            <Link
-              key={a.id}
-              href={`/my/timesheets/adjustments/${a.id}`}
-              className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
-            >
-              <div>
-                <div className="font-medium text-ink">
-                  {a.buildingNome} · Week {formatWeekRange(a.weekStart)}
+        <div className="mt-4 space-y-3">
+          <Link
+            href="/my/timesheets/adjustments/new"
+            className="inline-flex items-center gap-1.5 rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white hover:bg-petrolDark"
+          >
+            <Plus size={15} />
+            New adjustment
+          </Link>
+
+          {reports.length === 0 && <p className="text-sm text-ink/40">No adjustment reports yet.</p>}
+
+          <div className="space-y-2">
+            {reports.map((r) =>
+              confirmingId === r.id ? (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
+                >
+                  <span className="text-sm text-danger">
+                    Delete the adjustment report for week {formatWeekRange(r.weekStart)}?
+                  </span>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => deleteReport(r.id)}
+                      disabled={deletingId === r.id}
+                      className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmingId(null)}
+                      className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <div className="text-xs text-ink/40">
-                  Updated {formatDate(a.updatedAt)}
-                  {a.updatedByNome ? ` by ${a.updatedByNome}` : ""}
+              ) : (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
+                >
+                  <Link href={`/my/timesheets/adjustments/${r.id}`} className="flex-1">
+                    <div className="font-medium text-ink">Week {formatWeekRange(r.weekStart)}</div>
+                    <div className="text-xs text-ink/40">
+                      {r.itemCount} item{r.itemCount !== 1 ? "s" : ""}
+                      {r.groups.length > 0 ? ` · ${r.groups.map((g) => g.buildingNome).join(", ")}` : ""}
+                    </div>
+                  </Link>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[r.status]}`}>
+                    {r.status}
+                  </span>
+                  {r.status === "draft" && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(r.id)}
+                      title="Delete report"
+                      className="rounded-md p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
-              </div>
-              <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                {a.diff.length} cell{a.diff.length !== 1 ? "s" : ""} changed
-              </span>
-            </Link>
-          ))}
+              )
+            )}
+          </div>
         </div>
       )}
     </div>

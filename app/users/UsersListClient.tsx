@@ -120,7 +120,7 @@ export default function UsersListClient({ initialUsers }: { initialUsers: UserDT
                   ) : (
                     <>
                       {ROLE_LABEL[u.role]}
-                      {u.staffNome && ` · ${u.staffNome}`}
+                      {u.teamLabel && ` · ${u.teamLabel}`}
                     </>
                   )}
                 </div>

@@ -1,7 +1,11 @@
 import Header from "@/components/Header";
 import LancarClient from "./LancarClient";
 
-export default function LancarTimesheetsPage({ searchParams }: { searchParams: { week?: string } }) {
+export default function LancarTimesheetsPage({
+  searchParams,
+}: {
+  searchParams: { week?: string; new?: string };
+}) {
   return (
     <>
       <Header role="team_leader" />
@@ -9,11 +13,11 @@ export default function LancarTimesheetsPage({ searchParams }: { searchParams: {
         <div className="print:hidden">
           <h1 className="font-display text-2xl font-bold text-ink">Log timesheet</h1>
           <p className="mt-1 text-sm text-ink/50">
-            All your buildings together, in the same week — same as the sheet that would be printed.
+            All your buildings together, in one fortnight — same as the sheet that would be printed.
           </p>
         </div>
         <div className="mt-6 print:mt-0">
-          <LancarClient initialWeek={searchParams.week ?? null} />
+          <LancarClient initialWeek={searchParams.week ?? null} forceNew={searchParams.new === "1"} />
         </div>
       </main>
     </>

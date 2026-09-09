@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { toJSONSafe, type FortnightPlanDTO } from "@/lib/types";
 import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
+import { tlOwnsBuilding } from "@/lib/teamLeaderScope";
 
 const planInclude = {
   building: true,
@@ -39,11 +40,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!plan) return NextResponse.json({ error: "Fortnight plan not found" }, { status: 404 });
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    const owns = await prisma.staffBuilding.findFirst({
-      where: { staffId: BigInt(user.staffId), buildingId: plan.buildingId, role: "team_leader" },
-    });
-    if (!owns) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    if (!(await tlOwnsBuilding(user, plan.buildingId))) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
   } else if (!hasRole(user, "master", "supervisor")) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }

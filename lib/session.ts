@@ -6,6 +6,8 @@ export type SessionPayload = {
   userId: string;
   role: AppRole;
   staffId: string | null;
+  // Time da conta (contas "team_leader" novas). Ver User.teamId.
+  teamId: string | null;
   exp: number;
 };
 
@@ -41,6 +43,7 @@ export async function createSessionToken(user: {
   userId: string;
   role: AppRole;
   staffId: string | null;
+  teamId: string | null;
 }): Promise<string> {
   const secret = process.env.AUTH_SECRET!;
   const key = await getKey(secret);
@@ -69,7 +72,10 @@ export async function verifySessionToken(
     // Tokens antigos (formato { exp } sem userId/role) devem ser tratados
     // como inválidos — força relogin no dia da troca do esquema de auth.
     if (typeof payload.userId !== "string" || typeof payload.role !== "string") return null;
-    return payload as SessionPayload;
+    // Token de team_leader anterior à troca staffId -> teamId: sem `teamId`,
+    // força relogin (senão o portal não acha os prédios).
+    if (payload.role === "team_leader" && typeof payload.teamId === "undefined") return null;
+    return { teamId: null, ...payload } as SessionPayload;
   } catch {
     return null;
   }

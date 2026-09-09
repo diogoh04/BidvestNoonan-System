@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { formatWeekRange, formatFortnightRange } from "@/lib/week";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
@@ -122,11 +122,6 @@ export default function MyTimesheetsListClient({
                     From fortnight
                   </span>
                 )}
-                {items.some((t) => t.hasAdjustment) && (
-                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                    Adjusted
-                  </span>
-                )}
               </div>
               <div className="text-xs text-ink/40">{items.length} building(s)</div>
             </Link>
@@ -135,24 +130,15 @@ export default function MyTimesheetsListClient({
               {STATUS_LABEL[status]}
             </span>
 
-            <div className="flex shrink-0 items-center gap-1">
-              <Link
-                href={`/my/timesheets/lancar?week=${weekStart}`}
-                title="Edit"
-                className="rounded-md p-2 text-ink/50 hover:bg-petrolLight hover:text-petrol"
+            {canDelete && (
+              <button
+                onClick={() => setConfirmingWeek(weekStart)}
+                title="Delete"
+                className="shrink-0 rounded-md p-2 text-ink/50 hover:bg-red-50 hover:text-danger"
               >
-                <Pencil size={16} />
-              </Link>
-              {canDelete && (
-                <button
-                  onClick={() => setConfirmingWeek(weekStart)}
-                  title="Delete"
-                  className="rounded-md p-2 text-ink/50 hover:bg-red-50 hover:text-danger"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         );
       })}

@@ -5,6 +5,7 @@ import { timesheetCreateSchema } from "@/lib/validation";
 import { buildInitialEntries, cloneEntriesForNewWeek } from "@/lib/timesheetSnapshot";
 import { toJSONSafe } from "@/lib/types";
 import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
+import { tlBuildingIds, tlOwnsBuilding } from "@/lib/teamLeaderScope";
 
 // GET /api/timesheets?buildingId=&weekStart=&status=
 export async function GET(req: NextRequest) {
@@ -21,12 +22,8 @@ export async function GET(req: NextRequest) {
   const and: any[] = [];
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json([], {});
-    const myLinks = await prisma.staffBuilding.findMany({
-      where: { staffId: BigInt(user.staffId), role: "team_leader" },
-      select: { buildingId: true },
-    });
-    const myBuildingIds = myLinks.map((l) => l.buildingId);
+    if (!user.teamId) return NextResponse.json([], {});
+    const myBuildingIds = await tlBuildingIds(user);
     if (buildingIdParam) {
       const requested = BigInt(buildingIdParam);
       if (!myBuildingIds.some((id) => id === requested)) {
@@ -89,11 +86,9 @@ export async function POST(req: NextRequest) {
   const weekStart = new Date(weekStartStr + "T00:00:00Z");
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    const owns = await prisma.staffBuilding.findFirst({
-      where: { staffId: BigInt(user.staffId), buildingId, role: "team_leader" },
-    });
-    if (!owns) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    if (!(await tlOwnsBuilding(user, buildingId))) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
   } else if (!hasRole(user, "master")) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }

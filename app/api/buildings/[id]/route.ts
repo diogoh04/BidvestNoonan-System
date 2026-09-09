@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { syncBuildingTeamChange } from "@/lib/teams";
+import { tlOwnsBuilding } from "@/lib/teamLeaderScope";
 import { closeOpenForBuilding } from "@/lib/staffHistory";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -12,11 +13,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const buildingId = BigInt(params.id);
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    const owns = await prisma.staffBuilding.findFirst({
-      where: { staffId: BigInt(user.staffId), buildingId, role: "team_leader" },
-    });
-    if (!owns) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    if (!(await tlOwnsBuilding(user, buildingId))) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
   } else if (!hasRole(user, "master")) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }

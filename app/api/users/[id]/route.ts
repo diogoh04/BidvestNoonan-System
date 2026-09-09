@@ -3,19 +3,9 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { userUpdateSchema } from "@/lib/validation";
-import { toJSONSafe, UserDTO } from "@/lib/types";
-
-function mapUser(u: any): UserDTO {
-  return {
-    id: u.id.toString(),
-    username: u.username,
-    role: u.role,
-    active: u.active,
-    staffId: u.staffId ? u.staffId.toString() : null,
-    staffNome: u.staff?.nome ?? null,
-    createdAt: u.createdAt ? u.createdAt.toISOString() : null,
-  };
-}
+import { toJSONSafe } from "@/lib/types";
+import { userNameInclude } from "@/lib/userName";
+import { mapUser } from "@/lib/userDto";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -25,7 +15,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const found = await prisma.user.findUnique({
     where: { id: BigInt(params.id) },
-    include: { staff: true },
+    include: userNameInclude,
   });
   if (!found) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
@@ -54,9 +44,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (data.role !== undefined) updateData.role = data.role;
   if (data.active !== undefined) updateData.active = data.active;
   if (data.role !== undefined) {
-    updateData.staffId = data.role === "team_leader" && data.staffId ? BigInt(data.staffId) : null;
-  } else if (data.staffId !== undefined) {
-    updateData.staffId = data.staffId ? BigInt(data.staffId) : null;
+    updateData.teamId = data.role === "team_leader" && data.teamId ? BigInt(data.teamId) : null;
+  } else if (data.teamId !== undefined) {
+    updateData.teamId = data.teamId ? BigInt(data.teamId) : null;
   }
   if (data.password) {
     updateData.passwordHash = await bcrypt.hash(data.password, 10);
@@ -65,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const updated = await prisma.user.update({
     where: { id: userId },
     data: updateData,
-    include: { staff: true },
+    include: userNameInclude,
   });
 
   return NextResponse.json(toJSONSafe(mapUser(updated)));

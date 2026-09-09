@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Printer, Plus, X, Pencil, Check } from "lucide-react";
+import { Printer, Plus, X } from "lucide-react";
 import {
   getTimesheetDayKeys,
   timesheetDayLabel,
@@ -10,7 +10,15 @@ import {
   type TimesheetRow,
   type TimesheetPeriodType,
 } from "@/lib/types";
-import { formatWeekRange, formatFortnightRange, formatShortDate, timesheetDayOffset } from "@/lib/week";
+import {
+  formatWeekRange,
+  formatFortnightRange,
+  formatShortDate,
+  formatDDMM,
+  timesheetDayOffset,
+  fortnightWorkingDays,
+  weekdayShort,
+} from "@/lib/week";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
 
@@ -154,11 +162,16 @@ export default function CombinedTimesheetEditor({
   teamLeaderNome,
   timesheets,
   onChanged,
+  onRowsChange,
   readOnly = false,
 }: {
   teamLeaderNome: string | null;
   timesheets: TimesheetDTO[];
   onChanged: (t: TimesheetDTO) => void;
+  // Disparado SÍNCRONO a cada edição (antes do auto-save chegar ao servidor)
+  // — deixa o pai (LancarClient) com as linhas mais recentes pra "Send to
+  // supervisor" não perder a última tecla digitada.
+  onRowsChange?: (timesheetId: string, rows: TimesheetRow[]) => void;
   readOnly?: boolean;
 }) {
   const [rowsByTimesheet, setRowsByTimesheet] = useState<Record<string, TimesheetRow[]>>({});
@@ -170,7 +183,10 @@ export default function CombinedTimesheetEditor({
   // (TimesheetSheetOverride, via /api/timesheet-overrides), uma por
   // Timesheet (prédio+semana) — nunca escreve em Building/Team, então
   // editar aqui nunca altera o cadastro.
-  const [editMode, setEditMode] = useState(false);
+  // Edição do nome do prédio/WO por linha na folha impressa foi removida —
+  // a folha é a previsão, sem personalização. Constante pra manter os
+  // caminhos de render que checam editMode (sempre no ramo de leitura).
+  const editMode = false;
   const [headerNome, setHeaderNome] = useState(() => timesheets.map((t) => t.buildingNome).join(", "));
   const [rowOverrides, setRowOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>({});
   const [coverOverrides, setCoverOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>({});
@@ -237,12 +253,16 @@ export default function CombinedTimesheetEditor({
     setCoverTimesheetId((prev) => (timesheets.some((t) => t.id === prev) ? prev : timesheets[0]?.id ?? ""));
   }, [timesheets.map((t) => t.id).join(",")]);
 
+  // A previsão só é editável enquanto `draft` — depois de enviada congela (as
+  // mudanças do meio da quinzena viram AdjustmentReport). O supervisor sempre
+  // recebe readOnly=true.
   function isEditable(t: TimesheetDTO) {
-    return !readOnly && t.status !== "done";
+    return !readOnly && t.status === "draft";
   }
 
   function scheduleSave(timesheetId: string, nextRows: TimesheetRow[]) {
     setRowsByTimesheet((prev) => ({ ...prev, [timesheetId]: nextRows }));
+    onRowsChange?.(timesheetId, nextRows);
     if (saveTimeouts.current[timesheetId]) clearTimeout(saveTimeouts.current[timesheetId]);
     saveTimeouts.current[timesheetId] = setTimeout(() => save(timesheetId, nextRows), 500);
   }
@@ -292,6 +312,7 @@ export default function CombinedTimesheetEditor({
       const rows = rowsByTimesheet[coverTimesheetId] ?? [];
       const next = [...rows, row];
       setRowsByTimesheet((prev) => ({ ...prev, [coverTimesheetId]: next }));
+      onRowsChange?.(coverTimesheetId, next);
       await save(coverTimesheetId, next);
       setCoverNome("");
       setCoverStaffNumber("");
@@ -316,6 +337,16 @@ export default function CombinedTimesheetEditor({
   const hasSpacer = periodType === "biweekly";
   const spacerCount = hasSpacer ? 1 : 0;
   const weekStart = timesheets[0]?.weekStart;
+
+  // Quinzenal: as 10 colunas são os 10 dias úteis a partir do início — data
+  // e nome do dia (WED, THU...) vêm da data real, não da chave W1_MONDAY.
+  const fortnightDays = periodType === "biweekly" && weekStart ? fortnightWorkingDays(weekStart) : null;
+  function colDate(i: number): string {
+    return fortnightDays ? formatDDMM(fortnightDays[i]) : weekStart ? formatShortDate(weekStart, timesheetDayOffset(i)) : "";
+  }
+  function colLabel(dayKey: string, i: number): string {
+    return fortnightDays ? weekdayShort(fortnightDays[i]) : timesheetDayLabel(dayKey);
+  }
 
   const totalFrontRows = timesheets.reduce((sum, t) => {
     const rows = (rowsByTimesheet[t.id] ?? t.entries.rows).filter((r) => r.kind !== "cover");
@@ -353,16 +384,6 @@ export default function CombinedTimesheetEditor({
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setEditMode((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
-              editMode ? "border-petrol bg-petrol text-white" : "border-line bg-white text-ink hover:border-petrol"
-            }`}
-          >
-            {editMode ? <Check size={14} /> : <Pencil size={14} />}
-            {editMode ? "Done editing" : "Edit"}
-          </button>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
@@ -449,10 +470,8 @@ export default function CombinedTimesheetEditor({
               <>
                 <th key={d} className={`${cell} text-center`}>
                   <div className="flex flex-col items-center leading-tight">
-                    {weekStart && (
-                      <span className="font-normal text-ink/50">{formatShortDate(weekStart, timesheetDayOffset(i))}</span>
-                    )}
-                    <span>{timesheetDayLabel(d)}</span>
+                    {weekStart && <span className="font-normal text-ink/50">{colDate(i)}</span>}
+                    <span>{colLabel(d, i)}</span>
                   </div>
                 </th>
                 {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}

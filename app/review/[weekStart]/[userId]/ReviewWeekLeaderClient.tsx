@@ -20,6 +20,10 @@ export default function ReviewWeekLeaderClient({
     setTimesheets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
   }
 
+  // O supervisor revê "a folha como foi salva a primeira vez" (submittedSnapshot),
+  // não o rascunho ao vivo do TL — as edições posteriores estão na aba Adjustments.
+  const frozen = timesheets.map((t) => (t.submittedEntries ? { ...t, entries: t.submittedEntries } : t));
+
   const pending = timesheets.filter((t) => t.status === "submitted").length;
 
   async function markAllDone() {
@@ -62,7 +66,7 @@ export default function ReviewWeekLeaderClient({
         )}
       </div>
 
-      <CombinedTimesheetEditor teamLeaderNome={teamLeaderNome} timesheets={timesheets} onChanged={updateOne} readOnly />
+      <CombinedTimesheetEditor teamLeaderNome={teamLeaderNome} timesheets={frozen} onChanged={updateOne} readOnly />
     </div>
   );
 }

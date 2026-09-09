@@ -2,8 +2,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import Header from "@/components/Header";
+import ReviewTabs from "@/components/ReviewTabs";
 import { getCurrentUser } from "@/lib/auth";
-import { formatWeekRange } from "@/lib/week";
+import { formatWeekRange, formatFortnightRange } from "@/lib/week";
 import type { TimesheetDTO } from "@/lib/types";
 
 async function getBaseUrl() {
@@ -28,20 +29,29 @@ export default async function ReviewPage() {
   const user = await getCurrentUser();
   const timesheets = await getSubmittedTimesheets();
 
-  const byWeek = new Map<string, TimesheetDTO[]>();
+  // Uma linha por (quem enviou + semana) — Team N · nome do TL · quinzena.
+  const byKey = new Map<string, { weekStart: string; userId: string; items: TimesheetDTO[] }>();
   for (const t of timesheets) {
-    byWeek.set(t.weekStart, [...(byWeek.get(t.weekStart) ?? []), t]);
+    const userId = t.submittedByUserId ?? "none";
+    const key = `${t.weekStart}|${userId}`;
+    const entry = byKey.get(key) ?? { weekStart: t.weekStart, userId, items: [] };
+    entry.items.push(t);
+    byKey.set(key, entry);
   }
-  const weeks = Array.from(byWeek.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  const rows = Array.from(byKey.values()).sort(
+    (a, b) => b.weekStart.localeCompare(a.weekStart) || a.userId.localeCompare(b.userId)
+  );
 
   return (
     <>
       <Header role={user?.role ?? "supervisor"} />
       <main className="mx-auto max-w-3xl px-6 py-10">
+        <ReviewTabs active="timesheets" />
+
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Timesheets</h1>
-            <p className="mt-1 text-sm text-ink/50">Select a week to see who has submitted.</p>
+            <h1 className="font-display text-2xl font-bold text-ink">Fortnightly timesheets</h1>
+            <p className="mt-1 text-sm text-ink/50">One line per team leader submission.</p>
           </div>
           <Link
             href="/review/excluidas"
@@ -53,32 +63,36 @@ export default async function ReviewPage() {
         </div>
 
         <div className="mt-6 space-y-2">
-          {weeks.map(([weekStart, items]) => {
-            const pending = items.filter((t) => t.status === "submitted").length;
-            const teamLeaders = new Set(items.map((t) => t.submittedByUserId ?? "none"));
+          {rows.map((r) => {
+            const first = r.items[0];
+            const pending = r.items.some((t) => t.status === "submitted");
+            const teamNum = first.submittedByTeamNumber;
+            const range =
+              first.periodType === "biweekly" ? formatFortnightRange(r.weekStart) : `Week ${formatWeekRange(r.weekStart)}`;
             return (
               <Link
-                key={weekStart}
-                href={`/review/${weekStart}`}
+                key={`${r.weekStart}-${r.userId}`}
+                href={`/review/${r.weekStart}/${r.userId}`}
                 className="flex items-center justify-between rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
               >
                 <div>
-                  <div className="font-medium text-ink">Week {formatWeekRange(weekStart)}</div>
-                  <div className="text-xs text-ink/40">{teamLeaders.size} team leader(s)</div>
+                  <div className="font-medium text-ink">
+                    {teamNum != null ? `Team ${teamNum} · ` : ""}
+                    {first.submittedByNome ?? "Removed account"}
+                  </div>
+                  <div className="text-xs text-ink/40">
+                    {range} · {r.items.length} building{r.items.length !== 1 ? "s" : ""}
+                  </div>
                 </div>
-                {pending > 0 ? (
-                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                    {pending} pending
-                  </span>
+                {pending ? (
+                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">Pending</span>
                 ) : (
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">
-                    All done
-                  </span>
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">Done</span>
                 )}
               </Link>
             );
           })}
-          {weeks.length === 0 && <p className="text-sm text-ink/40">No timesheet submitted yet.</p>}
+          {rows.length === 0 && <p className="text-sm text-ink/40">No timesheet submitted yet.</p>}
         </div>
       </main>
     </>

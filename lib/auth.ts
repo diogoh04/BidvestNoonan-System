@@ -7,30 +7,35 @@ export type SessionUser = {
   userId: string;
   role: AppRole;
   staffId: string | null;
+  // Time da conta "team_leader" (ver User.teamId / lib/teamLeaderScope.ts).
+  teamId: string | null;
 };
 
-// Sem ida ao banco: role/staffId já vêm dentro do cookie assinado.
+// Sem ida ao banco: role/staffId/teamId já vêm dentro do cookie assinado.
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const token = cookies().get("session")?.value;
   const payload = await verifySessionToken(token);
   if (!payload) return null;
-  return { userId: payload.userId, role: payload.role, staffId: payload.staffId };
+  return {
+    userId: payload.userId,
+    role: payload.role,
+    staffId: payload.staffId,
+    teamId: payload.teamId ?? null,
+  };
 }
 
 export function hasRole(user: SessionUser | null, ...roles: AppRole[]): boolean {
   return !!user && roles.includes(user.role);
 }
 
-// Um Team Leader só pode ver/comentar em cleaners de prédios onde ele
-// mesmo tem o vínculo StaffBuilding role="team_leader" — nunca em staff de
-// prédios de outro team leader.
+// Um Team Leader só pode ver/comentar em cleaners de prédios do TIME dele.
 export async function teamLeaderCanAccessStaff(user: SessionUser, staffId: bigint): Promise<boolean> {
-  if (!user.staffId) return false;
+  if (!user.teamId) return false;
   const link = await prisma.staffBuilding.findFirst({
     where: {
       staffId,
       role: "cleaner",
-      building: { teamLeaders: { some: { staffId: BigInt(user.staffId), role: "team_leader" } } },
+      building: { teamId: BigInt(user.teamId) },
     },
   });
   return !!link;

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { toJSONSafe, type FortnightPlanDTO } from "@/lib/types";
 import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
+import { tlBuildingIds } from "@/lib/teamLeaderScope";
 
 const planInclude = {
   building: true,
@@ -39,12 +40,8 @@ export async function GET(req: NextRequest) {
   const and: any[] = [];
 
   if (hasRole(user, "team_leader")) {
-    if (!user.staffId) return NextResponse.json([], {});
-    const myLinks = await prisma.staffBuilding.findMany({
-      where: { staffId: BigInt(user.staffId), role: "team_leader" },
-      select: { buildingId: true },
-    });
-    and.push({ buildingId: { in: myLinks.map((l) => l.buildingId) } });
+    if (!user.teamId) return NextResponse.json([], {});
+    and.push({ buildingId: { in: await tlBuildingIds(user) } });
   } else if (!hasRole(user, "master", "supervisor")) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }

@@ -25,8 +25,9 @@ export type UserDTO = {
   username: string;
   role: AppRole;
   active: boolean;
-  staffId: string | null;
-  staffNome: string | null;
+  // Conta "team_leader": o time que ela lidera.
+  teamId: string | null;
+  teamLabel: string | null; // "Team 5 — João, Maria"
   createdAt: string | null;
 };
 
@@ -93,22 +94,22 @@ export type TimesheetDTO = {
   status: TimesheetStatus;
   entries: TimesheetEntries;
   submittedByUserId: string | null;
-  // Nome real (Staff.nome) de quem enviou, com fallback pro username —
-  // é o que aparece pro supervisor, não o login técnico.
+  // Nome exibido de quem enviou (líder(es) do time, ou fallback) e o número
+  // do time da conta — é o que o supervisor vê, não o login técnico.
   submittedByNome: string | null;
+  submittedByTeamNumber: number | null;
   submittedAt: string | null;
   reviewedByNome: string | null;
   reviewedAt: string | null;
   deletedAt: string | null;
   deletedByNome: string | null;
   // Preenchido quando esta linha nasceu de um Launch de quinzenal (é week1
-  // ou week2 de um FortnightPlan) — usado pra mostrar o badge "From
-  // fortnight" na aba Weekly sheets e linkar pro histórico.
+  // ou week2 de um FortnightPlan) — legado (o Launch foi removido), usado só
+  // pra mostrar o badge "From fortnight" nas folhas semanais antigas.
   fortnightPlanId: string | null;
-  // true se existe um Adjustment aberto pra esta folha (edição feita depois
-  // do primeiro envio, ainda diferente do que foi enviado) — ver
-  // lib/timesheetAdjustment.ts.
-  hasAdjustment: boolean;
+  // "A folha como foi salva a primeira vez" (Timesheet.submittedSnapshot) —
+  // o que o supervisor revê. null enquanto ainda é draft.
+  submittedEntries: TimesheetEntries | null;
 };
 
 // Histórico de uma quinzenal lançada — congelado no momento do Launch, nunca
@@ -126,20 +127,77 @@ export type FortnightPlanDTO = {
   launchedAt: string;
 };
 
-// Ajuste feito numa folha semanal depois do primeiro envio — antes/depois
-// completo + diff pré-computado. Ver lib/timesheetAdjustment.ts e a aba
-// "Adjustments" em /my/timesheets.
-export type AdjustmentDTO = {
+// ---------- Relatório de ajuste semanal (ver model AdjustmentReport) ----------
+
+export type AdjustmentReportStatus = "draft" | "submitted" | "done";
+
+// Códigos de motivo — os mesmos da legenda da folha de ponto.
+export const ABSENCE_CODES = ["S", "BH", "AA", "AU", "P45", "HU", "HP"] as const;
+export type AbsenceCode = (typeof ABSENCE_CODES)[number];
+export const ABSENCE_CODE_LABELS: Record<AbsenceCode, string> = {
+  S: "Sick",
+  BH: "Bank Holiday",
+  AA: "Absent Authorized",
+  AU: "Absent Unauthorized",
+  P45: "Leaving",
+  HU: "Holiday Unpaid",
+  HP: "Holiday Paid",
+};
+
+export const ADJUSTMENT_ACTIONS = [
+  "add_hours",
+  "remove_hours",
+  "remove_from_building",
+  "add_to_building",
+] as const;
+export type AdjustmentAction = (typeof ADJUSTMENT_ACTIONS)[number];
+export const ADJUSTMENT_ACTION_LABELS: Record<AdjustmentAction, string> = {
+  add_hours: "ADD",
+  remove_hours: "REMOVE",
+  remove_from_building: "REMOVE FROM BUILDING",
+  add_to_building: "ADD TO BUILDING",
+};
+// Ações cujo staff sai da previsão do prédio (dropdown) vs. busca livre.
+export const ADJUSTMENT_ACTIONS_FROM_FORECAST: AdjustmentAction[] = ["remove_hours", "remove_from_building"];
+// Ações que usam código de motivo.
+export const ADJUSTMENT_ACTIONS_WITH_REASON: AdjustmentAction[] = ["remove_hours", "remove_from_building"];
+// Ações que usam faixa de horário (dia); as de vínculo usam só a data efetiva.
+export const ADJUSTMENT_ACTIONS_WITH_TIME: AdjustmentAction[] = ["add_hours", "remove_hours"];
+
+export type AdjustmentItemDTO = {
   id: string;
-  timesheetId: string;
+  action: AdjustmentAction;
+  buildingId: string;
+  staffId: string | null;
+  staffNome: string | null;
+  staffNumber: string | null;
+  dateFrom: string;
+  dateTo: string;
+  timeFrom: string | null;
+  timeTo: string | null;
+  reasonCode: AbsenceCode | null;
+  isCover: boolean;
+  note: string | null;
+};
+
+export type AdjustmentReportBuildingGroup = {
+  buildingId: string;
   buildingNome: string;
+  buildingWorkOrder: string | null;
+  items: AdjustmentItemDTO[];
+};
+
+export type AdjustmentReportDTO = {
+  id: string;
   weekStart: string;
-  periodType: TimesheetPeriodType;
-  beforeEntries: TimesheetEntries;
-  afterEntries: TimesheetEntries;
-  diff: { rowIndex: number; kind: string; nome: string | null; day: string; field: "in" | "out"; before: string | null; after: string | null }[];
-  updatedByNome: string | null;
-  updatedAt: string;
+  status: AdjustmentReportStatus;
+  submittedByNome: string | null;
+  submittedByTeamNumber: number | null;
+  submittedAt: string | null;
+  reviewedByNome: string | null;
+  reviewedAt: string | null;
+  itemCount: number;
+  groups: AdjustmentReportBuildingGroup[];
 };
 
 export type StaffDTO = {

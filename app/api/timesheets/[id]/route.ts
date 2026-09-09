@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { timesheetPatchSchema } from "@/lib/validation";
-import { toJSONSafe, type TimesheetEntries } from "@/lib/types";
-import { computeTimesheetDiff } from "@/lib/timesheetAdjustment";
+import { toJSONSafe } from "@/lib/types";
 import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
+import { tlOwnsBuilding } from "@/lib/teamLeaderScope";
 
 async function loadWithOwnership(id: bigint, user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>) {
   const timesheet = await prisma.timesheet.findUnique({
@@ -15,11 +15,8 @@ async function loadWithOwnership(id: bigint, user: NonNullable<Awaited<ReturnTyp
 
   if (hasRole(user, "master", "supervisor")) return { timesheet, allowed: true };
 
-  if (hasRole(user, "team_leader") && user.staffId) {
-    const owns = await prisma.staffBuilding.findFirst({
-      where: { staffId: BigInt(user.staffId), buildingId: timesheet.buildingId, role: "team_leader" },
-    });
-    return { timesheet, allowed: !!owns };
+  if (hasRole(user, "team_leader")) {
+    return { timesheet, allowed: await tlOwnsBuilding(user, timesheet.buildingId) };
   }
 
   return { timesheet, allowed: false };
@@ -37,8 +34,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // PATCH — dois usos bem separados, nunca misturados na mesma chamada:
-//  - Team Leader (dono do prédio): edita `entries` enquanto draft/submitted,
-//    e pode transicionar draft -> submitted.
+//  - Team Leader (dono do prédio): edita `entries` (auto-save) enquanto a
+//    folha ainda é `draft`, e transiciona draft -> submitted ("Send to
+//    supervisor"). Depois de enviada a PREVISÃO está congelada — mudanças do
+//    meio da quinzena viram AdjustmentReport (relatório à parte), não edição
+//    aqui.
 //  - Master/Supervisor: só pode transicionar submitted -> done (não edita
 //    os horários lançados).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -59,58 +59,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: Record<string, unknown> = {};
 
   if (hasRole(user, "team_leader")) {
-    if (timesheet.status === "done") {
-      return NextResponse.json({ error: "Timesheet already completed by supervisor" }, { status: 409 });
+    if (timesheet.status !== "draft") {
+      return NextResponse.json(
+        { error: "This forecast was already sent to the supervisor. Log changes as an adjustment report." },
+        { status: 409 }
+      );
     }
     if (entries) data.entries = entries as any;
     if (status) {
-      // Quinzenal (biweekly) não é enviada direto — precisa passar pelo
-      // Launch (POST /api/timesheets/fortnight/launch), que a converte em
-      // duas folhas semanais. Só afeta rascunhos novos daqui pra frente;
-      // folhas biweekly antigas já enviadas/concluídas não são tocadas.
-      if (status === "submitted" && timesheet.periodType === "biweekly") {
-        return NextResponse.json(
-          { error: "Biweekly sheets must be launched, not submitted directly. Use the Launch action." },
-          { status: 400 }
-        );
-      }
-      if (status !== "submitted" || timesheet.status !== "draft") {
+      // "Send to supervisor": draft -> submitted. Vale pra weekly e biweekly
+      // (o Launch foi removido — a quinzenal é enviada e revisada inteira).
+      if (status !== "submitted") {
         return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
       }
       data.status = "submitted";
       data.submittedByUserId = BigInt(user.userId);
       data.submittedAt = new Date();
-      // Foto do que está sendo enviado agora — baseline usado depois pra
-      // detectar "ajuste" numa edição posterior a este envio.
+      // "A folha como foi salva a primeira vez" — congelada aqui, nunca mais
+      // reescrita. É o que o supervisor revê.
       data.submittedSnapshot = (entries ?? timesheet.entries) as any;
-    }
-
-    // Edição feita DEPOIS do primeiro envio (a folha já tem uma baseline
-    // congelada) — compara e grava/atualiza/remove o Adjustment dessa folha.
-    // Não roda no mesmo PATCH que acabou de submeter (submittedSnapshot só
-    // existe a partir da transição acima, então timesheet.submittedSnapshot
-    // aqui é sempre o valor ANTERIOR a este PATCH).
-    if (entries && timesheet.status === "submitted" && timesheet.submittedSnapshot) {
-      const diff = computeTimesheetDiff(timesheet.submittedSnapshot as unknown as TimesheetEntries, entries);
-      if (diff.length === 0) {
-        await prisma.adjustment.deleteMany({ where: { timesheetId: timesheet.id } });
-      } else {
-        await prisma.adjustment.upsert({
-          where: { timesheetId: timesheet.id },
-          create: {
-            timesheetId: timesheet.id,
-            beforeEntries: timesheet.submittedSnapshot as any,
-            afterEntries: entries as any,
-            diff: diff as any,
-            updatedByUserId: BigInt(user.userId),
-          },
-          update: {
-            afterEntries: entries as any,
-            diff: diff as any,
-            updatedByUserId: BigInt(user.userId),
-          },
-        });
-      }
     }
   } else if (hasRole(user, "master", "supervisor")) {
     if (entries) {

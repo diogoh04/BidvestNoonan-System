@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import StaffSearchInput from "./StaffSearchInput";
 import type { AppRole } from "@/lib/types";
 
 export type UserFormValues = {
   id?: string;
   username: string;
   role: AppRole;
-  staffId: string | null;
-  staffNome: string | null;
+  teamId: string | null;
+  teamLabel: string | null;
   active: boolean;
 };
+
+type TeamOption = { id: string; number: number | null; leaderName: string | null };
 
 const ROLE_OPTIONS: { value: AppRole; label: string }[] = [
   { value: "master", label: "Master" },
@@ -27,11 +28,20 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
   const [username, setUsername] = useState(initial?.username ?? "");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<AppRole>(initial?.role ?? "team_leader");
-  const [staffId, setStaffId] = useState<string | null>(initial?.staffId ?? null);
-  const [staffNome, setStaffNome] = useState<string | null>(initial?.staffNome ?? null);
+  const [teamId, setTeamId] = useState<string | null>(initial?.teamId ?? null);
+  const [teams, setTeams] = useState<TeamOption[]>([]);
   const [active, setActive] = useState(initial?.active ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/teams")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: any[]) =>
+        setTeams(data.map((t) => ({ id: t.id, number: t.number, leaderName: t.leaderName ?? null })))
+      )
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +51,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
     const payload: Record<string, unknown> = {
       username,
       role,
-      staffId: role === "team_leader" ? staffId : null,
+      teamId: role === "team_leader" ? teamId : null,
       active,
     };
     if (password) payload.password = password;
@@ -57,7 +67,7 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
         const body = await res.json().catch(() => null);
         throw new Error(
           body?.error?.formErrors?.[0] ||
-            body?.error?.fieldErrors?.staffId?.[0] ||
+            body?.error?.fieldErrors?.teamId?.[0] ||
             body?.error?.fieldErrors?.username?.[0] ||
             body?.error?.fieldErrors?.password?.[0] ||
             (typeof body?.error === "string" ? body.error : null) ||
@@ -129,31 +139,23 @@ export default function UserForm({ initial }: { initial?: UserFormValues }) {
 
       {role === "team_leader" && (
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">Linked staff (Team Leader)</label>
-          {staffNome ? (
-            <div className="flex items-center justify-between rounded-md border border-petrol bg-petrolLight px-3 py-2 text-sm text-petrol">
-              {staffNome}
-              <button
-                type="button"
-                onClick={() => {
-                  setStaffId(null);
-                  setStaffNome(null);
-                }}
-                className="text-xs underline hover:text-petrolDark"
-              >
-                Change
-              </button>
-            </div>
-          ) : (
-            <StaffSearchInput
-              onSelect={(staff) => {
-                setStaffId(staff.id);
-                setStaffNome(staff.nome);
-              }}
-              placeholder="Search staff (team leader)..."
-              className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
-            />
-          )}
+          <label className="mb-1 block text-sm font-medium text-ink">Team</label>
+          <select
+            value={teamId ?? ""}
+            onChange={(e) => setTeamId(e.target.value || null)}
+            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-petrol"
+          >
+            <option value="">Select a team...</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.number != null ? `Team ${t.number}` : "Team —"}
+                {t.leaderName ? ` — ${t.leaderName}` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-ink/40">
+            The account sees this team&apos;s buildings and logs their timesheets.
+          </p>
         </div>
       )}
 

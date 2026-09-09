@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     userId: user.id.toString(),
     role: "pending",
     staffId: null,
+    teamId: null,
   });
 
   const res = NextResponse.json({ ok: true }, { status: 201 });

@@ -59,6 +59,7 @@ model Staff {
   teamsLed     TeamLeader[]
   history      StaffHistory[]
   loginAccount User?
+  adjustmentItems AdjustmentItem[]
 
   @@map("worker")
 }
@@ -101,6 +102,7 @@ model Building {
   fortnightPlans FortnightPlan[]
   hoursLogs     BuildingHoursLog[]
   history       StaffHistory[]
+  adjustmentItems AdjustmentItem[]
 
   @@map("predios")
 }
@@ -150,6 +152,9 @@ model Team {
   leaders   TeamLeader[]
   buildings Building[]
   history   StaffHistory[]
+  // Contas de acesso (login) ligadas a este time — hoje a conta "team_leader"
+  // aponta pro Time, não mais pra um Staff (ver User.teamId).
+  accounts  User[]
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -322,9 +327,14 @@ model User {
   role         String   @db.VarChar(20)
   active       Boolean  @default(true)
 
-  // Só preenchido quando role = "team_leader": vincula a conta ao Staff que
-  // já tem os vínculos StaffBuilding (role="team_leader") existentes, para
-  // não duplicar a informação de quais prédios a pessoa atende.
+  // Conta "team_leader" agora aponta pro TIME que ela lidera (não mais pra um
+  // Staff). Prédios/permissões do portal do TL vêm de team.buildings; o nome
+  // exibido vem da(s) conexão(ões) TeamLeader do time.
+  teamId       BigInt?  @map("team_id")
+  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  // Legado: vínculo direto a um Staff (contas antigas criadas antes da troca
+  // pro Time). Não é mais preenchido em contas novas.
   staffId      BigInt?  @unique @map("staff_id")
   staff        Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
 
@@ -337,6 +347,9 @@ model User {
   timesheetsDeleted   Timesheet[] @relation("TimesheetDeletedBy")
   fortnightPlansLaunched FortnightPlan[] @relation("FortnightPlanLaunchedBy")
   adjustmentsUpdated  Adjustment[] @relation("AdjustmentUpdatedBy")
+  adjustmentsReviewed Adjustment[] @relation("AdjustmentReviewedBy")
+  adjustmentReportsSubmitted AdjustmentReport[] @relation("AdjReportSubmittedBy")
+  adjustmentReportsReviewed  AdjustmentReport[] @relation("AdjReportReviewedBy")
 
   @@map("app_user")
 }
@@ -385,8 +398,8 @@ model Timesheet {
 
   // Foto do `entries` no instante do PRIMEIRO envio (draft -> submitted)
   // dessa folha. Nunca reescrito depois (não há transição submitted -> draft
-  // hoje). Baseline usado pra detectar "ajuste" em edições feitas depois do
-  // envio — ver PATCH /api/timesheets/[id] e lib/timesheetAdjustment.ts.
+  // hoje). É "a folha como foi salva a primeira vez" que o supervisor vê na
+  // aba Timesheets, e a baseline do PRIMEIRO Adjustment (ver lib/timesheetAdjustment.ts).
   submittedSnapshot Json? @map("submitted_snapshot")
 
   // Preenchido só quando esta linha nasceu de um Launch de quinzenal (ver
@@ -395,7 +408,9 @@ model Timesheet {
   fortnightAsWeek1 FortnightPlan? @relation("FortnightWeek1")
   fortnightAsWeek2 FortnightPlan? @relation("FortnightWeek2")
 
-  adjustment Adjustment?
+  // Log (append-only) das edições feitas DEPOIS do 1º envio — ver model
+  // Adjustment. Um registro por rodada de "Send adjustment" do Team Leader.
+  adjustments Adjustment[]
 
   @@unique([buildingId, weekStart])
   @@map("timesheet")
@@ -487,26 +502,110 @@ model TimesheetSheetSign {
 }
 
 // ---------- Ajuste pós-envio (tabela nova: adjustment) ----------
-// Registrado quando o Team Leader edita `entries` de uma folha semanal DEPOIS
-// do primeiro envio (draft -> submitted) — compara contra o que foi
-// congelado em Timesheet.submittedSnapshot naquele momento. Um registro por
-// folha (upsert): se a edição fizer o conteúdo voltar a bater com o que foi
-// enviado, o registro é apagado (ver PATCH /api/timesheets/[id]). Não exige
-// aprovação própria — é só um log visível na aba Adjustments.
+// LOG (append-only): cada vez que o Team Leader clica "Send adjustment" na
+// folha DEPOIS do 1º envio, nasce um registro aqui. `beforeEntries` é a
+// baseline daquele momento (o afterEntries do ajuste anterior, ou o
+// Timesheet.submittedSnapshot se for o primeiro); `afterEntries` é o estado
+// no clique; `diff` são só as células que mudaram nessa rodada (ver
+// lib/timesheetAdjustment.ts). Cada ajuste é revisado individualmente pelo
+// supervisor ("Mark adjustment as done") — `status`/`reviewedBy` são desse
+// ciclo, independente do status da própria folha.
 model Adjustment {
   id              BigInt    @id @default(autoincrement())
-  timesheetId     BigInt    @unique @map("timesheet_id")
+  timesheetId     BigInt    @map("timesheet_id")
   timesheet       Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
 
   beforeEntries Json @map("before_entries")
   afterEntries  Json @map("after_entries")
   diff          Json // pré-computado, ver lib/timesheetAdjustment.ts
 
+  // "pending" (recém-criado pelo TL) | "done" (revisado pelo supervisor).
+  status          String    @default("pending") @db.VarChar(20)
+
+  // Quem FEZ o ajuste (Team Leader).
   updatedByUserId BigInt? @map("updated_by_user_id")
   updatedByUser   User?   @relation("AdjustmentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  // Quem marcou como done (Supervisor/Master).
+  reviewedByUserId BigInt?   @map("reviewed_by_user_id")
+  reviewedByUser   User?     @relation("AdjustmentReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime? @map("reviewed_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([timesheetId])
   @@map("adjustment")
+}
+
+// ---------- Relatório de ajuste semanal (tabelas novas: adjustment_report / adjustment_item) ----------
+// A folha quinzenal é uma PREVISÃO congelada. Os ajustes que acontecem no
+// meio da quinzena são mandados pelo Team Leader uma vez por semana, num
+// relatório estruturado (uma lista de itens ADD/REMOVE por prédio) — é o
+// mesmo conteúdo que hoje vai por mensagem de WhatsApp, só que rastreado.
+// Um relatório cobre 1 TL + 1 semana (segunda a sexta) e junta todos os
+// prédios dele. O supervisor revê e marca "done".
+model AdjustmentReport {
+  id        BigInt   @id @default(autoincrement())
+  weekStart DateTime @map("week_start") @db.Date
+
+  // "draft" (TL montando) | "submitted" (enviado ao supervisor) | "done" (revisado).
+  status    String   @default("draft") @db.VarChar(20)
+
+  submittedByUserId BigInt?   @map("submitted_by_user_id")
+  submittedByUser   User?     @relation("AdjReportSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  submittedAt       DateTime? @map("submitted_at")
+
+  reviewedByUserId  BigInt?   @map("reviewed_by_user_id")
+  reviewedByUser    User?     @relation("AdjReportReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime? @map("reviewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items AdjustmentItem[]
+
+  @@index([weekStart])
+  @@map("adjustment_report")
+}
+
+model AdjustmentItem {
+  id       BigInt @id @default(autoincrement())
+  reportId BigInt @map("report_id")
+  report   AdjustmentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  buildingId BigInt   @map("building_id")
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  // "add_hours"            -> soma horas de um dia/intervalo (cover, reforço)
+  // "remove_hours"         -> tira horas de um dia/intervalo (ausência) — a pessoa continua no prédio
+  // "remove_from_building" -> a pessoa sai do prédio/WO a partir da data
+  // "add_to_building"      -> a pessoa passa a fazer parte do prédio/WO a partir da data
+  action     String   @db.VarChar(30)
+
+  // FK quando escolhido do cadastro; nome/número sempre preenchidos (snapshot
+  // — o relatório é um documento histórico, sobrevive a rename/exclusão).
+  staffId     BigInt?  @map("staff_id")
+  staff       Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  staffNome   String?  @map("staff_nome") @db.VarChar(255)
+  staffNumber String?  @map("staff_number") @db.VarChar(50)
+
+  dateFrom DateTime @map("date_from") @db.Date
+  dateTo   DateTime @map("date_to") @db.Date
+
+  timeFrom String? @map("time_from") @db.VarChar(5)
+  timeTo   String? @map("time_to") @db.VarChar(5)
+
+  // Código do motivo (só remove_hours / remove_from_building) — os mesmos da
+  // legenda da folha: S | BH | AA | AU | P45 | HU | HP.
+  reasonCode String? @map("reason_code") @db.VarChar(10)
+
+  isCover Boolean @default(false) @map("is_cover")
+  note    String? @db.VarChar(500)
+
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([reportId])
+  @@map("adjustment_item")
 }

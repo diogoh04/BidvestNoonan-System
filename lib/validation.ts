@@ -167,7 +167,8 @@ export const userBaseSchema = z.object({
   // Obrigatória na criação; opcional na edição (deixar em branco = não trocar senha)
   password: passwordSchema.optional(),
   role: z.enum(["master", "supervisor", "team_leader"]),
-  staffId: z.string().nullable().optional(),
+  // Conta "team_leader" liga a um Time (não mais a um Staff).
+  teamId: z.string().nullable().optional(),
   active: z.boolean().optional(),
 });
 
@@ -178,28 +179,28 @@ export const registerInputSchema = z.object({
   password: passwordSchema,
 });
 
-function checkStaffLink(data: { role?: string; staffId?: string | null }, ctx: z.RefinementCtx) {
-  if (data.role === "team_leader" && !data.staffId) {
+function checkTeamLink(data: { role?: string; teamId?: string | null }, ctx: z.RefinementCtx) {
+  if (data.role === "team_leader" && !data.teamId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Select the staff (team leader) linked to this account",
-      path: ["staffId"],
+      message: "Select the team this account leads",
+      path: ["teamId"],
     });
   }
-  if (data.role && data.role !== "team_leader" && data.staffId) {
+  if (data.role && data.role !== "team_leader" && data.teamId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Staff link only applies to team leader accounts",
-      path: ["staffId"],
+      message: "Team link only applies to team leader accounts",
+      path: ["teamId"],
     });
   }
 }
 
-export const userInputSchema = userBaseSchema.superRefine(checkStaffLink);
+export const userInputSchema = userBaseSchema.superRefine(checkTeamLink);
 
 // Edição: todos os campos opcionais (envia só o que muda), mas ainda
-// valida a consistência papel/staffId quando role é enviado.
-export const userUpdateSchema = userBaseSchema.partial().superRefine(checkStaffLink);
+// valida a consistência papel/teamId quando role é enviado.
+export const userUpdateSchema = userBaseSchema.partial().superRefine(checkTeamLink);
 
 export type UserInput = z.infer<typeof userInputSchema>;
 
@@ -245,8 +246,32 @@ export const timesheetPatchSchema = z.object({
   restore: z.literal(true).optional(),
 });
 
-// POST /api/timesheets/fortnight/launch — "lança" a quinzenal (biweekly, em
-// draft) do Team Leader nessa data, virando duas folhas semanais reais.
-export const fortnightLaunchSchema = z.object({
-  fortnightStart: z.string(), // "YYYY-MM-DD", mesma segunda-feira usada na criação da quinzenal
+// ---------- Relatório de ajuste semanal ----------
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export const adjustmentItemSchema = z.object({
+  action: z.enum(["add_hours", "remove_hours", "remove_from_building", "add_to_building"]),
+  buildingId: z.string(),
+  staffId: z.string().nullable().optional(),
+  staffNome: z.string().trim().max(255).nullable().optional(),
+  staffNumber: z.string().trim().max(50).nullable().optional(),
+  dateFrom: z.string(), // "YYYY-MM-DD"
+  dateTo: z.string(),
+  timeFrom: z.string().regex(HHMM).nullable().optional(),
+  timeTo: z.string().regex(HHMM).nullable().optional(),
+  reasonCode: z.enum(["S", "BH", "AA", "AU", "P45", "HU", "HP"]).nullable().optional(),
+  isCover: z.boolean().optional(),
+  note: z.string().trim().max(500).nullable().optional(),
+});
+
+export const adjustmentReportCreateSchema = z.object({
+  weekStart: z.string(), // segunda-feira "YYYY-MM-DD"
+});
+
+// TL edita os itens enquanto draft e transiciona pra submitted;
+// Master/Supervisor transiciona pra done. Nunca os dois no mesmo PATCH.
+export const adjustmentReportPatchSchema = z.object({
+  items: z.array(adjustmentItemSchema).optional(),
+  status: z.enum(["submitted", "done"]).optional(),
 });

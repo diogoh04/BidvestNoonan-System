@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     userId: user.id.toString(),
     role: user.role as AppRole,
     staffId: user.staffId ? user.staffId.toString() : null,
+    teamId: user.teamId ? user.teamId.toString() : null,
   });
 
   const res = NextResponse.json({ ok: true, role: user.role });

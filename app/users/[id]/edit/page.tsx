@@ -37,8 +37,8 @@ export default async function EditUserPage({ params }: { params: { id: string } 
               id: user.id,
               username: user.username,
               role: user.role,
-              staffId: user.staffId,
-              staffNome: user.staffNome,
+              teamId: user.teamId,
+              teamLabel: user.teamLabel,
               active: user.active,
             }}
           />

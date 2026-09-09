@@ -95,16 +95,29 @@ export default async function DashboardPage() {
           )}
 
           {user.role === "supervisor" && (
-            <Link
-              href="/review"
-              className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
-            >
-              <FileCheck2 size={40} className="text-petrol" />
-              <div>
-                <div className="font-display text-2xl font-bold text-ink">Timesheets</div>
-                <div className="mt-1 text-sm text-ink/50">Review and mark as done</div>
-              </div>
-            </Link>
+            <>
+              <Link
+                href="/review"
+                className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+              >
+                <FileCheck2 size={40} className="text-petrol" />
+                <div>
+                  <div className="font-display text-2xl font-bold text-ink">Fortnightly timesheets</div>
+                  <div className="mt-1 text-sm text-ink/50">The forecast each team leader sent — review and mark as done</div>
+                </div>
+              </Link>
+
+              <Link
+                href="/review/adjustments"
+                className="group flex flex-col items-center gap-4 rounded-md border border-line bg-white px-6 py-10 text-center transition hover:-translate-y-0.5 hover:border-petrol hover:shadow-md"
+              >
+                <ClipboardList size={40} className="text-petrol" />
+                <div>
+                  <div className="font-display text-2xl font-bold text-ink">Adjustments</div>
+                  <div className="mt-1 text-sm text-ink/50">Weekly changes on top of the forecast</div>
+                </div>
+              </Link>
+            </>
           )}
 
           {user.role === "team_leader" && (

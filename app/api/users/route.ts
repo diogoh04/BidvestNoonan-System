@@ -3,19 +3,9 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { userInputSchema } from "@/lib/validation";
-import { toJSONSafe, UserDTO } from "@/lib/types";
-
-function mapUser(u: any): UserDTO {
-  return {
-    id: u.id.toString(),
-    username: u.username,
-    role: u.role,
-    active: u.active,
-    staffId: u.staffId ? u.staffId.toString() : null,
-    staffNome: u.staff?.nome ?? null,
-    createdAt: u.createdAt ? u.createdAt.toISOString() : null,
-  };
-}
+import { toJSONSafe } from "@/lib/types";
+import { userNameInclude } from "@/lib/userName";
+import { mapUser } from "@/lib/userDto";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -24,7 +14,7 @@ export async function GET() {
   }
 
   const users = await prisma.user.findMany({
-    include: { staff: true },
+    include: userNameInclude,
     orderBy: { username: "asc" },
   });
 
@@ -60,10 +50,10 @@ export async function POST(req: NextRequest) {
       username: data.username,
       passwordHash,
       role: data.role,
-      staffId: data.role === "team_leader" && data.staffId ? BigInt(data.staffId) : null,
+      teamId: data.role === "team_leader" && data.teamId ? BigInt(data.teamId) : null,
       active: data.active ?? true,
     },
-    include: { staff: true },
+    include: userNameInclude,
   });
 
   return NextResponse.json(toJSONSafe(mapUser(created)), { status: 201 });
