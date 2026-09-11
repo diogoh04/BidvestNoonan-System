@@ -138,7 +138,7 @@ export default function MyTimesheetsHubClient({
               confirmingId === r.id ? (
                 <div
                   key={r.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
                 >
                   <span className="text-sm text-danger">
                     Delete the adjustment report for week {formatWeekRange(r.weekStart)}?
@@ -162,9 +162,9 @@ export default function MyTimesheetsHubClient({
               ) : (
                 <div
                   key={r.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
                 >
-                  <Link href={`/my/timesheets/adjustments/${r.id}`} className="flex-1">
+                  <Link href={`/my/timesheets/adjustments/${r.id}`} className="min-w-0 flex-1">
                     <div className="font-medium text-ink">Week {formatWeekRange(r.weekStart)}</div>
                     <div className="text-xs text-ink/40">
                       {r.itemCount} item{r.itemCount !== 1 ? "s" : ""}
@@ -179,7 +179,7 @@ export default function MyTimesheetsHubClient({
                       type="button"
                       onClick={() => setConfirmingId(r.id)}
                       title="Delete report"
-                      className="rounded-md p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
+                      className="shrink-0 rounded-md p-2 text-ink/40 hover:bg-red-50 hover:text-danger"
                     >
                       <Trash2 size={16} />
                     </button>

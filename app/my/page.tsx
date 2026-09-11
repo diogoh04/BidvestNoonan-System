@@ -17,8 +17,10 @@ async function getMyProfile() {
     cache: "no-store",
     headers: { cookie: headers().get("cookie") ?? "" },
   });
-  if (!res.ok) return { nome: null, buildings: [] };
-  return res.json();
+  // 403 = conta "team_leader" ainda sem time vinculado (ver User.teamId) —
+  // sinaliza pra mostrar um aviso em vez de "0 buildings" sem explicação.
+  if (!res.ok) return { nome: null, buildings: [], noTeam: res.status === 403 };
+  return { ...(await res.json()), noTeam: false };
 }
 
 export default async function MyBuildingsPage() {
@@ -46,7 +48,12 @@ export default async function MyBuildingsPage() {
         </div>
 
         <div className="mt-8 space-y-8">
-          {buildings.length === 0 && (
+          {profile.noTeam && (
+            <p className="rounded-md border border-dashed border-danger/40 bg-red-50 px-4 py-8 text-center text-sm text-danger">
+              Your account isn't linked to a team yet. Ask the Master to link it in Users.
+            </p>
+          )}
+          {!profile.noTeam && buildings.length === 0 && (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
               No building assigned to your account yet.
             </p>

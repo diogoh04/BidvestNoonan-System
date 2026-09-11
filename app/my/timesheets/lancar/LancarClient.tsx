@@ -77,7 +77,18 @@ export default function LancarClient({
       fetch("/api/timesheets"),
       fetch("/api/timesheets/fortnight-plans"),
     ]);
-    if (profileRes.ok) setProfile(await profileRes.json());
+    if (profileRes.ok) {
+      setProfile(await profileRes.json());
+    } else {
+      // Conta "team_leader" sem time vinculado (ver User.teamId) devolve 403
+      // aqui — sem isto a tela ficava só com o seletor de data, sem
+      // explicação nenhuma do motivo.
+      setError(
+        profileRes.status === 403
+          ? "Your account isn't linked to a team yet. Ask the Master to link it in Users."
+          : "Could not load your profile. Please try again."
+      );
+    }
     if (allRes.ok) {
       const all: TimesheetDTO[] = await allRes.json();
       setAllTimesheets(all);
@@ -281,7 +292,7 @@ export default function LancarClient({
           type="date"
           value={weekStart}
           onChange={(e) => changeWeek(e.target.value)}
-          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-petrol"
+          className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
         />
         <span className="text-sm text-ink/60">
           → {formatDDMM(fortnightEndISO(weekStart))} <span className="text-ink/40">(10 working days)</span>
@@ -293,7 +304,7 @@ export default function LancarClient({
             <select
               value={existingWeeks.some((w) => w.weekStart === weekStart) ? weekStart : ""}
               onChange={(e) => e.target.value && setWeekStart(e.target.value)}
-              className="rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+              className="max-w-full rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
             >
               <option value="">Select an already logged fortnight...</option>
               {existingWeeks.map((w) => (

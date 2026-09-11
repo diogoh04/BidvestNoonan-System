@@ -232,7 +232,7 @@ export default function AdjustmentReportEditorClient({
           type="date"
           value={weekStart}
           onChange={(e) => e.target.value && setWeekStart(toISODate(getMonday(new Date(e.target.value + "T00:00:00Z"))))}
-          className="rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
+          className="w-full rounded-md border border-line px-3 py-2.5 text-base outline-none focus:border-petrol sm:w-auto sm:py-2 sm:text-sm"
         />
         {error && <p className="mt-2 text-sm text-danger">{error}</p>}
         <div className="mt-4">
@@ -240,7 +240,7 @@ export default function AdjustmentReportEditorClient({
             type="button"
             onClick={createReport}
             disabled={creating}
-            className="rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
+            className="w-full rounded-md bg-petrol px-4 py-2.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50 sm:w-auto sm:py-2"
           >
             {creating ? "Creating..." : "Start report"}
           </button>
@@ -293,13 +293,13 @@ export default function AdjustmentReportEditorClient({
         <div>
           {draft ? (
             <div className="rounded-md border border-petrol bg-white p-4">
-              <div className="flex flex-wrap items-end gap-2">
-                <label className="flex flex-col text-xs text-ink/50">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="flex flex-col gap-1 text-xs text-ink/50">
                   Building
                   <select
                     value={draft.buildingId}
                     onChange={(e) => updateDraft({ buildingId: e.target.value })}
-                    className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                    className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                   >
                     {myBuildings.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -309,7 +309,7 @@ export default function AdjustmentReportEditorClient({
                   </select>
                 </label>
 
-                <label className="flex flex-col text-xs text-ink/50">
+                <label className="flex flex-col gap-1 text-xs text-ink/50">
                   Action
                   <select
                     value={draft.action}
@@ -321,7 +321,7 @@ export default function AdjustmentReportEditorClient({
                         staffNumber: "",
                       })
                     }
-                    className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                    className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                   >
                     {ADJUSTMENT_ACTIONS.map((a) => (
                       <option key={a} value={a}>
@@ -331,7 +331,7 @@ export default function AdjustmentReportEditorClient({
                   </select>
                 </label>
 
-                <label className="flex flex-col text-xs text-ink/50">
+                <label className="flex flex-col gap-1 text-xs text-ink/50">
                   Staff
                   {fromForecast ? (
                     <select
@@ -344,7 +344,7 @@ export default function AdjustmentReportEditorClient({
                           staffId: p?.staffId ?? null,
                         });
                       }}
-                      className="mt-0.5 min-w-[160px] rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                      className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                     >
                       <option value="">Select from forecast...</option>
                       {people.map((p) => (
@@ -355,29 +355,30 @@ export default function AdjustmentReportEditorClient({
                       ))}
                     </select>
                   ) : draft.staffNome ? (
-                    <span className="mt-0.5 flex items-center gap-1.5 rounded-md border border-petrol bg-petrolLight px-2 py-1.5 text-sm text-petrol">
-                      {draft.staffNome}
-                      {draft.staffNumber ? ` (${draft.staffNumber})` : ""}
+                    <span className="flex items-center gap-1.5 rounded-md border border-petrol bg-petrolLight px-2 py-2.5 text-base text-petrol sm:py-1.5 sm:text-sm">
+                      <span className="min-w-0 flex-1 truncate">
+                        {draft.staffNome}
+                        {draft.staffNumber ? ` (${draft.staffNumber})` : ""}
+                      </span>
                       <button
                         type="button"
                         onClick={() => updateDraft({ staffNome: "", staffNumber: "", staffId: null })}
-                        className="text-petrol/70 hover:text-petrolDark"
+                        className="shrink-0 text-petrol/70 hover:text-petrolDark"
                       >
                         ×
                       </button>
                     </span>
                   ) : (
-                    <div className="mt-0.5">
-                      <StaffSearchInput
-                        onSelect={(s) =>
-                          updateDraft({ staffNome: s.nome, staffNumber: s.staffNumber ?? "", staffId: s.id })
-                        }
-                      />
-                    </div>
+                    <StaffSearchInput
+                      className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
+                      onSelect={(s) =>
+                        updateDraft({ staffNome: s.nome, staffNumber: s.staffNumber ?? "", staffId: s.id })
+                      }
+                    />
                   )}
                 </label>
 
-                <label className="flex flex-col text-xs text-ink/50">
+                <label className="flex flex-col gap-1 text-xs text-ink/50">
                   {withTime ? "From date" : "Effective date"}
                   <input
                     type="date"
@@ -388,37 +389,37 @@ export default function AdjustmentReportEditorClient({
                         dateTo: draft.dateTo < e.target.value ? e.target.value : draft.dateTo,
                       })
                     }
-                    className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                    className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                   />
                 </label>
 
                 {withTime && (
                   <>
-                    <label className="flex flex-col text-xs text-ink/50">
+                    <label className="flex flex-col gap-1 text-xs text-ink/50">
                       To date
                       <input
                         type="date"
                         value={draft.dateTo}
                         min={draft.dateFrom}
                         onChange={(e) => updateDraft({ dateTo: e.target.value })}
-                        className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                        className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                       />
                     </label>
-                    <label className="flex flex-col text-xs text-ink/50">
+                    <label className="flex flex-col gap-1 text-xs text-ink/50">
                       Time
-                      <span className="mt-0.5 flex items-center gap-1">
+                      <span className="flex items-center gap-1.5">
                         <input
                           type="time"
                           value={draft.timeFrom}
                           onChange={(e) => updateDraft({ timeFrom: e.target.value })}
-                          className="rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                          className="w-full min-w-0 flex-1 rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                         />
-                        <span className="text-ink/40">–</span>
+                        <span className="shrink-0 text-ink/40">–</span>
                         <input
                           type="time"
                           value={draft.timeTo}
                           onChange={(e) => updateDraft({ timeTo: e.target.value })}
-                          className="rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                          className="w-full min-w-0 flex-1 rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                         />
                       </span>
                     </label>
@@ -426,12 +427,12 @@ export default function AdjustmentReportEditorClient({
                 )}
 
                 {withReason && (
-                  <label className="flex flex-col text-xs text-ink/50">
+                  <label className="flex flex-col gap-1 text-xs text-ink/50">
                     Reason
                     <select
                       value={draft.reasonCode}
                       onChange={(e) => updateDraft({ reasonCode: e.target.value as AbsenceCode | "" })}
-                      className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                      className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                     >
                       <option value="">—</option>
                       {ABSENCE_CODES.map((c) => (
@@ -444,12 +445,12 @@ export default function AdjustmentReportEditorClient({
                 )}
 
                 {draft.action === "add_hours" && (
-                  <label className="flex items-center gap-1.5 pb-1.5 text-xs text-ink/60">
+                  <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink/60 sm:pb-1.5">
                     <input
                       type="checkbox"
                       checked={draft.isCover}
                       onChange={(e) => updateDraft({ isCover: e.target.checked })}
-                      className="h-4 w-4 rounded border-line"
+                      className="h-5 w-5 rounded border-line sm:h-4 sm:w-4"
                     />
                     cover
                   </label>
@@ -460,22 +461,22 @@ export default function AdjustmentReportEditorClient({
                 value={draft.note}
                 onChange={(e) => updateDraft({ note: e.target.value })}
                 placeholder="Note (optional)"
-                className="mt-2 w-full rounded-md border border-line px-2 py-1.5 text-sm text-ink outline-none focus:border-petrol"
+                className="mt-3 w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
               />
 
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
                   onClick={saveDraft}
                   disabled={!isReady(draft) || saving}
-                  className="rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
+                  className="w-full rounded-md bg-petrol px-4 py-2.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50 sm:w-auto sm:py-2"
                 >
                   Save adjustment
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraft(null)}
-                  className="flex items-center gap-1 rounded-md border border-line px-3 py-2 text-sm text-ink hover:bg-surface"
+                  className="flex w-full items-center justify-center gap-1 rounded-md border border-line px-3 py-2.5 text-sm text-ink hover:bg-surface sm:w-auto sm:py-2"
                 >
                   <X size={14} />
                   Cancel
@@ -487,7 +488,7 @@ export default function AdjustmentReportEditorClient({
               type="button"
               onClick={() => setDraft(newItem(myBuildings[0]?.id ?? "", report.weekStart))}
               disabled={myBuildings.length === 0}
-              className="flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-1 rounded-md border border-line px-3 py-2.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50 sm:w-auto sm:justify-start sm:py-1.5"
             >
               <Plus size={14} />
               Add adjustment

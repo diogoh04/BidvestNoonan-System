@@ -53,7 +53,10 @@ export default function StaffSearchInput({
         onFocus={() => results.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
-        className={className ?? "rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"}
+        className={
+          className ??
+          "rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
+        }
       />
       {open && query.trim() !== "" && (
         <div className="absolute z-10 mt-1 max-h-56 w-64 overflow-auto rounded-md border border-line bg-white shadow-lg">

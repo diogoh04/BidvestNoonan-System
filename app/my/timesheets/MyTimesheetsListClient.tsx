@@ -82,7 +82,7 @@ export default function MyTimesheetsListClient({
           return (
             <div
               key={weekStart}
-              className="flex items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
             >
               <span className="text-sm text-danger">
                 Delete the whole timesheet for the {isBiweekly ? "fortnight" : "week"} of {range} ({items.length}{" "}
@@ -110,9 +110,9 @@ export default function MyTimesheetsListClient({
         return (
           <div
             key={weekStart}
-            className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
+            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
           >
-            <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="flex-1">
+            <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-ink">
                   {isBiweekly ? "Fortnight" : "Week"} {range}

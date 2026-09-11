@@ -66,7 +66,7 @@ export default function AdjustmentReportView({
   const buildings = report.groups.map((g) => g.buildingNome).join(" and ");
 
   return (
-    <div className="rounded-md border border-line bg-white p-5 text-sm">
+    <div className="rounded-md border border-line bg-white p-4 text-sm sm:p-5">
       <div className="font-display text-base font-bold text-ink">
         Adjustments {formatWeekRange(report.weekStart)}
         {buildings ? ` — ${buildings}` : ""}
@@ -98,22 +98,22 @@ export default function AdjustmentReportView({
                         {p.tag && <span className="text-ink/40">({p.tag})</span>}
                         {it.note && <span className="text-xs text-ink/40">— {it.note}</span>}
                         {editable && (
-                          <span className="ml-auto flex items-center gap-1">
+                          <span className="ml-auto flex items-center gap-0.5">
                             <button
                               type="button"
                               onClick={() => editable.onEdit(it.id)}
                               title="Edit"
-                              className="rounded p-1 text-ink/40 hover:bg-petrolLight hover:text-petrol"
+                              className="rounded-md p-2 text-ink/40 hover:bg-petrolLight hover:text-petrol"
                             >
-                              <Pencil size={13} />
+                              <Pencil size={14} />
                             </button>
                             <button
                               type="button"
                               onClick={() => editable.onDelete(it.id)}
                               title="Delete"
-                              className="rounded p-1 text-ink/40 hover:bg-red-50 hover:text-danger"
+                              className="rounded-md p-2 text-ink/40 hover:bg-red-50 hover:text-danger"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} />
                             </button>
                           </span>
                         )}

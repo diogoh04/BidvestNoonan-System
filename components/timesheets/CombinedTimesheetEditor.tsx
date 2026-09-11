@@ -48,23 +48,24 @@ function emptyDays(periodType: TimesheetPeriodType): TimesheetRow["days"] {
 }
 
 // Na tela, tamanho fixo e confortável pra usar no celular (a tabela rola
-// na horizontal em vez de encolher). Na impressão, encolhe conforme o
-// número de linhas pra caber numa página só — daí os pares de classe
-// base + print:.
+// na horizontal em vez de encolher) — text-base (16px) evita o zoom
+// automático do Safari/iOS ao tocar num input de hora e é mais fácil de
+// mirar com o dedo. Na impressão, encolhe conforme o número de linhas pra
+// caber numa página só — daí os pares de classe base + print:.
 function frontTableSizing(rowCount: number) {
-  if (rowCount <= 10) return { text: "text-xs print:text-xs", pad: "p-1.5 print:p-1", cellH: "h-9 print:h-8" };
-  if (rowCount <= 16) return { text: "text-xs print:text-[10px]", pad: "p-1.5 print:p-0.5", cellH: "h-9 print:h-6" };
-  if (rowCount <= 24) return { text: "text-xs print:text-[9px]", pad: "p-1.5 print:p-0.5", cellH: "h-9 print:h-5" };
-  if (rowCount <= 32) return { text: "text-xs print:text-[8px]", pad: "p-1.5 print:p-[2px]", cellH: "h-9 print:h-4" };
-  if (rowCount <= 45) return { text: "text-xs print:text-[7px]", pad: "p-1.5 print:p-px", cellH: "h-9 print:h-3" };
-  return { text: "text-xs print:text-[6px]", pad: "p-1.5 print:p-0", cellH: "h-9 print:h-3" };
+  if (rowCount <= 10) return { text: "text-base print:text-xs", pad: "p-1.5 print:p-1", cellH: "h-11 print:h-8" };
+  if (rowCount <= 16) return { text: "text-base print:text-[10px]", pad: "p-1.5 print:p-0.5", cellH: "h-11 print:h-6" };
+  if (rowCount <= 24) return { text: "text-base print:text-[9px]", pad: "p-1.5 print:p-0.5", cellH: "h-11 print:h-5" };
+  if (rowCount <= 32) return { text: "text-base print:text-[8px]", pad: "p-1.5 print:p-[2px]", cellH: "h-11 print:h-4" };
+  if (rowCount <= 45) return { text: "text-base print:text-[7px]", pad: "p-1.5 print:p-px", cellH: "h-11 print:h-3" };
+  return { text: "text-base print:text-[6px]", pad: "p-1.5 print:p-0", cellH: "h-11 print:h-3" };
 }
 
 function backTableSizing(rowCount: number) {
-  if (rowCount <= 19) return { text: "text-xs print:text-[10px]", pad: "p-1 print:p-0.5", cellH: "h-8 print:h-6" };
-  if (rowCount <= 24) return { text: "text-xs print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-8 print:h-5" };
-  if (rowCount <= 32) return { text: "text-xs print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-8 print:h-4" };
-  return { text: "text-xs print:text-[7px]", pad: "p-1 print:p-0", cellH: "h-8 print:h-3" };
+  if (rowCount <= 19) return { text: "text-base print:text-[10px]", pad: "p-1 print:p-0.5", cellH: "h-10 print:h-6" };
+  if (rowCount <= 24) return { text: "text-base print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-10 print:h-5" };
+  if (rowCount <= 32) return { text: "text-base print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-4" };
+  return { text: "text-base print:text-[7px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-3" };
 }
 
 // Larguras (%) das colunas fixas (Building/Hours/WO/Name/Staff Number) do
