@@ -80,15 +80,24 @@ function WeekField() {
 // Campo livre pra preencher na tela (número de horas ou um dos códigos HP/AA/S/HU/AU/BH/P45).
 // Não persiste — só pra digitar antes de imprimir/exportar. `textClass` é
 // aplicado direto no input (não só herdado da tabela) pra garantir que ele
-// nunca force a linha a ficar mais alta que o `cellH` calculado.
+// nunca force a linha a ficar mais alta que o `cellH` calculado. IN e OUT
+// dividem uma única célula (em vez de duas colunas separadas) pra reduzir
+// pela metade a largura da tabela — é o que sobra pra rolar no celular.
 function SignCell({ className, textClass }: { className: string; textClass: string }) {
   return (
     <td className={className}>
-      <input
-        type="text"
-        maxLength={5}
-        className={`h-full w-full border-none bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight ${textClass}`}
-      />
+      <div className="flex h-full items-stretch justify-center">
+        <input
+          type="text"
+          maxLength={5}
+          className={`h-full w-1/2 border-0 border-r border-ink/40 bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight ${textClass}`}
+        />
+        <input
+          type="text"
+          maxLength={5}
+          className={`h-full w-1/2 border-0 bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight ${textClass}`}
+        />
+      </div>
     </td>
   );
 }
@@ -119,8 +128,7 @@ function BlankRow({
           <td className={cell}></td>
           {days.map((d, di) => (
             <>
-              <SignCell key={d + i + "-in"} className={signCell} textClass={textClass} />
-              <SignCell key={d + i + "-out"} className={signCell} textClass={textClass} />
+              <SignCell key={d + i} className={signCell} textClass={textClass} />
               {spacer && di === SPACER_AFTER_INDEX && <td key={d + i + "-spacer"} className={SPACER_CLASS}></td>}
             </>
           ))}
@@ -130,13 +138,18 @@ function BlankRow({
   );
 }
 
+// Na tela, tamanho fixo e confortável pra usar no celular (a tabela rola
+// na horizontal em vez de encolher) — text-base (16px) evita o zoom
+// automático do Safari/iOS ao tocar num input de hora e é mais fácil de
+// mirar com o dedo. Na impressão, encolhe conforme o número de linhas pra
+// caber numa página só — daí os pares de classe base + print:.
 function frontTableSizing(rowCount: number) {
-  if (rowCount <= 10) return { text: "text-xs", pad: "p-1", cellH: "h-8" };
-  if (rowCount <= 16) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
-  if (rowCount <= 24) return { text: "text-[9px]", pad: "p-0.5", cellH: "h-5" };
-  if (rowCount <= 32) return { text: "text-[8px]", pad: "p-[2px]", cellH: "h-4" };
-  if (rowCount <= 45) return { text: "text-[7px]", pad: "p-px", cellH: "h-3" };
-  return { text: "text-[6px]", pad: "p-0", cellH: "h-3" };
+  if (rowCount <= 10) return { text: "text-base print:text-xs", pad: "p-1.5 print:p-1", cellH: "h-11 print:h-8" };
+  if (rowCount <= 16) return { text: "text-base print:text-[10px]", pad: "p-1.5 print:p-0.5", cellH: "h-11 print:h-6" };
+  if (rowCount <= 24) return { text: "text-base print:text-[9px]", pad: "p-1.5 print:p-0.5", cellH: "h-11 print:h-5" };
+  if (rowCount <= 32) return { text: "text-base print:text-[8px]", pad: "p-1.5 print:p-[2px]", cellH: "h-11 print:h-4" };
+  if (rowCount <= 45) return { text: "text-base print:text-[7px]", pad: "p-1.5 print:p-px", cellH: "h-11 print:h-3" };
+  return { text: "text-base print:text-[6px]", pad: "p-1.5 print:p-0", cellH: "h-11 print:h-3" };
 }
 
 // Mesma ideia do frontTableSizing, mas pro verso ("Building Covers") — hoje
@@ -144,10 +157,10 @@ function frontTableSizing(rowCount: number) {
 // crescia sem limite. O piso da primeira faixa reproduz o tamanho de hoje
 // (0-7 covers = 19 linhas), então quem já cabia não muda nada.
 function backTableSizing(rowCount: number) {
-  if (rowCount <= 19) return { text: "text-[10px]", pad: "p-0.5", cellH: "h-6" };
-  if (rowCount <= 24) return { text: "text-[9px]", pad: "p-[2px]", cellH: "h-5" };
-  if (rowCount <= 32) return { text: "text-[8px]", pad: "p-0", cellH: "h-4" };
-  return { text: "text-[7px]", pad: "p-0", cellH: "h-3" };
+  if (rowCount <= 19) return { text: "text-base print:text-[10px]", pad: "p-1 print:p-0.5", cellH: "h-10 print:h-6" };
+  if (rowCount <= 24) return { text: "text-base print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-10 print:h-5" };
+  if (rowCount <= 32) return { text: "text-base print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-4" };
+  return { text: "text-base print:text-[7px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-3" };
 }
 
 // Larguras (%) das colunas fixas (Building/Hours/WO/Name/Staff Number) do
@@ -372,7 +385,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
   }
 
   return (
-    <main className="mx-auto max-w-6xl bg-white px-6 py-10 print:max-w-none print:px-8 print:py-4">
+    <main className="mx-auto max-w-6xl bg-white px-3 py-6 sm:px-6 sm:py-10 print:max-w-none print:px-8 print:py-4">
       <div className="mb-6 flex flex-wrap items-center justify-end gap-4 print:hidden">
         <div className="flex gap-1">
           {(["weekly", "biweekly"] as TimesheetPeriodType[]).map((pt) => (
@@ -470,15 +483,17 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
         </span>
       </div>
 
-      <table className={`mt-6 w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
+      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
+
+      <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
+      <table className={`w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
         <colgroup>
           {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
           ))}
           {DAYS.map((d, i) => (
             <>
-              <col key={d + "-in-col"} />
-              <col key={d + "-out-col"} />
+              <col key={d + "-col"} />
               {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
             </>
           ))}
@@ -492,7 +507,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             <th rowSpan={2} className={`${cell} align-middle`}>Staff Number</th>
             {DAYS.map((d, i) => (
               <>
-                <th key={d} colSpan={2} className={`${cell} text-center`}>
+                <th key={d} className={`${cell} text-center`}>
                   {timesheetDayLabel(d)}
                 </th>
                 {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
@@ -502,8 +517,12 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           <tr>
             {DAYS.map((d, i) => (
               <>
-                <th key={d + "-in"} className={`${cell} text-center font-normal`}>SIGN IN</th>
-                <th key={d + "-out"} className={`${cell} text-center font-normal`}>SIGN OUT</th>
+                <th key={d} className={`${cell} p-0 text-center font-normal`}>
+                  <div className="flex items-stretch justify-center">
+                    <span className="w-1/2 border-r border-ink/40 py-0.5">IN</span>
+                    <span className="w-1/2 py-0.5">OUT</span>
+                  </div>
+                </th>
                 {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
               </>
             ))}
@@ -511,11 +530,11 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
         </thead>
         <tbody>
           <tr>
-            <td colSpan={5 + DAYS.length * 2 + spacerCount} className="h-3 border-0"></td>
+            <td colSpan={5 + DAYS.length + spacerCount} className="h-3 border-0"></td>
           </tr>
           {teamLeader.buildings.length === 0 && (
             <tr>
-              <td colSpan={5 + DAYS.length * 2 + spacerCount} className={`${cell} text-center text-ink/40`}>
+              <td colSpan={5 + DAYS.length + spacerCount} className={`${cell} text-center text-ink/40`}>
                 No building assigned to this team leader.
               </td>
             </tr>
@@ -525,7 +544,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             const spacerRow =
               buildingIndex > 0 ? (
                 <tr key={b.id + "-spacer"}>
-                  <td colSpan={5 + DAYS.length * 2 + spacerCount} className="h-3 border-0"></td>
+                  <td colSpan={5 + DAYS.length + spacerCount} className="h-3 border-0"></td>
                 </tr>
               ) : null;
 
@@ -579,8 +598,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                     </td>
                     {DAYS.map((d, di) => (
                       <>
-                        <SignCell key={d + b.id + "-in"} className={signCell} textClass={sz.text} />
-                        <SignCell key={d + b.id + "-out"} className={signCell} textClass={sz.text} />
+                        <SignCell key={d + b.id} className={signCell} textClass={sz.text} />
                         {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + b.id + "-spacer"} className={SPACER_CLASS}></td>}
                       </>
                     ))}
@@ -657,8 +675,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                     <td className={`${cell} text-center`}>{hideNames ? "" : r.staffNumber ?? ""}</td>
                     {DAYS.map((d, di) => (
                       <>
-                        <SignCell key={d + b.id + i + "-in"} className={signCell} textClass={sz.text} />
-                        <SignCell key={d + b.id + i + "-out"} className={signCell} textClass={sz.text} />
+                        <SignCell key={d + b.id + i} className={signCell} textClass={sz.text} />
                         {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + b.id + i + "-spacer"} className={SPACER_CLASS}></td>}
                       </>
                     ))}
@@ -670,6 +687,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           })}
         </tbody>
       </table>
+      </div>
 
       <div className="mt-10 print:mt-0 break-before-page">
         <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
@@ -728,6 +746,9 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
           {coverError && <span className="text-xs text-danger">{coverError}</span>}
         </div>
 
+        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
+
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
         <table className={`w-full table-fixed border-collapse ${backSz.text}`}>
           <colgroup>
             {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
@@ -735,8 +756,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             ))}
             {DAYS.map((d, i) => (
               <>
-                <col key={d + "-in-col"} />
-                <col key={d + "-out-col"} />
+                <col key={d + "-col"} />
                 {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
               </>
             ))}
@@ -750,7 +770,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               <th rowSpan={2} className={`${backCell} align-middle`}>Staff Number</th>
               {DAYS.map((d, i) => (
                 <>
-                  <th key={d} colSpan={2} className={`${backCell} text-center`}>
+                  <th key={d} className={`${backCell} text-center`}>
                     {timesheetDayLabel(d)}
                   </th>
                   {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
@@ -760,8 +780,12 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             <tr>
               {DAYS.map((d, i) => (
                 <>
-                  <th key={d + "-in2"} className={`${backCell} text-center font-normal`}>SIGN IN</th>
-                  <th key={d + "-out2"} className={`${backCell} text-center font-normal`}>SIGN OUT</th>
+                  <th key={d} className={`${backCell} p-0 text-center font-normal`}>
+                    <div className="flex items-stretch justify-center">
+                      <span className="w-1/2 border-r border-ink/40 py-0.5">IN</span>
+                      <span className="w-1/2 py-0.5">OUT</span>
+                    </div>
+                  </th>
                   {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
                 </>
               ))}
@@ -825,8 +849,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                 <td className={`${backCell} text-center`}>{hideNames ? "" : cover.staffNumber ?? ""}</td>
                 {DAYS.map((d, di) => (
                   <>
-                    <SignCell key={d + cover.id + "-in"} className={backSignCell} textClass={backSz.text} />
-                    <SignCell key={d + cover.id + "-out"} className={backSignCell} textClass={backSz.text} />
+                    <SignCell key={d + cover.id} className={backSignCell} textClass={backSz.text} />
                     {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + cover.id + "-spacer"} className={SPACER_CLASS}></td>}
                   </>
                 ))}
@@ -845,7 +868,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               <td className={`${backCell} font-medium`}>ESTATES ADDITIONAL</td>
               <td className={backCell}></td>
               {(() => {
-                const total = 3 + DAYS.length * 2 + spacerCount;
+                const total = 3 + DAYS.length + spacerCount;
                 const per = Math.floor(total / coverItems.length);
                 return coverItems.map((item, idx) => (
                   <td
@@ -869,8 +892,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               <td className={backCell}></td>
               {DAYS.map((d, di) => (
                 <>
-                  <SignCell key={d + "-events-in"} className={backSignCell} textClass={backSz.text} />
-                  <SignCell key={d + "-events-out"} className={backSignCell} textClass={backSz.text} />
+                  <SignCell key={d + "-events"} className={backSignCell} textClass={backSz.text} />
                   {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-events-spacer"} className={SPACER_CLASS}></td>}
                 </>
               ))}
@@ -879,6 +901,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
             <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />
           </tbody>
         </table>
+        </div>
       </div>
 
       <style jsx global>{`
