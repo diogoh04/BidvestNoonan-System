@@ -77,6 +77,22 @@ function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[
   return pct.map((p) => p * factor);
 }
 
+// As colunas do colgroup são em % — numa tabela `w-full` isso sempre cabe na
+// tela, só que espremendo cada coluna até o texto vazar por cima da vizinha.
+// O que faz a tabela realmente rolar de lado em vez de espremer é ter uma
+// largura MÍNIMA em px maior que a tela — as % do colgroup passam a
+// distribuir espaço dentro desse mínimo, não mais dentro da tela toda. Só
+// conta pra tela: no print a classe `ts-table` zera esse mínimo (ver
+// <style jsx global> no fim do arquivo).
+const FRONT_FIXED_MIN_PX = [70, 60, 60, 150, 90]; // Building, Hours, WO, Name, Staff Number
+const BACK_FIXED_MIN_PX = [80, 60, 60, 130, 90]; // Building Covers, Hours, WO, Name, Staff Number
+const DAY_COL_MIN_PX = 96; // célula com IN+OUT lado a lado, ~48px de alvo de toque cada
+const SPACER_MIN_PX = 8;
+
+function minTableWidthPx(fixedPx: number[], dayCount: number, hasSpacer: boolean): number {
+  return fixedPx.reduce((a, b) => a + b, 0) + dayCount * DAY_COL_MIN_PX + (hasSpacer ? SPACER_MIN_PX : 0);
+}
+
 function BlankRow({
   n,
   cell,
@@ -337,6 +353,8 @@ export default function CombinedTimesheetEditor({
   const DAYS = getTimesheetDayKeys(periodType);
   const hasSpacer = periodType === "biweekly";
   const spacerCount = hasSpacer ? 1 : 0;
+  const frontMinWidthPx = minTableWidthPx(FRONT_FIXED_MIN_PX, DAYS.length, hasSpacer);
+  const backMinWidthPx = minTableWidthPx(BACK_FIXED_MIN_PX, DAYS.length, hasSpacer);
   const weekStart = timesheets[0]?.weekStart;
 
   // Quinzenal: as 10 colunas são os 10 dias úteis a partir do início — data
@@ -448,7 +466,10 @@ export default function CombinedTimesheetEditor({
       <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
 
       <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
-      <table className={`w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
+      <table
+        className={`ts-table w-full table-fixed border-collapse print:mt-2 ${sz.text}`}
+        style={{ minWidth: `${frontMinWidthPx}px` }}
+      >
         <colgroup>
           {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
@@ -715,7 +736,10 @@ export default function CombinedTimesheetEditor({
         <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
 
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
-        <table className={`w-full table-fixed border-collapse ${backSz.text}`}>
+        <table
+          className={`ts-table w-full table-fixed border-collapse ${backSz.text}`}
+          style={{ minWidth: `${backMinWidthPx}px` }}
+        >
           <colgroup>
             {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
               <col key={i} style={{ width: `${w}%` }} />
@@ -902,6 +926,9 @@ export default function CombinedTimesheetEditor({
           }
           .break-before-page {
             break-before: page;
+          }
+          .ts-table {
+            min-width: 0 !important;
           }
         }
       `}</style>
