@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { KeyRound, Check } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function ChangePasswordCard() {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -44,7 +46,7 @@ export default function ChangePasswordCard() {
   return (
     <div className="rounded-md border border-line bg-white px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm font-medium text-ink">Password</span>
+        <span className="text-sm font-medium text-ink">{t("Password")}</span>
         {!open && (
           <button
             type="button"
@@ -55,13 +57,13 @@ export default function ChangePasswordCard() {
             className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol"
           >
             <KeyRound size={14} />
-            Reset password
+            {t("Reset password")}
           </button>
         )}
         {done && (
           <span className="flex items-center gap-1 text-sm text-success">
             <Check size={14} />
-            Password reset
+            {t("Password reset")}
           </span>
         )}
       </div>
@@ -72,7 +74,7 @@ export default function ChangePasswordCard() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="New password"
+            placeholder={t("New password")}
             required
             minLength={6}
             autoFocus
@@ -82,7 +84,7 @@ export default function ChangePasswordCard() {
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Confirm password"
+            placeholder={t("Confirm password")}
             required
             minLength={6}
             className="w-full min-w-0 rounded-md border border-line px-3 py-2.5 text-base outline-none focus:border-petrol sm:flex-1 sm:py-2 sm:text-sm"
@@ -93,7 +95,7 @@ export default function ChangePasswordCard() {
               disabled={saving}
               className="flex-1 rounded-md bg-petrol px-3 py-2.5 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50 sm:flex-none sm:py-2"
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("Saving...") : t("Save")}
             </button>
             <button
               type="button"
@@ -105,10 +107,10 @@ export default function ChangePasswordCard() {
               }}
               className="flex-1 rounded-md border border-line px-3 py-2.5 text-sm hover:bg-surface sm:flex-none sm:py-2"
             >
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
-          {error && <p className="w-full text-sm text-danger">{error}</p>}
+          {error && <p className="w-full text-sm text-danger">{t(error)}</p>}
         </form>
       )}
     </div>

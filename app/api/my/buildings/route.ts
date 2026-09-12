@@ -25,11 +25,17 @@ export async function GET() {
   ]);
 
   const buildingIds = buildings.map((b) => b.id);
-  const cleanerLinks = await prisma.staffBuilding.findMany({
-    where: { buildingId: { in: buildingIds }, role: "cleaner" },
-    include: { staff: true },
-    orderBy: [{ ordem: "asc" }, { id: "asc" }],
-  });
+  const [cleanerLinks, slots] = await Promise.all([
+    prisma.staffBuilding.findMany({
+      where: { buildingId: { in: buildingIds }, role: "cleaner" },
+      include: { staff: true },
+      orderBy: [{ ordem: "asc" }, { id: "asc" }],
+    }),
+    prisma.buildingSlot.findMany({
+      where: { buildingId: { in: buildingIds } },
+      orderBy: { ordem: "asc" },
+    }),
+  ]);
 
   const leaderNames = (team?.leaders ?? [])
     .map((l) => l.staff?.nome)
@@ -38,14 +44,19 @@ export async function GET() {
   return NextResponse.json(
     toJSONSafe({
       // "Perfil" da conta: nome exibido (líderes do time) + número do time.
+      // Sem líder cadastrado ainda, `nome` fica null — "Team N" já vai em
+      // `teamNumber` à parte; usar isso como nome aqui fazia a linha "Team
+      // Leader" da folha (ver LancarClient -> CombinedTimesheetEditor)
+      // mostrar "Team 28" como se fosse o nome de uma pessoa.
       id: user!.userId,
-      nome: leaderNames.length ? leaderNames.join(", ") : team?.number != null ? `Team ${team.number}` : null,
+      nome: leaderNames.length ? leaderNames.join(", ") : null,
       staffNumber: null,
       teamNumber: team?.number ?? null,
       buildings: buildings.map((b) => ({
         id: b.id.toString(),
         nome: b.nome,
         workOrder: b.workOrder,
+        slots: slots.filter((s) => s.buildingId === b.id).map((s) => ({ id: s.id.toString(), horas: s.horas })),
         cleaners: cleanerLinks
           .filter((c) => c.buildingId === b.id)
           .map((c) => ({
@@ -55,6 +66,9 @@ export async function GET() {
             staffNumber: c.staff.staffNumber,
             telefone: c.staff.telefone,
             horasSemana: c.horas ?? c.staff.horasSemana,
+            ordem: c.ordem,
+            predioLabel: c.predioLabel,
+            workOrder: c.workOrder,
           })),
       })),
     })

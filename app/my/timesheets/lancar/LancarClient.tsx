@@ -12,6 +12,7 @@ import {
   fortnightEndISO,
 } from "@/lib/week";
 import CombinedTimesheetEditor from "@/components/timesheets/CombinedTimesheetEditor";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { getTimesheetDayKeys } from "@/lib/types";
 import type {
   TimesheetDTO,
@@ -42,6 +43,7 @@ export default function LancarClient({
   initialWeek: string | null;
   forceNew?: boolean;
 }) {
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [existingWeeks, setExistingWeeks] = useState<ExistingPeriod[]>([]);
   // Lista completa (não deduplicada) — precisa pra achar, POR PRÉDIO, a
@@ -85,8 +87,8 @@ export default function LancarClient({
       // explicação nenhuma do motivo.
       setError(
         profileRes.status === 403
-          ? "Your account isn't linked to a team yet. Ask the Master to link it in Users."
-          : "Could not load your profile. Please try again."
+          ? t("Your account isn't linked to a team yet. Ask the Master to link it in Users.")
+          : t("Could not load your profile. Please try again.")
       );
     }
     if (allRes.ok) {
@@ -176,7 +178,10 @@ export default function LancarClient({
           return (await res.json()) as TimesheetDTO;
         })
       );
-      created.sort((a, b) => a.buildingNome.localeCompare(b.buildingNome));
+      // Promise.all preserva a ordem de profile.buildings (já vem em
+      // teamOrder, igual /my e /teams/[id] — ver /api/my/buildings) — NÃO
+      // reordenar por nome aqui, senão diverge da ordem que o time leader
+      // configurou.
       liveRows.current = {};
       setTimesheets(created);
     } catch (e: any) {
@@ -219,7 +224,8 @@ export default function LancarClient({
           return ts;
         })
       );
-      created.sort((a, b) => a.buildingNome.localeCompare(b.buildingNome));
+      // Mesmo motivo do loadExistingWeek acima: manter a ordem de
+      // profile.buildings (teamOrder), não reordenar por nome.
       liveRows.current = {};
       setTimesheets(created);
       setExistingWeeks((prev) => {
@@ -287,7 +293,7 @@ export default function LancarClient({
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-ink">Fortnight start:</label>
+        <label className="text-sm font-medium text-ink">{t("Fortnight start:")}</label>
         <input
           type="date"
           value={weekStart}
@@ -295,23 +301,23 @@ export default function LancarClient({
           className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
         />
         <span className="text-sm text-ink/60">
-          → {formatDDMM(fortnightEndISO(weekStart))} <span className="text-ink/40">(10 working days)</span>
+          → {formatDDMM(fortnightEndISO(weekStart))} <span className="text-ink/40">({t("10 working days")})</span>
         </span>
 
         {existingWeeks.length > 0 && (
           <>
-            <span className="text-xs text-ink/40">or open a logged one:</span>
+            <span className="text-xs text-ink/40">{t("or open a logged one:")}</span>
             <select
               value={existingWeeks.some((w) => w.weekStart === weekStart) ? weekStart : ""}
               onChange={(e) => e.target.value && setWeekStart(e.target.value)}
               className="max-w-full rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
             >
-              <option value="">Select an already logged fortnight...</option>
+              <option value="">{t("Select an already logged fortnight...")}</option>
               {existingWeeks.map((w) => (
                 <option key={w.weekStart} value={w.weekStart}>
                   {w.periodType === "biweekly"
                     ? formatFortnightRange(w.weekStart)
-                    : `${formatWeekRange(w.weekStart)} (weekly, legacy)`}
+                    : `${formatWeekRange(w.weekStart)} (${t("weekly, legacy")})`}
                 </option>
               ))}
             </select>
@@ -326,16 +332,18 @@ export default function LancarClient({
             className="ml-auto flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Send size={16} />
-            {sending ? "Sending..." : "Send to supervisor"}
+            {sending ? t("Sending...") : t("Send to supervisor")}
           </button>
         )}
       </div>
 
-      {error && <p className="mb-4 text-sm text-danger print:hidden">{error}</p>}
+      {error && <p className="mb-4 text-sm text-danger print:hidden">{t(error)}</p>}
 
       {pendingChoice && (
         <div className="mb-6 rounded-md border border-dashed border-line bg-surface px-4 py-8 text-center print:hidden">
-          <p className="text-sm text-ink/60">No fortnight logged for {formatFortnightRange(weekStart)} yet.</p>
+          <p className="text-sm text-ink/60">
+            {t("No fortnight logged for")} {formatFortnightRange(weekStart)} {t("yet.")}
+          </p>
 
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <button
@@ -344,7 +352,7 @@ export default function LancarClient({
               className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
             >
               <FilePlus size={16} />
-              Start blank
+              {t("Start blank")}
             </button>
             {priorFortnightStart && (
               <button
@@ -353,22 +361,22 @@ export default function LancarClient({
                 className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
               >
                 <Copy size={16} />
-                Copy from previous fortnight ({formatFortnightRange(priorFortnightStart)})
+                {t("Copy from previous fortnight")} ({formatFortnightRange(priorFortnightStart)})
               </button>
             )}
           </div>
         </div>
       )}
 
-      {loading && <p className="text-sm text-ink/40 print:hidden">Loading...</p>}
+      {loading && <p className="text-sm text-ink/40 print:hidden">{t("Loading...")}</p>}
 
       {!pendingChoice && !loading && timesheets.length > 0 && (
         <>
           {anySubmitted && (
             <div className="mb-4 rounded-md border border-line bg-surface px-4 py-3 text-sm text-ink/70 print:hidden">
-              Sent to the supervisor — the forecast is locked. Changes during the fortnight go in an{" "}
+              {t("Sent to the supervisor — the forecast is locked. Changes during the fortnight go in an")}{" "}
               <a href="/my/timesheets" className="text-petrol underline">
-                adjustment report
+                {t("adjustment report")}
               </a>
               .
             </div>

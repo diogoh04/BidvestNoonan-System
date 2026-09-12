@@ -21,6 +21,7 @@ import {
 } from "@/lib/week";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const ESTATES_EVENTS_WO = "515736";
 const MIN_COVER_ROWS = 7;
@@ -191,6 +192,10 @@ export default function CombinedTimesheetEditor({
   onRowsChange?: (timesheetId: string, rows: TimesheetRow[]) => void;
   readOnly?: boolean;
 }) {
+  // Apelidado `tr` (não `t`) porque `t` já é o nome-padrão da variável de
+  // timesheet neste arquivo inteiro (`timesheets.map((t) => ...)`) — usar
+  // `t` aqui sombrearia a função de tradução dentro de cada callback.
+  const { t: tr } = useLanguage();
   const [rowsByTimesheet, setRowsByTimesheet] = useState<Record<string, TimesheetRow[]>>({});
   const [error, setError] = useState<string | null>(null);
   const saveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -398,7 +403,7 @@ export default function CombinedTimesheetEditor({
         <div className="flex flex-wrap gap-2">
           {timesheets.map((t) => (
             <span key={t.id} className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[t.status]}`}>
-              {t.buildingNome}: {STATUS_LABEL[t.status]}
+              {t.buildingNome}: {tr(STATUS_LABEL[t.status])}
             </span>
           ))}
         </div>
@@ -408,7 +413,7 @@ export default function CombinedTimesheetEditor({
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
           >
             <Printer size={16} />
-            Print / Export PDF
+            {tr("Print / Export PDF")}
           </button>
         </div>
       </div>
@@ -463,7 +468,7 @@ export default function CombinedTimesheetEditor({
         <span className="inline-block min-w-[220px] border-b border-ink px-2">{teamLeaderNome ?? " "}</span>
       </div>
 
-      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
+      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">{tr("Swipe the table sideways to see all days →")}</p>
 
       <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
       <table
@@ -597,10 +602,19 @@ export default function CombinedTimesheetEditor({
             // Enquanto ninguém mexeu (ou editou igual pra todo mundo), continua
             // mesclado igual antes. Só separa de verdade quando alguma linha
             // ficou diferente das outras — assim o que foi digitado não some
-            // ao sair do modo edição.
-            const tNomes = rows.map((_, i) => rowOverrides[`${t.id}:${i}`]?.nomePredio ?? t.buildingNome);
+            // ao sair do modo edição. `r.predioLabel`/`r.workOrder` é o rótulo
+            // por pessoa ("Sheet labels" em BuildingStaffClient/StaffBuilding,
+            // fotografado na criação da folha — ver lib/timesheetSnapshot.ts);
+            // `rowOverrides` é o mecanismo antigo por índice de linha
+            // (editMode na folha, hoje desligado) — mantido só por
+            // compatibilidade com o que já foi salvo assim antes.
+            const tNomes = rows.map(
+              (r, i) => rowOverrides[`${t.id}:${i}`]?.nomePredio ?? (r.predioLabel?.trim() || t.buildingNome)
+            );
             const buildingAllSame = tNomes.every((v) => v === tNomes[0]);
-            const tWos = rows.map((_, i) => rowOverrides[`${t.id}:${i}`]?.wo ?? t.buildingWorkOrder ?? "");
+            const tWos = rows.map(
+              (r, i) => rowOverrides[`${t.id}:${i}`]?.wo ?? ((r.workOrder?.trim() || t.buildingWorkOrder) ?? "")
+            );
             const woAllSame = tWos.every((v) => v === tWos[0]);
 
             return (
@@ -709,7 +723,7 @@ export default function CombinedTimesheetEditor({
                 setCoverNome(staff.nome);
                 setCoverStaffNumber(staff.staffNumber ?? "");
               }}
-              placeholder="Search staff..."
+              placeholder={tr("Search staff...")}
             />
           )}
           <input
@@ -718,7 +732,7 @@ export default function CombinedTimesheetEditor({
             step={0.25}
             value={coverHoras}
             onChange={(e) => setCoverHoras(e.target.value)}
-            placeholder="Hours"
+            placeholder={tr("Hours")}
             className="w-24 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
           />
           <button
@@ -728,12 +742,12 @@ export default function CombinedTimesheetEditor({
             className="flex items-center gap-1 rounded-md bg-petrol px-3 py-1.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Plus size={14} />
-            Add cover
+            {tr("Add cover")}
           </button>
         </div>
         )}
 
-        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
+        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">{tr("Swipe the table sideways to see all days →")}</p>
 
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
         <table
@@ -916,7 +930,7 @@ export default function CombinedTimesheetEditor({
         </div>
       </div>
 
-      {error && <p className="mt-3 text-sm text-danger print:hidden">{error}</p>}
+      {error && <p className="mt-3 text-sm text-danger print:hidden">{tr(error)}</p>}
 
       <style jsx global>{`
         @media print {

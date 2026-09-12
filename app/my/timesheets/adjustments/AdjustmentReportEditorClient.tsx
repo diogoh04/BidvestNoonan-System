@@ -6,6 +6,7 @@ import { Plus, Send, X } from "lucide-react";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import AdjustmentReportView from "@/components/AdjustmentReportView";
 import { getMonday, toISODate } from "@/lib/week";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   ADJUSTMENT_ACTIONS,
   ADJUSTMENT_ACTION_LABELS,
@@ -108,6 +109,7 @@ export default function AdjustmentReportEditorClient({
   myBuildings: MyBuilding[];
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [report, setReport] = useState<AdjustmentReportDTO | null>(initialReport);
   const [weekStart, setWeekStart] = useState(initialReport?.weekStart ?? toISODate(getMonday(new Date())));
   const [items, setItems] = useState<EditItem[]>(initialReport ? fromDTO(initialReport) : []);
@@ -227,14 +229,14 @@ export default function AdjustmentReportEditorClient({
   if (!report) {
     return (
       <div className="rounded-md border border-line bg-white p-5">
-        <label className="mb-1 block text-sm font-medium text-ink">Week (Monday)</label>
+        <label className="mb-1 block text-sm font-medium text-ink">{t("Week (Monday)")}</label>
         <input
           type="date"
           value={weekStart}
           onChange={(e) => e.target.value && setWeekStart(toISODate(getMonday(new Date(e.target.value + "T00:00:00Z"))))}
           className="w-full rounded-md border border-line px-3 py-2.5 text-base outline-none focus:border-petrol sm:w-auto sm:py-2 sm:text-sm"
         />
-        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+        {error && <p className="mt-2 text-sm text-danger">{t(error)}</p>}
         <div className="mt-4">
           <button
             type="button"
@@ -242,7 +244,7 @@ export default function AdjustmentReportEditorClient({
             disabled={creating}
             className="w-full rounded-md bg-petrol px-4 py-2.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50 sm:w-auto sm:py-2"
           >
-            {creating ? "Creating..." : "Start report"}
+            {creating ? t("Creating...") : t("Start report")}
           </button>
         </div>
       </div>
@@ -258,7 +260,9 @@ export default function AdjustmentReportEditorClient({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink/60">
-          <span>Week starting {report.weekStart}</span>
+          <span>
+            {t("Week starting")} {report.weekStart}
+          </span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${
               report.status === "done"
@@ -268,25 +272,25 @@ export default function AdjustmentReportEditorClient({
                 : "bg-surface text-ink/60"
             }`}
           >
-            {report.status}
+            {t(report.status)}
           </span>
-          {saving && <span className="text-xs text-ink/40">Saving…</span>}
+          {saving && <span className="text-xs text-ink/40">{t("Saving…")}</span>}
         </div>
         {!readOnly && (
           <button
             type="button"
             onClick={sendToSupervisor}
             disabled={sending || items.length === 0 || !!draft}
-            title={draft ? "Save or cancel the open item first" : undefined}
+            title={draft ? t("Save or cancel the open item first") : undefined}
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
           >
             <Send size={15} />
-            {sending ? "Sending..." : "Send to supervisor"}
+            {sending ? t("Sending...") : t("Send to supervisor")}
           </button>
         )}
       </div>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-danger">{t(error)}</p>}
 
       {/* ---- Card do formulário (1 só) ---- */}
       {!readOnly && (
@@ -295,7 +299,7 @@ export default function AdjustmentReportEditorClient({
             <div className="rounded-md border border-petrol bg-white p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="flex flex-col gap-1 text-xs text-ink/50">
-                  Building
+                  {t("Building")}
                   <select
                     value={draft.buildingId}
                     onChange={(e) => updateDraft({ buildingId: e.target.value })}
@@ -310,7 +314,7 @@ export default function AdjustmentReportEditorClient({
                 </label>
 
                 <label className="flex flex-col gap-1 text-xs text-ink/50">
-                  Action
+                  {t("Action")}
                   <select
                     value={draft.action}
                     onChange={(e) =>
@@ -332,7 +336,7 @@ export default function AdjustmentReportEditorClient({
                 </label>
 
                 <label className="flex flex-col gap-1 text-xs text-ink/50">
-                  Staff
+                  {t("Staff")}
                   {fromForecast ? (
                     <select
                       value={draft.staffNome}
@@ -346,7 +350,7 @@ export default function AdjustmentReportEditorClient({
                       }}
                       className="w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
                     >
-                      <option value="">Select from forecast...</option>
+                      <option value="">{t("Select from forecast...")}</option>
                       {people.map((p) => (
                         <option key={p.nome} value={p.nome}>
                           {p.nome}
@@ -379,7 +383,7 @@ export default function AdjustmentReportEditorClient({
                 </label>
 
                 <label className="flex flex-col gap-1 text-xs text-ink/50">
-                  {withTime ? "From date" : "Effective date"}
+                  {withTime ? t("From date") : t("Effective date")}
                   <input
                     type="date"
                     value={draft.dateFrom}
@@ -396,7 +400,7 @@ export default function AdjustmentReportEditorClient({
                 {withTime && (
                   <>
                     <label className="flex flex-col gap-1 text-xs text-ink/50">
-                      To date
+                      {t("To date")}
                       <input
                         type="date"
                         value={draft.dateTo}
@@ -406,7 +410,7 @@ export default function AdjustmentReportEditorClient({
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-xs text-ink/50">
-                      Time
+                      {t("Time")}
                       <span className="flex items-center gap-1.5">
                         <input
                           type="time"
@@ -428,7 +432,7 @@ export default function AdjustmentReportEditorClient({
 
                 {withReason && (
                   <label className="flex flex-col gap-1 text-xs text-ink/50">
-                    Reason
+                    {t("Reason")}
                     <select
                       value={draft.reasonCode}
                       onChange={(e) => updateDraft({ reasonCode: e.target.value as AbsenceCode | "" })}
@@ -452,7 +456,7 @@ export default function AdjustmentReportEditorClient({
                       onChange={(e) => updateDraft({ isCover: e.target.checked })}
                       className="h-5 w-5 rounded border-line sm:h-4 sm:w-4"
                     />
-                    cover
+                    {t("cover")}
                   </label>
                 )}
               </div>
@@ -460,7 +464,7 @@ export default function AdjustmentReportEditorClient({
               <input
                 value={draft.note}
                 onChange={(e) => updateDraft({ note: e.target.value })}
-                placeholder="Note (optional)"
+                placeholder={t("Note (optional)")}
                 className="mt-3 w-full rounded-md border border-line px-2 py-2.5 text-base text-ink outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
               />
 
@@ -471,7 +475,7 @@ export default function AdjustmentReportEditorClient({
                   disabled={!isReady(draft) || saving}
                   className="w-full rounded-md bg-petrol px-4 py-2.5 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50 sm:w-auto sm:py-2"
                 >
-                  Save adjustment
+                  {t("Save adjustment")}
                 </button>
                 <button
                   type="button"
@@ -479,7 +483,7 @@ export default function AdjustmentReportEditorClient({
                   className="flex w-full items-center justify-center gap-1 rounded-md border border-line px-3 py-2.5 text-sm text-ink hover:bg-surface sm:w-auto sm:py-2"
                 >
                   <X size={14} />
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </div>
@@ -491,7 +495,7 @@ export default function AdjustmentReportEditorClient({
               className="flex w-full items-center justify-center gap-1 rounded-md border border-line px-3 py-2.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50 sm:w-auto sm:justify-start sm:py-1.5"
             >
               <Plus size={14} />
-              Add adjustment
+              {t("Add adjustment")}
             </button>
           )}
         </div>
@@ -500,7 +504,7 @@ export default function AdjustmentReportEditorClient({
       {/* ---- Lista do que já foi salvo (agrupado por prédio e por staff) ---- */}
       <div>
         <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">
-          {readOnly ? "Report" : "Saved"}
+          {readOnly ? t("Report") : t("Saved")}
         </h2>
         <AdjustmentReportView
           report={report}

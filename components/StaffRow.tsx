@@ -11,6 +11,7 @@ import {
   formatHistoryDuration,
   type StaffHistoryDTO,
 } from "@/lib/historyFormat";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 type StaffRowProps = {
   id: string;
@@ -53,6 +54,7 @@ export default function StaffRow({
   onDeleted,
   canManage = true,
 }: StaffRowProps) {
+  const { t } = useLanguage();
   const [panel, setPanel] = useState<Panel>(null);
   const [obsText, setObsText] = useState("");
   const [saving, setSaving] = useState(false);
@@ -189,7 +191,7 @@ export default function StaffRow({
 
         <div className="flex items-center gap-1">
           <button
-            title="Notes"
+            title={t("Notes")}
             onClick={() => togglePanel("notes")}
             className={`rounded-md p-2 transition hover:bg-petrolLight hover:text-petrol ${
               panel === "notes" ? "bg-petrolLight text-petrol" : "text-ink/60"
@@ -234,7 +236,7 @@ export default function StaffRow({
               autoFocus
               value={obsText}
               onChange={(e) => setObsText(e.target.value)}
-              placeholder="Write a note..."
+              placeholder={t("Write a note...")}
               rows={2}
               className="flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-petrol"
             />
@@ -243,14 +245,14 @@ export default function StaffRow({
               disabled={saving}
               className="rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
             >
-              Save
+              {t("Save")}
             </button>
           </div>
 
           <div className="mt-3">
-            {loadingHistory && <p className="text-sm text-ink/40">Loading...</p>}
+            {loadingHistory && <p className="text-sm text-ink/40">{t("Loading...")}</p>}
             {!loadingHistory && history && history.length === 0 && (
-              <p className="text-sm text-ink/40">No notes yet.</p>
+              <p className="text-sm text-ink/40">{t("No notes yet.")}</p>
             )}
             {!loadingHistory && history && history.length > 0 && (
               <ul className="space-y-2">
@@ -350,7 +352,7 @@ export default function StaffRow({
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+      {error && <p className="mt-2 text-xs text-danger">{t(error)}</p>}
     </div>
   );
 }

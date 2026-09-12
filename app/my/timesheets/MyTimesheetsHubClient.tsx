@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import MyTimesheetsListClient from "./MyTimesheetsListClient";
 import { formatFortnightRange, formatWeekRange } from "@/lib/week";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { TimesheetDTO, FortnightPlanDTO, AdjustmentReportDTO } from "@/lib/types";
 
 type Tab = "fortnightly" | "weekly" | "adjustments";
@@ -29,6 +30,7 @@ export default function MyTimesheetsHubClient({
   initialFortnightPlans: FortnightPlanDTO[];
   initialReports: AdjustmentReportDTO[];
 }) {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>("fortnightly");
   const [reports, setReports] = useState(
     [...initialReports].sort((a, b) => {
@@ -54,9 +56,9 @@ export default function MyTimesheetsHubClient({
   }
 
   const tabs: { value: Tab; label: string }[] = [
-    { value: "fortnightly", label: "Fortnightly sheets" },
-    ...(hasLegacyWeekly ? ([{ value: "weekly", label: "Weekly (legacy)" }] as const) : []),
-    { value: "adjustments", label: "Adjustments" },
+    { value: "fortnightly", label: t("Fortnightly sheets") },
+    ...(hasLegacyWeekly ? ([{ value: "weekly", label: t("Weekly (legacy)") }] as const) : []),
+    { value: "adjustments", label: t("Adjustments") },
   ];
 
   return (
@@ -88,7 +90,7 @@ export default function MyTimesheetsHubClient({
 
           {launchedPlans.length > 0 && (
             <div>
-              <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">Launched (legacy)</h2>
+              <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">{t("Launched (legacy)")}</h2>
               <div className="space-y-2">
                 {launchedPlans.map((p) => (
                   <Link
@@ -99,8 +101,8 @@ export default function MyTimesheetsHubClient({
                     <div>
                       <div className="font-medium text-ink">{formatFortnightRange(p.fortnightStart)}</div>
                       <div className="text-xs text-ink/40">
-                        {p.buildingNome} · Launched {formatDate(p.launchedAt)}
-                        {p.launchedByNome ? ` by ${p.launchedByNome}` : ""}
+                        {p.buildingNome} · {t("Launched")} {formatDate(p.launchedAt)}
+                        {p.launchedByNome ? ` ${t("by")} ${p.launchedByNome}` : ""}
                       </div>
                     </div>
                   </Link>
@@ -128,10 +130,10 @@ export default function MyTimesheetsHubClient({
             className="inline-flex items-center gap-1.5 rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white hover:bg-petrolDark"
           >
             <Plus size={15} />
-            New adjustment
+            {t("New adjustment")}
           </Link>
 
-          {reports.length === 0 && <p className="text-sm text-ink/40">No adjustment reports yet.</p>}
+          {reports.length === 0 && <p className="text-sm text-ink/40">{t("No adjustment reports yet.")}</p>}
 
           <div className="space-y-2">
             {reports.map((r) =>
@@ -141,7 +143,7 @@ export default function MyTimesheetsHubClient({
                   className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
                 >
                   <span className="text-sm text-danger">
-                    Delete the adjustment report for week {formatWeekRange(r.weekStart)}?
+                    {t("Delete the adjustment report for week")} {formatWeekRange(r.weekStart)}?
                   </span>
                   <div className="flex shrink-0 gap-2">
                     <button
@@ -149,13 +151,13 @@ export default function MyTimesheetsHubClient({
                       disabled={deletingId === r.id}
                       className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                     >
-                      Confirm
+                      {t("Confirm")}
                     </button>
                     <button
                       onClick={() => setConfirmingId(null)}
                       className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                   </div>
                 </div>
@@ -165,20 +167,22 @@ export default function MyTimesheetsHubClient({
                   className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
                 >
                   <Link href={`/my/timesheets/adjustments/${r.id}`} className="min-w-0 flex-1">
-                    <div className="font-medium text-ink">Week {formatWeekRange(r.weekStart)}</div>
+                    <div className="font-medium text-ink">
+                      {t("Week")} {formatWeekRange(r.weekStart)}
+                    </div>
                     <div className="text-xs text-ink/40">
-                      {r.itemCount} item{r.itemCount !== 1 ? "s" : ""}
+                      {r.itemCount} {r.itemCount !== 1 ? t("items") : t("item")}
                       {r.groups.length > 0 ? ` · ${r.groups.map((g) => g.buildingNome).join(", ")}` : ""}
                     </div>
                   </Link>
                   <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[r.status]}`}>
-                    {r.status}
+                    {t(r.status)}
                   </span>
                   {r.status === "draft" && (
                     <button
                       type="button"
                       onClick={() => setConfirmingId(r.id)}
-                      title="Delete report"
+                      title={t("Delete report")}
                       className="shrink-0 rounded-md p-2 text-ink/40 hover:bg-red-50 hover:text-danger"
                     >
                       <Trash2 size={16} />

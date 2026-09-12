@@ -23,6 +23,7 @@ import StaffRow from "@/components/StaffRow";
 import StaffHoursCard from "@/components/StaffHoursCard";
 import { computeOpenSlots, type Slot } from "@/lib/openSlots";
 import { orderCleaners, hasManualOrder } from "@/lib/timesheetRows";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 type StaffItem = {
   id: string;
@@ -61,6 +62,7 @@ function SheetFields({
   const [predio, setPredio] = useState(item.predioLabel ?? "");
   const [wo, setWo] = useState(item.workOrder ?? "");
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  const { t } = useLanguage();
 
   function scheduleSave(nextPredio: string, nextWo: string) {
     if (timer.current) clearTimeout(timer.current);
@@ -76,10 +78,10 @@ function SheetFields({
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1.5 pl-1 text-xs text-ink/40">
-      <span className="shrink-0">Sheet</span>
+      <span className="shrink-0">{t("Sheet")}</span>
       <input
         value={predio}
-        placeholder={buildingNome ?? "Building"}
+        placeholder={buildingNome ?? t("Building")}
         onChange={(e) => {
           setPredio(e.target.value);
           scheduleSave(e.target.value, wo);
@@ -113,6 +115,7 @@ function SortableCleanerRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.sbId,
   });
+  const { t } = useLanguage();
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -129,7 +132,7 @@ function SortableCleanerRow({
           type="button"
           {...attributes}
           {...listeners}
-          title="Drag to reorder"
+          title={t("Drag to reorder")}
           className="touch-none cursor-grab rounded p-0.5 text-ink/30 transition hover:text-petrol active:cursor-grabbing"
         >
           <GripVertical size={14} />
@@ -149,6 +152,7 @@ export default function BuildingStaffClient({
   buildingNome,
   buildingWorkOrder,
   role,
+  canManageStaff = true,
 }: {
   staff: StaffItem[];
   emptyLabel: string;
@@ -160,6 +164,11 @@ export default function BuildingStaffClient({
   // pra editar/remover o vínculo certo quando o staff aparece nas duas
   // listas (cleaner E team leader) do mesmo prédio.
   role?: "cleaner" | "team_leader";
+  // false na conta "team_leader" (ver /my): reordenar e editar o rótulo da
+  // folha (Sheet labels) continuam liberados, mas editar horas, apagar o
+  // vínculo ou abrir o histórico é exclusivo do Master (mesma regra que já
+  // vale pro StaffRow — ver comentário lá).
+  canManageStaff?: boolean;
 }) {
   const [list, setList] = useState(staff);
   const [slots, setSlots] = useState(initialSlots ?? []);
@@ -171,6 +180,7 @@ export default function BuildingStaffClient({
   const [showSheetFields, setShowSheetFields] = useState(
     staff.some((s) => s.predioLabel || s.workOrder)
   );
+  const { t } = useLanguage();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -250,7 +260,7 @@ export default function BuildingStaffClient({
   }
 
   if (list.length === 0 && openSlots.length === 0) {
-    return <p className="text-sm text-ink/40">{emptyLabel}</p>;
+    return <p className="text-sm text-ink/40">{t(emptyLabel)}</p>;
   }
 
   const sheetFieldsOn = showSheetFields && role === "cleaner" && !!buildingId;
@@ -266,6 +276,7 @@ export default function BuildingStaffClient({
           telefone={s.telefone}
           buildingId={buildingId}
           role={role}
+          canManage={canManageStaff}
           onDeleted={(sbId) => setList((prev) => prev.filter((p) => p.sbId !== sbId))}
         />
         {sheetFieldsOn && (
@@ -283,16 +294,23 @@ export default function BuildingStaffClient({
           />
         )}
       </div>
-      <StaffHoursCard
-        staffId={s.id}
-        sbId={s.sbId}
-        initialHours={s.horasSemana ?? null}
-        buildingId={buildingId}
-        role={role}
-        onSaved={(horas) =>
-          setList((prev) => prev.map((p) => (p.sbId === s.sbId ? { ...p, horasSemana: horas } : p)))
-        }
-      />
+      {canManageStaff ? (
+        <StaffHoursCard
+          staffId={s.id}
+          sbId={s.sbId}
+          initialHours={s.horasSemana ?? null}
+          buildingId={buildingId}
+          role={role}
+          onSaved={(horas) =>
+            setList((prev) => prev.map((p) => (p.sbId === s.sbId ? { ...p, horasSemana: horas } : p)))
+          }
+        />
+      ) : (
+        <span className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink/50">
+          <Clock size={13} className="text-ink/30" />
+          {s.horasSemana != null ? `${s.horasSemana}h/wk` : t("no hours set")}
+        </span>
+      )}
     </>
   );
 
@@ -303,9 +321,9 @@ export default function BuildingStaffClient({
           <span>
             {canReorder && (
               <>
-                Order:{" "}
+                {t("Order:")}{" "}
                 <span className="font-medium text-ink/70">
-                  {manual ? "Manual (drag to reorder)" : "Automatic (by hours) — drag to reorder"}
+                  {manual ? t("Manual (drag to reorder)") : t("Automatic (by hours) — drag to reorder")}
                 </span>
               </>
             )}
@@ -319,7 +337,7 @@ export default function BuildingStaffClient({
                 className="flex items-center gap-1 rounded-md border border-line px-2 py-1 font-medium text-ink/60 transition hover:border-petrol hover:text-petrol disabled:opacity-50"
               >
                 <RotateCcw size={12} />
-                Reset to automatic
+                {t("Reset to automatic")}
               </button>
             )}
             {role === "cleaner" && !!buildingId && (
@@ -333,7 +351,7 @@ export default function BuildingStaffClient({
                 }`}
               >
                 <Tag size={12} />
-                Sheet labels
+                {t("Sheet labels")}
               </button>
             )}
           </div>
@@ -368,10 +386,15 @@ export default function BuildingStaffClient({
         >
           <span className="flex items-center gap-2 text-sm text-ink/40">
             <span className="w-5 shrink-0 text-center font-mono text-xs">{sortedList.length + i + 1}</span>
-            Open slot
+            {t("Open slot")}
           </span>
 
-          {editingSlotId === slot.id ? (
+          {!canManageStaff ? (
+            <span className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink/50">
+              <Clock size={13} className="text-ink/30" />
+              {slot.horas}h/wk
+            </span>
+          ) : editingSlotId === slot.id ? (
             <span className="flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1.5 text-xs">
               <input
                 type="number"

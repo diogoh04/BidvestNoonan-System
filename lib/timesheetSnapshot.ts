@@ -39,6 +39,8 @@ export async function buildInitialEntries(
     horas: l.horas ?? l.staff.horasSemana,
     days: emptyDays(periodType),
     ordem: l.ordem,
+    predioLabel: l.predioLabel,
+    workOrder: l.workOrder,
   }));
 
   const staffForSlots = links.map((l) => ({ horasSemana: l.horas ?? l.staff.horasSemana }));

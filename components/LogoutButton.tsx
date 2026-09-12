@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function LogoutButton() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -19,7 +21,7 @@ export default function LogoutButton() {
       className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-danger hover:text-danger sm:gap-2 sm:px-3 sm:py-2"
     >
       <LogOut size={16} />
-      <span className="hidden sm:inline">Logout</span>
+      <span className="hidden sm:inline">{t("Logout")}</span>
     </button>
   );
 }

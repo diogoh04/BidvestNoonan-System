@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import Header from "@/components/Header";
+import T from "@/components/T";
 import AdjustmentReportEditorClient from "../AdjustmentReportEditorClient";
 
 async function getBaseUrl() {
@@ -26,9 +27,11 @@ export default async function NewAdjustmentReportPage() {
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">New adjustment</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">
+          <T s="New adjustment" />
+        </h1>
         <p className="mt-1 text-sm text-ink/50">
-          Changes during the fortnight — sent to the supervisor once a week.
+          <T s="Changes during the fortnight — sent to the supervisor once a week." />
         </p>
         <div className="mt-6">
           <AdjustmentReportEditorClient

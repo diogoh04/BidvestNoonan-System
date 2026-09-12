@@ -80,6 +80,13 @@ export type TimesheetRow = {
   // conjunto real de chaves depende do periodType da folha, ver
   // getTimesheetDayKeys.
   days: Record<string, TimesheetDayValue>;
+  // Building/WO próprios desta linha (ver StaffBuilding.predioLabel/workOrder
+  // e o botão "Sheet labels" em BuildingStaffClient) — só em linhas "staff",
+  // fotografado na criação da folha (lib/timesheetSnapshot.ts) e
+  // resincronizado quando editado depois (ver /api/buildings/[id]/staff/sheet).
+  // Vazio/null = usa buildingNome/buildingWorkOrder do timesheet.
+  predioLabel?: string | null;
+  workOrder?: string | null;
 };
 
 export type TimesheetEntries = { rows: TimesheetRow[] };

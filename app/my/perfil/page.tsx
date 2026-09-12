@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import Header from "@/components/Header";
+import T from "@/components/T";
 import ChangePasswordCard from "./ChangePasswordCard";
 
 async function getBaseUrl() {
@@ -26,12 +27,16 @@ export default async function MyProfilePage() {
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <h1 className="font-display text-2xl font-bold text-ink">My Profile</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">
+          <T s="My Profile" />
+        </h1>
         {account.nome && <p className="mt-1 text-sm text-ink/50">{account.nome}</p>}
 
         <div className="mt-6 space-y-3">
           <div className="rounded-md border border-line bg-white px-4 py-3 text-sm">
-            <span className="font-medium text-ink">Login:</span>{" "}
+            <span className="font-medium text-ink">
+              <T s="Login:" />
+            </span>{" "}
             <span className="font-mono text-ink/70">{account.username}</span>
           </div>
 

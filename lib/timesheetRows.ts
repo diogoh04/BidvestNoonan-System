@@ -85,6 +85,46 @@ export type SheetRow = {
   wo: string | null;
 };
 
+// Resincroniza só a ORDEM das linhas "staff" de uma folha (entries.rows) com
+// um reorder feito depois dela ter sido criada — sem tocar em horas
+// lançadas, covers ou vagas em aberto (essas mantêm a posição de índice que
+// já tinham). Chamado só pelo PUT /api/buildings/[id]/staff/order, e só em
+// timesheets ainda "draft" (submitted/done continuam congeladas de vez,
+// ver lib/timesheetSnapshot.ts). `staffIdOrder` é staffId -> posição pra
+// ordem manual; `null` volta ao automático (por horas, maior primeiro) —
+// mesma regra do orderCleaners. Casamento é por `refId` (Staff.id) — se o
+// mesmo staff tiver dois vínculos no mesmo prédio (dois turnos), as duas
+// linhas empatam nessa mesma posição (limitação do formato, raro na prática).
+export function reorderTimesheetRows<T extends { kind: string; refId: string | null; horas: number | null }>(
+  rows: T[],
+  staffIdOrder: Map<string, number> | null
+): T[] {
+  const staffIndices = rows.reduce<number[]>((acc, r, i) => {
+    if (r.kind === "staff") acc.push(i);
+    return acc;
+  }, []);
+  if (staffIndices.length < 2) return rows;
+
+  const staffRows = staffIndices.map((i) => rows[i]);
+  const sorted = [...staffRows].sort((a, b) => {
+    if (staffIdOrder) {
+      const oa = a.refId != null ? staffIdOrder.get(a.refId) : undefined;
+      const ob = b.refId != null ? staffIdOrder.get(b.refId) : undefined;
+      if (oa == null && ob == null) return 0;
+      if (oa == null) return 1;
+      if (ob == null) return -1;
+      return oa - ob;
+    }
+    return (b.horas ?? 0) - (a.horas ?? 0);
+  });
+
+  const next = [...rows];
+  staffIndices.forEach((idx, k) => {
+    next[idx] = sorted[k];
+  });
+  return next;
+}
+
 export function buildSheetRows(
   cleaners: SheetCleaner[],
   slots: Slot[],

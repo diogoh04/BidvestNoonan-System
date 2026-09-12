@@ -4,9 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { Filter, UserPlus, Users, ClipboardList, UserCircle } from "lucide-react";
 import LogoutButton from "./LogoutButton";
+import LanguageToggle from "./LanguageToggle";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { AppRole } from "@/lib/types";
 
 export default function Header({ role }: { role: AppRole }) {
+  const { t } = useLanguage();
+
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-white">
       <div className="mx-auto grid max-w-6xl grid-cols-3 items-center gap-1 px-2 py-2.5 sm:gap-2 sm:px-6 sm:py-4">
@@ -39,13 +43,16 @@ export default function Header({ role }: { role: AppRole }) {
             </Link>
           )}
           {role === "team_leader" && (
-            <Link
-              href="/my/perfil"
-              className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
-            >
-              <UserCircle size={16} />
-              <span className="hidden sm:inline">My Profile</span>
-            </Link>
+            <>
+              <Link
+                href="/my/perfil"
+                className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
+              >
+                <UserCircle size={16} />
+                <span className="hidden sm:inline">{t("My Profile")}</span>
+              </Link>
+              <LanguageToggle />
+            </>
           )}
         </div>
 

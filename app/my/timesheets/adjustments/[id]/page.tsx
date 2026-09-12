@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
+import T from "@/components/T";
 import AdjustmentReportEditorClient from "../AdjustmentReportEditorClient";
 import type { AdjustmentReportDTO } from "@/lib/types";
 
@@ -32,8 +33,12 @@ export default async function AdjustmentReportPage({ params }: { params: { id: s
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-        <p className="font-mono text-xs uppercase tracking-widest text-ink/40">Adjustment report</p>
-        <h1 className="font-display text-2xl font-bold text-ink">Week starting {report.weekStart}</h1>
+        <p className="font-mono text-xs uppercase tracking-widest text-ink/40">
+          <T s="Adjustment report" />
+        </p>
+        <h1 className="font-display text-2xl font-bold text-ink">
+          <T s="Week starting" /> {report.weekStart}
+        </h1>
         <div className="mt-6">
           <AdjustmentReportEditorClient
             initialReport={report}

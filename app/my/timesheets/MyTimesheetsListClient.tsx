@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { formatWeekRange, formatFortnightRange } from "@/lib/week";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<TimesheetStatus, string> = {
@@ -37,6 +38,7 @@ export default function MyTimesheetsListClient({
   periodTypeFilter?: "weekly" | "biweekly";
   emptyLabel?: string;
 }) {
+  const { t } = useLanguage();
   const [timesheets, setTimesheets] = useState(initialTimesheets);
   const [deletingWeek, setDeletingWeek] = useState<string | null>(null);
   const [confirmingWeek, setConfirmingWeek] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export default function MyTimesheetsListClient({
 
   return (
     <div className="mt-6 space-y-2">
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-danger">{t(error)}</p>}
 
       {weeks.map(([weekStart, items]) => {
         const status = weekOverallStatus(items);
@@ -85,8 +87,8 @@ export default function MyTimesheetsListClient({
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger bg-white px-4 py-3"
             >
               <span className="text-sm text-danger">
-                Delete the whole timesheet for the {isBiweekly ? "fortnight" : "week"} of {range} ({items.length}{" "}
-                building(s))? This action cannot be undone.
+                {t("Delete the whole timesheet for the")} {isBiweekly ? t("fortnight") : t("week")} {t("of")} {range} (
+                {items.length} {t("building(s)")})? {t("This action cannot be undone.")}
               </span>
               <div className="flex shrink-0 gap-2">
                 <button
@@ -94,13 +96,13 @@ export default function MyTimesheetsListClient({
                   disabled={deletingWeek === weekStart}
                   className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  Confirm
+                  {t("Confirm")}
                 </button>
                 <button
                   onClick={() => setConfirmingWeek(null)}
                   className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </div>
@@ -115,25 +117,27 @@ export default function MyTimesheetsListClient({
             <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-ink">
-                  {isBiweekly ? "Fortnight" : "Week"} {range}
+                  {isBiweekly ? t("Fortnight") : t("Week")} {range}
                 </span>
-                {items.some((t) => t.fortnightPlanId) && (
+                {items.some((ts) => ts.fortnightPlanId) && (
                   <span className="rounded-full bg-petrolLight px-2 py-0.5 text-[11px] font-medium text-petrol">
-                    From fortnight
+                    {t("From fortnight")}
                   </span>
                 )}
               </div>
-              <div className="text-xs text-ink/40">{items.length} building(s)</div>
+              <div className="text-xs text-ink/40">
+                {items.length} {t("building(s)")}
+              </div>
             </Link>
 
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[status]}`}>
-              {STATUS_LABEL[status]}
+              {t(STATUS_LABEL[status])}
             </span>
 
             {canDelete && (
               <button
                 onClick={() => setConfirmingWeek(weekStart)}
-                title="Delete"
+                title={t("Delete")}
                 className="shrink-0 rounded-md p-2 text-ink/50 hover:bg-red-50 hover:text-danger"
               >
                 <Trash2 size={16} />
@@ -143,7 +147,7 @@ export default function MyTimesheetsListClient({
         );
       })}
 
-      {weeks.length === 0 && <p className="text-sm text-ink/40">{emptyLabel}</p>}
+      {weeks.length === 0 && <p className="text-sm text-ink/40">{t(emptyLabel)}</p>}
     </div>
   );
 }

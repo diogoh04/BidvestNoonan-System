@@ -2,7 +2,8 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import Header from "@/components/Header";
-import StaffRow from "@/components/StaffRow";
+import BuildingStaffClient from "@/components/BuildingStaffClient";
+import T from "@/components/T";
 
 async function getBaseUrl() {
   const h = headers();
@@ -33,9 +34,11 @@ export default async function MyBuildingsPage() {
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink">My Buildings</h1>
+            <h1 className="font-display text-2xl font-bold text-ink">
+              <T s="My Buildings" />
+            </h1>
             <p className="mt-1 text-sm text-ink/50">
-              {buildings.length} building(s) under your responsibility.
+              {buildings.length} <T s="building(s) under your responsibility." />
             </p>
           </div>
           <Link
@@ -43,45 +46,48 @@ export default async function MyBuildingsPage() {
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
           >
             <ClipboardList size={16} />
-            My Timesheets
+            <T s="My Timesheets" />
           </Link>
         </div>
 
         <div className="mt-8 space-y-8">
           {profile.noTeam && (
             <p className="rounded-md border border-dashed border-danger/40 bg-red-50 px-4 py-8 text-center text-sm text-danger">
-              Your account isn't linked to a team yet. Ask the Master to link it in Users.
+              <T s="Your account isn't linked to a team yet. Ask the Master to link it in Users." />
             </p>
           )}
           {!profile.noTeam && buildings.length === 0 && (
             <p className="rounded-md border border-dashed border-line px-4 py-8 text-center text-sm text-ink/50">
-              No building assigned to your account yet.
+              <T s="No building assigned to your account yet." />
             </p>
           )}
 
           {buildings.map((b: any) => (
             <section key={b.id}>
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <h2 className="font-display text-lg font-bold text-petrol">{b.nome}</h2>
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-widest text-ink/40">
+                    <T s="Team" />
+                  </p>
+                  <h2 className="font-display text-lg font-bold text-petrol">{b.nome}</h2>
+                </div>
                 {b.workOrder && <span className="font-mono text-xs text-ink/40">WO {b.workOrder}</span>}
               </div>
 
-              {b.cleaners.length === 0 ? (
-                <p className="text-sm text-ink/40">No cleaner assigned to this building.</p>
-              ) : (
-                <div className="space-y-2">
-                  {b.cleaners.map((s: any) => (
-                    <StaffRow
-                      key={s.sbId ?? s.id}
-                      id={s.id}
-                      nome={s.nome}
-                      staffNumber={s.staffNumber}
-                      telefone={s.telefone}
-                      canManage={false}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Reordenar e "Sheet labels" (Building/WO por pessoa na folha
+                  impressa) ficam liberados aqui — canManageStaff=false continua
+                  escondendo horas/editar/excluir/histórico, que são exclusivos
+                  do Master (ver comentário em StaffRow). */}
+              <BuildingStaffClient
+                staff={b.cleaners}
+                emptyLabel="No cleaner assigned to this building."
+                slots={b.slots}
+                buildingId={b.id}
+                buildingNome={b.nome}
+                buildingWorkOrder={b.workOrder}
+                role="cleaner"
+                canManageStaff={false}
+              />
             </section>
           ))}
         </div>

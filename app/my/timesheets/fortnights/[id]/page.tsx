@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
+import T from "@/components/T";
 import FortnightPlanDetailClient from "./FortnightPlanDetailClient";
 import { formatFortnightRange } from "@/lib/week";
 import type { FortnightPlanDTO } from "@/lib/types";
@@ -30,7 +31,9 @@ export default async function FortnightPlanPage({ params }: { params: { id: stri
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-        <p className="font-mono text-xs uppercase tracking-widest text-ink/40 print:hidden">Fortnightly sheets</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-ink/40 print:hidden">
+          <T s="Fortnightly sheets" />
+        </p>
         <h1 className="font-display text-2xl font-bold text-ink print:hidden">
           {plan.buildingNome} — {formatFortnightRange(plan.fortnightStart)}
         </h1>
