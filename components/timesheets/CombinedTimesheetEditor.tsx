@@ -4,20 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Printer, Plus, X } from "lucide-react";
 import {
-  getTimesheetDayKeys,
+  getTimesheetDates,
   timesheetDayLabel,
   type TimesheetDTO,
   type TimesheetRow,
   type TimesheetPeriodType,
 } from "@/lib/types";
 import {
-  formatWeekRange,
-  formatFortnightRange,
-  formatShortDate,
+  formatPeriodRange,
   formatDDMM,
   timesheetDayOffset,
   fortnightWorkingDays,
   weekdayShort,
+  toISODate,
 } from "@/lib/week";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
@@ -29,8 +28,6 @@ const EMPTY_DAY: DayValue = { in: null, out: null };
 // Coluna vazia entre a sexta da semana 1 e a segunda da semana 2, só na
 // quinzenal — sem borda/conteúdo, só pra separar visualmente as semanas.
 const SPACER_CLASS = "w-2 border-0 bg-white p-0 print:bg-transparent";
-// Índice do dia depois do qual entra a coluna espaçadora (sexta da semana 1).
-const SPACER_AFTER_INDEX = 4;
 
 const STATUS_LABEL: Record<TimesheetDTO["status"], string> = {
   draft: "Draft",
@@ -44,8 +41,8 @@ const STATUS_CLASS: Record<TimesheetDTO["status"], string> = {
   done: "bg-green-50 text-success",
 };
 
-function emptyDays(periodType: TimesheetPeriodType): TimesheetRow["days"] {
-  return Object.fromEntries(getTimesheetDayKeys(periodType).map((d) => [d, { in: null, out: null }]));
+function emptyDays(periodType: TimesheetPeriodType, weekStart?: string, weekEnd?: string | null): TimesheetRow["days"] {
+  return Object.fromEntries(getTimesheetDates(weekStart ?? "", weekEnd ?? null, periodType).map((d) => [d, { in: null, out: null }]));
 }
 
 // Na tela, tamanho fixo e confortável pra usar no celular (a tabela rola
@@ -70,11 +67,15 @@ function backTableSizing(rowCount: number) {
 }
 
 // Larguras (%) das colunas fixas (Building/Hours/WO/Name/Staff Number) do
-// colgroup. Na quinzenal são o dobro de colunas de dia disputando o mesmo
-// espaço — reduz um pouco as fixas pra sobrar mais área pros dias, senão
-// eles ficam minúsculos.
-function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[] {
-  const factor = periodType === "biweekly" ? 2 / 3 : 1;
+// colgroup. Quanto mais colunas de dia (folha de duração livre — ver
+// getTimesheetDates), menos espaço sobra pra elas — reduz as fixas
+// proporcionalmente, senão os dias ficam minúsculos. Fórmula interpolada
+// nos dois pontos calibrados visualmente antes desta folha ter duração
+// livre: 5 dias (semanal) → fator 1; 10 dias (quinzenal de sempre) → fator
+// 2/3. Fora desses dois pontos é extrapolação — vale conferir visualmente
+// pra períodos bem curtos (poucos dias) ou bem longos.
+function scaleFixedCols(pct: number[], dayCount: number): number[] {
+  const factor = Math.max(0.4, 1 - (dayCount - 5) / 15);
   return pct.map((p) => p * factor);
 }
 
@@ -85,13 +86,13 @@ function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[
 // distribuir espaço dentro desse mínimo, não mais dentro da tela toda. Só
 // conta pra tela: no print a classe `ts-table` zera esse mínimo (ver
 // <style jsx global> no fim do arquivo).
-const FRONT_FIXED_MIN_PX = [70, 60, 60, 150, 90]; // Building, Hours, WO, Name, Staff Number
+const FRONT_FIXED_MIN_PX = [60, 60, 60, 150, 90]; // Building, Hours, WO, Name, Staff Number
 const BACK_FIXED_MIN_PX = [80, 60, 60, 130, 90]; // Building Covers, Hours, WO, Name, Staff Number
 const DAY_COL_MIN_PX = 96; // célula com IN+OUT lado a lado, ~48px de alvo de toque cada
 const SPACER_MIN_PX = 8;
 
-function minTableWidthPx(fixedPx: number[], dayCount: number, hasSpacer: boolean): number {
-  return fixedPx.reduce((a, b) => a + b, 0) + dayCount * DAY_COL_MIN_PX + (hasSpacer ? SPACER_MIN_PX : 0);
+function minTableWidthPx(fixedPx: number[], dayCount: number, spacerCount: number): number {
+  return fixedPx.reduce((a, b) => a + b, 0) + dayCount * DAY_COL_MIN_PX + spacerCount * SPACER_MIN_PX;
 }
 
 function BlankRow({
@@ -100,14 +101,14 @@ function BlankRow({
   signCell,
   textClass,
   days,
-  spacer = false,
+  spacerAfter,
 }: {
   n: number;
   cell: string;
   signCell: string;
   textClass: string;
   days: readonly string[];
-  spacer?: boolean;
+  spacerAfter: Set<number>;
 }) {
   return (
     <>
@@ -121,7 +122,7 @@ function BlankRow({
           {days.map((d, di) => (
             <>
               <td key={d} className={signCell} colSpan={1}></td>
-              {spacer && di === SPACER_AFTER_INDEX && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
+              {spacerAfter.has(di) && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
             </>
           ))}
         </tr>
@@ -329,7 +330,7 @@ export default function CombinedTimesheetEditor({
         nome: coverNome.trim(),
         staffNumber: coverStaffNumber.trim() || null,
         horas: coverHoras.trim() === "" ? null : Number(coverHoras.replace(",", ".")),
-        days: emptyDays(periodType),
+        days: emptyDays(periodType, weekStart, weekEnd),
       };
       const rows = rowsByTimesheet[coverTimesheetId] ?? [];
       const next = [...rows, row];
@@ -355,22 +356,51 @@ export default function CombinedTimesheetEditor({
   // Os prédios de um mesmo lote (mesmo Team Leader, mesma semana) sempre
   // compartilham o período — basta olhar o primeiro.
   const periodType: TimesheetPeriodType = timesheets[0]?.periodType ?? "weekly";
-  const DAYS = getTimesheetDayKeys(periodType);
-  const hasSpacer = periodType === "biweekly";
-  const spacerCount = hasSpacer ? 1 : 0;
-  const frontMinWidthPx = minTableWidthPx(FRONT_FIXED_MIN_PX, DAYS.length, hasSpacer);
-  const backMinWidthPx = minTableWidthPx(BACK_FIXED_MIN_PX, DAYS.length, hasSpacer);
   const weekStart = timesheets[0]?.weekStart;
+  const weekEnd = timesheets[0]?.weekEnd ?? null;
+  const DAYS = weekStart ? getTimesheetDates(weekStart, weekEnd, periodType) : getTimesheetDates("", null, periodType);
 
-  // Quinzenal: as 10 colunas são os 10 dias úteis a partir do início — data
-  // e nome do dia (WED, THU...) vêm da data real, não da chave W1_MONDAY.
-  const fortnightDays = periodType === "biweekly" && weekStart ? fortnightWorkingDays(weekStart) : null;
+  // Datas reais de cada coluna, pra data+dia da semana no cabeçalho e pra
+  // achar onde entra o espaçador visual (todo pulo de mais de 1 dia no
+  // calendário = fim de semana/feriado no meio do período — pode acontecer
+  // mais de uma vez numa folha de duração livre, ver getTimesheetDates em
+  // lib/types.ts). `weekEnd` presente → DAYS já É a lista de datas reais.
+  // Sem `weekEnd` (folha antiga): quinzenal recalcula os 10 dias úteis reais
+  // via fortnightWorkingDays; semanal é sempre segunda+offset direto.
+  const realDates: readonly string[] | null = !weekStart
+    ? null
+    : weekEnd
+    ? DAYS
+    : periodType === "biweekly"
+    ? fortnightWorkingDays(weekStart)
+    : DAYS.map((_, i) => {
+        const d = new Date(weekStart + "T00:00:00Z");
+        d.setUTCDate(d.getUTCDate() + timesheetDayOffset(i));
+        return toISODate(d);
+      });
+
   function colDate(i: number): string {
-    return fortnightDays ? formatDDMM(fortnightDays[i]) : weekStart ? formatShortDate(weekStart, timesheetDayOffset(i)) : "";
+    return realDates ? formatDDMM(realDates[i]) : "";
   }
   function colLabel(dayKey: string, i: number): string {
-    return fortnightDays ? weekdayShort(fortnightDays[i]) : timesheetDayLabel(dayKey);
+    return realDates ? weekdayShort(realDates[i]) : timesheetDayLabel(dayKey);
   }
+
+  const spacerAfter = new Set<number>();
+  if (realDates) {
+    for (let i = 0; i < realDates.length - 1; i++) {
+      const a = new Date(realDates[i] + "T00:00:00Z").getTime();
+      const b = new Date(realDates[i + 1] + "T00:00:00Z").getTime();
+      if ((b - a) / 86400000 > 1) spacerAfter.add(i);
+    }
+  } else if (periodType === "biweekly") {
+    // Sem nenhuma data real pra calcular o pulo (não deveria acontecer na
+    // prática) — mantém a regra fixa de sempre como fallback de segurança.
+    spacerAfter.add(4);
+  }
+  const spacerCount = spacerAfter.size;
+  const frontMinWidthPx = minTableWidthPx(FRONT_FIXED_MIN_PX, DAYS.length, spacerCount);
+  const backMinWidthPx = minTableWidthPx(BACK_FIXED_MIN_PX, DAYS.length, spacerCount);
 
   const totalFrontRows = timesheets.reduce((sum, t) => {
     const rows = (rowsByTimesheet[t.id] ?? t.entries.rows).filter((r) => r.kind !== "cover");
@@ -444,11 +474,7 @@ export default function CombinedTimesheetEditor({
         <div className="flex items-center gap-2">
           <span className="font-medium text-ink">{periodType === "biweekly" ? "FORTNIGHT" : "WEEK"}</span>
           <span className="border-b border-ink px-2">
-            {weekStart
-              ? periodType === "biweekly"
-                ? formatFortnightRange(weekStart)
-                : formatWeekRange(weekStart)
-              : "—"}
+            {weekStart ? formatPeriodRange(weekStart, weekEnd, periodType) : "—"}
           </span>
         </div>
 
@@ -476,13 +502,13 @@ export default function CombinedTimesheetEditor({
         style={{ minWidth: `${frontMinWidthPx}px` }}
       >
         <colgroup>
-          {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
+          {scaleFixedCols([9, 4, 7, 22, 9], DAYS.length).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
           ))}
           {DAYS.map((d, i) => (
             <>
               <col key={d + "-col"} />
-              {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+              {spacerAfter.has(i) && <col key={d + "-spacer-col"} className="w-2" />}
             </>
           ))}
         </colgroup>
@@ -501,7 +527,7 @@ export default function CombinedTimesheetEditor({
                     <span>{colLabel(d, i)}</span>
                   </div>
                 </th>
-                {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
+                {spacerAfter.has(i) && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
               </>
             ))}
           </tr>
@@ -514,7 +540,7 @@ export default function CombinedTimesheetEditor({
                     <span className="w-1/2 py-0.5">OUT</span>
                   </div>
                 </th>
-                {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
+                {spacerAfter.has(i) && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
               </>
             ))}
           </tr>
@@ -591,7 +617,7 @@ export default function CombinedTimesheetEditor({
                     {DAYS.map((d, di) => (
                       <>
                         <td key={d} className={signCell}></td>
-                        {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
+                        {spacerAfter.has(di) && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
                       </>
                     ))}
                   </tr>
@@ -626,7 +652,7 @@ export default function CombinedTimesheetEditor({
                   return (
                     <tr key={t.id + i}>
                       {editMode ? (
-                        <td className={`${cell} text-center font-bold align-middle`}>
+                        <td className={`${cell} text-center font-bold align-middle break-words`}>
                           <input
                             type="text"
                             value={rowOverrides[key]?.nomePredio ?? t.buildingNome}
@@ -640,16 +666,16 @@ export default function CombinedTimesheetEditor({
                         </td>
                       ) : buildingAllSame ? (
                         i === 0 && (
-                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
                             {tNomes[0]}
                           </td>
                         )
                       ) : (
-                        <td className={`${cell} text-center font-bold align-middle`}>{tNomes[i]}</td>
+                        <td className={`${cell} text-center font-bold align-middle break-words`}>{tNomes[i]}</td>
                       )}
                       <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
                       {editMode ? (
-                        <td className={`${cell} text-center font-bold align-middle`}>
+                        <td className={`${cell} text-center font-bold align-middle break-words`}>
                           <input
                             type="text"
                             value={rowOverrides[key]?.wo ?? t.buildingWorkOrder ?? ""}
@@ -663,12 +689,12 @@ export default function CombinedTimesheetEditor({
                         </td>
                       ) : woAllSame ? (
                         i === 0 && (
-                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
                             {tWos[0]}
                           </td>
                         )
                       ) : (
-                        <td className={`${cell} text-center font-bold align-middle`}>{tWos[i]}</td>
+                        <td className={`${cell} text-center font-bold align-middle break-words`}>{tWos[i]}</td>
                       )}
                       <td className={cell}>{r.nome ?? <span className="text-ink/30">Open slot</span>}</td>
                       <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
@@ -683,7 +709,7 @@ export default function CombinedTimesheetEditor({
                             className={signCell}
                             textClass={sz.text}
                           />
-                          {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
+                          {spacerAfter.has(di) && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
                         </>
                       ))}
                     </tr>
@@ -755,13 +781,13 @@ export default function CombinedTimesheetEditor({
           style={{ minWidth: `${backMinWidthPx}px` }}
         >
           <colgroup>
-            {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
+            {scaleFixedCols([9, 4, 7, 18, 13], DAYS.length).map((w, i) => (
               <col key={i} style={{ width: `${w}%` }} />
             ))}
             {DAYS.map((d, i) => (
               <>
                 <col key={d + "-col"} />
-                {hasSpacer && i === SPACER_AFTER_INDEX && <col key={d + "-spacer-col"} className="w-2" />}
+                {spacerAfter.has(i) && <col key={d + "-spacer-col"} className="w-2" />}
               </>
             ))}
           </colgroup>
@@ -776,13 +802,11 @@ export default function CombinedTimesheetEditor({
                 <>
                   <th key={d} className={`${backCell} text-center`}>
                     <div className="flex flex-col items-center leading-tight">
-                      {weekStart && (
-                        <span className="font-normal text-ink/50">{formatShortDate(weekStart, timesheetDayOffset(i))}</span>
-                      )}
-                      <span>{timesheetDayLabel(d)}</span>
+                      {weekStart && <span className="font-normal text-ink/50">{colDate(i)}</span>}
+                      <span>{colLabel(d, i)}</span>
                     </div>
                   </th>
-                  {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
+                  {spacerAfter.has(i) && <th key={d + "-spacer"} className={SPACER_CLASS}></th>}
                 </>
               ))}
             </tr>
@@ -795,7 +819,7 @@ export default function CombinedTimesheetEditor({
                       <span className="w-1/2 bg-ink/[0.035] py-0.5">OUT</span>
                     </div>
                   </th>
-                  {hasSpacer && i === SPACER_AFTER_INDEX && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
+                  {spacerAfter.has(i) && <th key={d + "-spacer2"} className={SPACER_CLASS}></th>}
                 </>
               ))}
             </tr>
@@ -871,7 +895,7 @@ export default function CombinedTimesheetEditor({
                       className={backSignCell}
                       textClass={backSz.text}
                     />
-                    {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
+                    {spacerAfter.has(di) && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
                   </>
                 ))}
               </tr>
@@ -883,7 +907,7 @@ export default function CombinedTimesheetEditor({
               signCell={backSignCell}
               textClass={backSz.text}
               days={DAYS}
-              spacer={hasSpacer}
+              spacerAfter={spacerAfter}
             />
 
             <tr>
@@ -908,7 +932,7 @@ export default function CombinedTimesheetEditor({
               })()}
             </tr>
 
-            <BlankRow n={6} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />
+            <BlankRow n={6} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacerAfter={spacerAfter} />
 
             <tr>
               <td className={`${backCell} font-medium`}>ESTATES EVENTS</td>
@@ -919,12 +943,12 @@ export default function CombinedTimesheetEditor({
               {DAYS.map((d, di) => (
                 <>
                   <td key={d} className={backSignCell}></td>
-                  {hasSpacer && di === SPACER_AFTER_INDEX && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
+                  {spacerAfter.has(di) && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
                 </>
               ))}
             </tr>
 
-            <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />
+            <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacerAfter={spacerAfter} />
           </tbody>
         </table>
         </div>

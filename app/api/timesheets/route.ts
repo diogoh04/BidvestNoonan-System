@@ -80,10 +80,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { buildingId: buildingIdStr, weekStart: weekStartStr, copyFromWeekStart } = parsed.data;
+  const { buildingId: buildingIdStr, weekStart: weekStartStr, weekEnd: weekEndStr, copyFromWeekStart } = parsed.data;
   const periodType = parsed.data.periodType ?? "weekly";
   const buildingId = BigInt(buildingIdStr);
   const weekStart = new Date(weekStartStr + "T00:00:00Z");
+  const weekEnd = weekEndStr ? new Date(weekEndStr + "T00:00:00Z") : null;
 
   if (hasRole(user, "team_leader")) {
     if (!(await tlOwnsBuilding(user, buildingId))) {
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(toJSONSafe(mapTimesheet(existing)));
   }
 
-  let entries = await buildInitialEntries(buildingId, periodType);
+  let entries = await buildInitialEntries(buildingId, periodType, weekStartStr, weekEndStr ?? null);
 
   if (copyFromWeekStart) {
     const source = await prisma.timesheet.findUnique({
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
       },
     });
     if (source) {
-      entries = cloneEntriesForNewWeek(source.entries as any, periodType);
+      entries = cloneEntriesForNewWeek(source.entries as any, periodType, weekStartStr, weekEndStr ?? null);
     }
   }
 
@@ -123,6 +124,7 @@ export async function POST(req: NextRequest) {
   const freshData = {
     entries: entries as any,
     periodType,
+    weekEnd,
     createdByUserId: BigInt(user.userId),
     status: "draft",
     submittedByUserId: null,

@@ -95,6 +95,41 @@ export function formatFortnightRange(weekStartISO: string): string {
   return `${formatDDMM(days[0])} — ${formatDDMM(days[days.length - 1])}`;
 }
 
+// Dias úteis (seg-sex) entre startISO e endISO, inclusive nas duas pontas —
+// generalização de fortnightWorkingDays pra uma duração QUALQUER (não mais
+// travada em 10 dias úteis). Usado pelas folhas novas, que guardam
+// Timesheet.weekEnd de verdade (ver getTimesheetDates em lib/types.ts). Se
+// endISO vier antes de startISO, devolve lista vazia (chamador decide como
+// tratar — ver validação em lib/validation.ts).
+export function workingDaysInRange(startISO: string, endISO: string): string[] {
+  const out: string[] = [];
+  const d = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  while (d <= end) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) out.push(toISODate(d));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+// Generalização de isWithinFortnight pra período de duração real (endISO
+// vem do Timesheet.weekEnd da folha já existente) em vez do +13 fixo.
+export function isWithinRange(startISO: string, endISO: string, dateISO: string): boolean {
+  const start = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  const date = new Date(dateISO + "T00:00:00Z");
+  return date >= start && date <= end;
+}
+
+// Rótulo de período unificado: usa o weekEnd real quando existir (folhas
+// novas, duração livre); cai no cálculo legado fixo (+4 semanal / 10 dias
+// úteis quinzenal) pras folhas antigas, que nunca tiveram weekEnd gravado.
+export function formatPeriodRange(startISO: string, endISO: string | null, periodType: "weekly" | "biweekly"): string {
+  if (endISO) return `${formatDDMM(startISO)} — ${formatDDMM(endISO)}`;
+  return periodType === "biweekly" ? formatFortnightRange(startISO) : formatWeekRange(startISO);
+}
+
 // Índice (0-4 semanal, 0-9 quinzenal, ver getTimesheetDayKeys) → quantos dias
 // depois do weekStart cai aquele dia. 0-4 = segunda a sexta da 1ª semana;
 // 5-9 = segunda a sexta da 2ª semana, pulando o fim de semana entre elas

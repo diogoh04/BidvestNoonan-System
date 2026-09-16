@@ -2,14 +2,23 @@ import { prisma } from "./prisma";
 import { computeOpenSlots } from "./openSlots";
 import { orderSheetRows } from "./timesheetRows";
 import {
-  getTimesheetDayKeys,
+  getTimesheetDates,
   type TimesheetEntries,
   type TimesheetRow,
   type TimesheetPeriodType,
 } from "./types";
 
-function emptyDays(periodType: TimesheetPeriodType): Record<string, { in: string | null; out: string | null }> {
-  return Object.fromEntries(getTimesheetDayKeys(periodType).map((d) => [d, { in: null, out: null }]));
+// `weekStart`/`weekEnd` só vêm preenchidos nas folhas novas de duração
+// livre (ver /my/timesheets/lancar) — aí as chaves de `days` já saem como a
+// data ISO real de cada dia útil, em vez do símbolo fixo de sempre
+// (getTimesheetDates cai de volta pro comportamento legado sem weekEnd).
+function emptyDays(
+  periodType: TimesheetPeriodType,
+  weekStart?: string | null,
+  weekEnd?: string | null
+): Record<string, { in: string | null; out: string | null }> {
+  const keys = getTimesheetDates(weekStart ?? "", weekEnd ?? null, periodType);
+  return Object.fromEntries(keys.map((d) => [d, { in: null, out: null }]));
 }
 
 // Fotografa o estado atual do prédio (cleaners + vagas em aberto + covers)
@@ -17,7 +26,9 @@ function emptyDays(periodType: TimesheetPeriodType): Record<string, { in: string
 // depois disso a folha vive só do próprio JSON salvo, não é re-derivada.
 export async function buildInitialEntries(
   buildingId: bigint,
-  periodType: TimesheetPeriodType = "weekly"
+  periodType: TimesheetPeriodType = "weekly",
+  weekStart?: string | null,
+  weekEnd?: string | null
 ): Promise<TimesheetEntries> {
   const [links, slots, covers] = await Promise.all([
     prisma.staffBuilding.findMany({
@@ -37,7 +48,7 @@ export async function buildInitialEntries(
     nome: l.staff.nome,
     staffNumber: l.staff.staffNumber,
     horas: l.horas ?? l.staff.horasSemana,
-    days: emptyDays(periodType),
+    days: emptyDays(periodType, weekStart, weekEnd),
     ordem: l.ordem,
     predioLabel: l.predioLabel,
     workOrder: l.workOrder,
@@ -54,7 +65,7 @@ export async function buildInitialEntries(
     nome: null,
     staffNumber: null,
     horas: s.horas,
-    days: emptyDays(periodType),
+    days: emptyDays(periodType, weekStart, weekEnd),
   }));
 
   // Ordem automática (por horas) ou manual — mesma regra da folha de impressão.
@@ -70,27 +81,35 @@ export async function buildInitialEntries(
     nome: c.nome,
     staffNumber: c.staffNumber,
     horas: c.horas,
-    days: emptyDays(periodType),
+    days: emptyDays(periodType, weekStart, weekEnd),
   }));
 
   return { rows: [...frontRows, ...coverRows] };
 }
 
-export function emptyTimesheetRow(kind: "cover", periodType: TimesheetPeriodType = "weekly"): TimesheetRow {
-  return { kind, refId: null, nome: null, staffNumber: null, horas: null, days: emptyDays(periodType) };
+export function emptyTimesheetRow(
+  kind: "cover",
+  periodType: TimesheetPeriodType = "weekly",
+  weekStart?: string | null,
+  weekEnd?: string | null
+): TimesheetRow {
+  return { kind, refId: null, nome: null, staffNumber: null, horas: null, days: emptyDays(periodType, weekStart, weekEnd) };
 }
 
 // Usado ao criar a folha de uma semana nova a partir da anterior ("copiar
 // da semana anterior"): mantém as linhas (staff/vaga/cover) mas zera os
-// horários — cada semana lança seu próprio ponto. `periodType` é o da folha
-// NOVA (pode diferir do da fonte só em teoria — a UI só oferece copiar entre
-// folhas do mesmo tipo, ver LancarClient), então o quadro de dias sai
-// sempre com o formato certo pra quem está sendo criada agora.
+// horários — cada semana lança seu próprio ponto. `periodType`/`weekStart`/
+// `weekEnd` são os da folha NOVA (pode diferir da fonte só em teoria — a UI
+// só oferece copiar entre folhas do mesmo tipo, ver LancarClient), então o
+// quadro de dias sai sempre com o formato certo pra quem está sendo criada
+// agora.
 export function cloneEntriesForNewWeek(
   source: TimesheetEntries,
-  periodType: TimesheetPeriodType = "weekly"
+  periodType: TimesheetPeriodType = "weekly",
+  weekStart?: string | null,
+  weekEnd?: string | null
 ): TimesheetEntries {
-  return { rows: source.rows.map((r) => ({ ...r, days: emptyDays(periodType) })) };
+  return { rows: source.rows.map((r) => ({ ...r, days: emptyDays(periodType, weekStart, weekEnd) })) };
 }
 
 // Usado só no "Launch" de uma quinzenal (POST /api/timesheets/fortnight/launch):

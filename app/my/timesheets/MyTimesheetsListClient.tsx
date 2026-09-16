@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import { formatWeekRange, formatFortnightRange } from "@/lib/week";
+import { formatPeriodRange } from "@/lib/week";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
@@ -78,7 +78,7 @@ export default function MyTimesheetsListClient({
         const canDelete = items.every((t) => t.status !== "done");
         const periodType = items[0]?.periodType ?? "weekly";
         const isBiweekly = periodType === "biweekly";
-        const range = isBiweekly ? formatFortnightRange(weekStart) : formatWeekRange(weekStart);
+        const range = formatPeriodRange(weekStart, items[0]?.weekEnd ?? null, periodType);
 
         if (confirmingWeek === weekStart) {
           return (

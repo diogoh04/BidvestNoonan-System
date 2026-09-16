@@ -227,16 +227,38 @@ export const timesheetEntriesSchema = z.object({
   rows: z.array(timesheetRowSchema),
 });
 
-export const timesheetCreateSchema = z.object({
-  buildingId: z.string(),
-  weekStart: z.string(), // "YYYY-MM-DD", deve ser uma segunda-feira
-  // "weekly" (padrão) ou "biweekly" — só é usado na criação; ignorado se a
-  // folha já existir pra esse prédio+semana (fica imutável, igual weekStart).
-  periodType: z.enum(["weekly", "biweekly"]).optional(),
-  // Se enviado e a folha ainda não existir, clona as linhas dessa semana
-  // anterior (zerando os horários) em vez de fotografar o estado atual.
-  copyFromWeekStart: z.string().optional(),
-});
+export const timesheetCreateSchema = z
+  .object({
+    buildingId: z.string(),
+    weekStart: z.string(), // "YYYY-MM-DD", deve ser uma segunda-feira
+    // Fim real do período — opcional; quando enviado, a folha passa a ter
+    // duração livre (ver /my/timesheets/lancar, que deixa o Team Leader
+    // escolher início E fim) em vez da duração fixa de sempre por periodType.
+    weekEnd: z.string().optional(),
+    // "weekly" (padrão) ou "biweekly" — só é usado na criação; ignorado se a
+    // folha já existir pra esse prédio+semana (fica imutável, igual weekStart).
+    periodType: z.enum(["weekly", "biweekly"]).optional(),
+    // Se enviado e a folha ainda não existir, clona as linhas dessa semana
+    // anterior (zerando os horários) em vez de fotografar o estado atual.
+    copyFromWeekStart: z.string().optional(),
+  })
+  .refine((v) => !v.weekEnd || v.weekEnd >= v.weekStart, {
+    message: "weekEnd must not be before weekStart",
+    path: ["weekEnd"],
+  })
+  .refine(
+    (v) => {
+      if (!v.weekEnd) return true;
+      const start = new Date(v.weekStart + "T00:00:00Z").getTime();
+      const end = new Date(v.weekEnd + "T00:00:00Z").getTime();
+      // Teto de segurança pra não deixar a folha crescer sem limite (largura
+      // da tabela impressa/tela cresce uma coluna por dia útil) — 31 dias
+      // corridos cobre folgadamente uma quinzena+ "torta" (início/fim fora
+      // de segunda/sexta).
+      return (end - start) / 86400000 <= 31;
+    },
+    { message: "Period cannot be longer than 31 days", path: ["weekEnd"] }
+  );
 
 export const timesheetPatchSchema = z.object({
   entries: timesheetEntriesSchema.optional(),

@@ -4,16 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { Send, Copy, FilePlus } from "lucide-react";
 import {
   toISODate,
-  formatWeekRange,
-  formatFortnightRange,
-  formatDDMM,
-  isWithinFortnight,
+  formatPeriodRange,
+  isWithinRange,
   snapToWorkingDay,
   fortnightEndISO,
+  workingDaysInRange,
 } from "@/lib/week";
 import CombinedTimesheetEditor from "@/components/timesheets/CombinedTimesheetEditor";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { getTimesheetDayKeys } from "@/lib/types";
+import { getTimesheetDates } from "@/lib/types";
 import type {
   TimesheetDTO,
   TimesheetPeriodType,
@@ -24,15 +23,20 @@ import type {
 
 type MyBuilding = { id: string; nome: string };
 type MyProfile = { id: string; nome: string | null; staffNumber: string | null; buildings: MyBuilding[] };
-type ExistingPeriod = { weekStart: string; periodType: TimesheetPeriodType };
-type FortnightSource = { fortnightStart: string; entries: TimesheetEntries };
+type ExistingPeriod = { weekStart: string; weekEnd: string | null; periodType: TimesheetPeriodType };
+type FortnightSource = { fortnightStart: string; fortnightEnd: string | null; entries: TimesheetEntries };
 
 // Mesma lógica de cloneEntriesForNewWeek (lib/timesheetSnapshot.ts), mas
 // reescrita aqui porque aquele arquivo importa Prisma (server-only) e não
 // pode entrar num componente client. Mantém as linhas (staff/vaga/cover) e
 // zera os horários — nunca copia horas de verdade, só a forma das linhas.
-function cloneRowsZeroed(source: TimesheetEntries, periodType: TimesheetPeriodType): TimesheetEntries {
-  const emptyDays = Object.fromEntries(getTimesheetDayKeys(periodType).map((d) => [d, { in: null, out: null }]));
+function cloneRowsZeroed(
+  source: TimesheetEntries,
+  periodType: TimesheetPeriodType,
+  weekStart: string,
+  weekEnd: string | null
+): TimesheetEntries {
+  const emptyDays = Object.fromEntries(getTimesheetDates(weekStart, weekEnd, periodType).map((d) => [d, { in: null, out: null }]));
   return { rows: source.rows.map((r) => ({ ...r, days: { ...emptyDays } })) };
 }
 
@@ -50,9 +54,13 @@ export default function LancarClient({
   // quinzenal anterior (ver findPriorFortnightSource).
   const [allTimesheets, setAllTimesheets] = useState<TimesheetDTO[]>([]);
   const [fortnightPlans, setFortnightPlans] = useState<FortnightPlanDTO[]>([]);
-  // Início da quinzena — qualquer dia útil (não é forçado a segunda). As 10
-  // colunas da folha são os 10 dias úteis a partir daqui.
-  const [weekStart, setWeekStart] = useState(initialWeek ?? snapToWorkingDay(toISODate(new Date())));
+  // Início e fim do período — qualquer dia útil pra início (não é forçado a
+  // segunda), e o fim agora é escolhido livremente pelo Team Leader (antes
+  // era sempre 10 dias úteis fixos a partir do início — ver fortnightEndISO,
+  // ainda usado só como sugestão inicial ao trocar o início).
+  const initialStart = initialWeek ?? snapToWorkingDay(toISODate(new Date()));
+  const [weekStart, setWeekStart] = useState(initialStart);
+  const [weekEnd, setWeekEnd] = useState(fortnightEndISO(initialStart));
   const [timesheets, setTimesheets] = useState<TimesheetDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,12 +107,14 @@ export default function LancarClient({
       // peça uma data específica, ou "New fortnight"). Sem nenhuma → cai no
       // "Start Blank" da data de hoje.
       if (!initialWeek && !forceNew) {
-        const latest = all
+        const latestSheet = all
           .filter((t) => t.periodType === "biweekly")
-          .map((t) => t.weekStart)
-          .sort()
+          .sort((a, b) => a.weekStart.localeCompare(b.weekStart))
           .pop();
-        if (latest) setWeekStart(latest);
+        if (latestSheet) {
+          setWeekStart(latestSheet.weekStart);
+          setWeekEnd(latestSheet.weekEnd ?? fortnightEndISO(latestSheet.weekStart));
+        }
       }
     }
     if (plansRes.ok) setFortnightPlans(await plansRes.json());
@@ -112,18 +122,24 @@ export default function LancarClient({
   }
 
   function dedupePeriods(all: TimesheetDTO[]): ExistingPeriod[] {
-    const byWeek = new Map<string, TimesheetPeriodType>();
-    for (const t of all) if (!byWeek.has(t.weekStart)) byWeek.set(t.weekStart, t.periodType);
+    const byWeek = new Map<string, { periodType: TimesheetPeriodType; weekEnd: string | null }>();
+    for (const t of all) if (!byWeek.has(t.weekStart)) byWeek.set(t.weekStart, { periodType: t.periodType, weekEnd: t.weekEnd });
     return Array.from(byWeek.entries())
-      .map(([ws, periodType]) => ({ weekStart: ws, periodType }))
+      .map(([ws, v]) => ({ weekStart: ws, periodType: v.periodType, weekEnd: v.weekEnd }))
       .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
   }
 
-  // Acha o período (semanal ou quinzenal) que já cobre essa data.
+  // Acha o período (semanal ou quinzenal) que já cobre essa data. Usa o
+  // weekEnd real de cada período quando ele existe (folha de duração livre);
+  // sem weekEnd (folha antiga), isWithinRange cai no cálculo fixo de sempre.
   function findExistingPeriod(dateStr: string): ExistingPeriod | null {
     const exact = existingWeeks.find((w) => w.weekStart === dateStr);
     if (exact) return exact;
-    return existingWeeks.find((w) => w.periodType === "biweekly" && isWithinFortnight(w.weekStart, dateStr)) ?? null;
+    return (
+      existingWeeks.find(
+        (w) => w.periodType === "biweekly" && isWithinRange(w.weekStart, w.weekEnd ?? fortnightEndISO(w.weekStart), dateStr)
+      ) ?? null
+    );
   }
 
   useEffect(() => {
@@ -134,8 +150,11 @@ export default function LancarClient({
         setWeekStart(found.weekStart); // recai no início real do período; o efeito roda de novo
         return;
       }
+      // O fim mostrado passa a ser o real da folha já lançada, não mais o
+      // que o usuário estava digitando — o período, uma vez criado, é fixo.
+      setWeekEnd(found.weekEnd ?? fortnightEndISO(found.weekStart));
       setPendingChoice(false);
-      loadExistingWeek(found.weekStart, found.periodType);
+      loadExistingWeek(found.weekStart, found.periodType, found.weekEnd);
     } else {
       setTimesheets([]);
       setPendingChoice(true);
@@ -150,18 +169,19 @@ export default function LancarClient({
     const plan = fortnightPlans
       .filter((p) => p.buildingId === buildingId && p.fortnightStart < beforeWeek)
       .sort((a, b) => b.fortnightStart.localeCompare(a.fortnightStart))[0];
-    if (plan) return { fortnightStart: plan.fortnightStart, entries: plan.forecastEntries };
+    if (plan) return { fortnightStart: plan.fortnightStart, fortnightEnd: null, entries: plan.forecastEntries };
 
     const prior = allTimesheets
       .filter((t) => t.buildingId === buildingId && t.periodType === "biweekly" && t.weekStart < beforeWeek)
       .sort((a, b) => b.weekStart.localeCompare(a.weekStart))[0];
-    if (prior) return { fortnightStart: prior.weekStart, entries: prior.entries };
+    if (prior) return { fortnightStart: prior.weekStart, fortnightEnd: prior.weekEnd, entries: prior.entries };
 
     return null;
   }
 
-  // GET-or-create pra um período que JÁ existe — mantém o periodType da folha.
-  async function loadExistingWeek(week: string, periodType: TimesheetPeriodType) {
+  // GET-or-create pra um período que JÁ existe — mantém o periodType e o
+  // weekEnd da folha (não deixa a criação re-derivar um fim diferente).
+  async function loadExistingWeek(week: string, periodType: TimesheetPeriodType, existingWeekEnd: string | null) {
     if (!profile) return;
     setLoading(true);
     setError(null);
@@ -172,7 +192,7 @@ export default function LancarClient({
           const res = await fetch("/api/timesheets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ buildingId: b.id, weekStart: week, periodType }),
+            body: JSON.stringify({ buildingId: b.id, weekStart: week, weekEnd: existingWeekEnd ?? undefined, periodType }),
           });
           if (!res.ok) throw new Error(`Could not load the timesheet for ${b.nome}`);
           return (await res.json()) as TimesheetDTO;
@@ -192,8 +212,10 @@ export default function LancarClient({
   }
 
   // Começa uma quinzenal nova — em branco, ou copiando (só a forma das
-  // linhas, nunca os horários) a quinzenal anterior de cada prédio.
-  async function startNewFortnight(week: string, copyPrior: boolean) {
+  // linhas, nunca os horários) a quinzenal anterior de cada prédio. `end` é
+  // a data que o Team Leader escolheu no campo "End date" — o período fica
+  // com essa duração exata, não mais travado em 10 dias úteis.
+  async function startNewFortnight(week: string, end: string, copyPrior: boolean) {
     if (!profile) return;
     setLoading(true);
     setError(null);
@@ -204,7 +226,7 @@ export default function LancarClient({
           const res = await fetch("/api/timesheets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ buildingId: b.id, weekStart: week, periodType: "biweekly" }),
+            body: JSON.stringify({ buildingId: b.id, weekStart: week, weekEnd: end, periodType: "biweekly" }),
           });
           if (!res.ok) throw new Error(`Could not load the timesheet for ${b.nome}`);
           let ts = (await res.json()) as TimesheetDTO;
@@ -212,7 +234,7 @@ export default function LancarClient({
           if (copyPrior) {
             const source = findPriorFortnightSource(b.id, week);
             if (source) {
-              const cloned = cloneRowsZeroed(source.entries, "biweekly");
+              const cloned = cloneRowsZeroed(source.entries, "biweekly", week, end);
               const patchRes = await fetch(`/api/timesheets/${ts.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
@@ -230,7 +252,7 @@ export default function LancarClient({
       setTimesheets(created);
       setExistingWeeks((prev) => {
         if (prev.some((w) => w.weekStart === week)) return prev;
-        const next: ExistingPeriod = { weekStart: week, periodType: "biweekly" };
+        const next: ExistingPeriod = { weekStart: week, weekEnd: end, periodType: "biweekly" };
         return [next, ...prev].sort((a, b) => b.weekStart.localeCompare(a.weekStart));
       });
     } catch (e: any) {
@@ -243,7 +265,18 @@ export default function LancarClient({
   function changeWeek(dateStr: string) {
     if (!dateStr) return;
     // Fim de semana empurra pra segunda; qualquer dia útil vale como início.
-    setWeekStart(snapToWorkingDay(dateStr));
+    const snapped = snapToWorkingDay(dateStr);
+    setWeekStart(snapped);
+    // Sugestão de fim (os 10 dias úteis de sempre) — só um ponto de partida;
+    // o usuário pode mudar livremente antes de clicar "Start blank". Se essa
+    // data já cair dentro de um período existente, o efeito acima sobrescreve
+    // com o fim real assim que encontra.
+    setWeekEnd(fortnightEndISO(snapped));
+  }
+
+  function changeWeekEnd(dateStr: string) {
+    if (!dateStr) return;
+    setWeekEnd(dateStr);
   }
 
   function updateOne(updated: TimesheetDTO) {
@@ -285,23 +318,38 @@ export default function LancarClient({
   const priorSources = profile?.buildings.map((b) => findPriorFortnightSource(b.id, weekStart)).filter(Boolean) as
     | FortnightSource[]
     | undefined;
-  const priorFortnightStart =
+  const priorSource =
     priorSources && priorSources.length > 0
-      ? priorSources.map((s) => s.fortnightStart).sort().reverse()[0]
+      ? priorSources.slice().sort((a, b) => b.fortnightStart.localeCompare(a.fortnightStart))[0]
       : null;
+  const priorFortnightStart = priorSource?.fortnightStart ?? null;
+
+  // Só deixa o fim livre enquanto ainda não existe período pra essa data —
+  // uma vez lançado, início e fim ficam fixos (igual weekStart já era).
+  const endEditable = pendingChoice;
+  const workingDayCount = workingDaysInRange(weekStart, weekEnd).length;
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-ink">{t("Fortnight start:")}</label>
+        <label className="text-sm font-medium text-ink">{t("Start date:")}</label>
         <input
           type="date"
           value={weekStart}
           onChange={(e) => changeWeek(e.target.value)}
           className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
         />
+        <label className="text-sm font-medium text-ink">{t("End date:")}</label>
+        <input
+          type="date"
+          value={weekEnd}
+          min={weekStart}
+          disabled={!endEditable}
+          onChange={(e) => changeWeekEnd(e.target.value)}
+          className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol disabled:bg-surface disabled:text-ink/40 sm:py-1.5 sm:text-sm"
+        />
         <span className="text-sm text-ink/60">
-          → {formatDDMM(fortnightEndISO(weekStart))} <span className="text-ink/40">({t("10 working days")})</span>
+          <span className="text-ink/40">({workingDayCount} {t("working days")})</span>
         </span>
 
         {existingWeeks.length > 0 && (
@@ -316,8 +364,8 @@ export default function LancarClient({
               {existingWeeks.map((w) => (
                 <option key={w.weekStart} value={w.weekStart}>
                   {w.periodType === "biweekly"
-                    ? formatFortnightRange(w.weekStart)
-                    : `${formatWeekRange(w.weekStart)} (${t("weekly, legacy")})`}
+                    ? formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)
+                    : `${formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)} (${t("weekly, legacy")})`}
                 </option>
               ))}
             </select>
@@ -342,13 +390,13 @@ export default function LancarClient({
       {pendingChoice && (
         <div className="mb-6 rounded-md border border-dashed border-line bg-surface px-4 py-8 text-center print:hidden">
           <p className="text-sm text-ink/60">
-            {t("No fortnight logged for")} {formatFortnightRange(weekStart)} {t("yet.")}
+            {t("No fortnight logged for")} {formatPeriodRange(weekStart, weekEnd, "biweekly")} {t("yet.")}
           </p>
 
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <button
               type="button"
-              onClick={() => startNewFortnight(weekStart, false)}
+              onClick={() => startNewFortnight(weekStart, weekEnd, false)}
               className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
             >
               <FilePlus size={16} />
@@ -357,11 +405,11 @@ export default function LancarClient({
             {priorFortnightStart && (
               <button
                 type="button"
-                onClick={() => startNewFortnight(weekStart, true)}
+                onClick={() => startNewFortnight(weekStart, weekEnd, true)}
                 className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
               >
                 <Copy size={16} />
-                {t("Copy from previous fortnight")} ({formatFortnightRange(priorFortnightStart)})
+                {t("Copy from previous fortnight")} ({formatPeriodRange(priorFortnightStart, priorSource?.fortnightEnd ?? null, "biweekly")})
               </button>
             )}
           </div>

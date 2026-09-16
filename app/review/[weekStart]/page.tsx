@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import { getCurrentUser } from "@/lib/auth";
-import { formatWeekRange, formatFortnightRange } from "@/lib/week";
+import { formatPeriodRange } from "@/lib/week";
 import WeekLeadersListClient from "./WeekLeadersListClient";
 import type { TimesheetDTO } from "@/lib/types";
 
@@ -39,7 +39,7 @@ export default async function ReviewWeekPage({ params }: { params: { weekStart: 
           {isFortnight ? "Fortnight" : "Week"}
         </p>
         <h1 className="font-display text-2xl font-bold text-ink">
-          {isFortnight ? formatFortnightRange(params.weekStart) : formatWeekRange(params.weekStart)}
+          {formatPeriodRange(params.weekStart, timesheets[0]?.weekEnd ?? null, timesheets[0]?.periodType ?? "weekly")}
         </h1>
 
         <WeekLeadersListClient weekStart={params.weekStart} initialTimesheets={timesheets} />

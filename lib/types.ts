@@ -1,3 +1,5 @@
+import { weekdayShort, workingDaysInRange } from "./week";
+
 export type Role = "cleaner" | "team_leader";
 
 export type StaffStatus = "p45" | "le" | "blocked" | "sick";
@@ -54,14 +56,32 @@ const SHORT_DAY_LABEL: Record<string, string> = {
   FRIDAY: "FRI",
 };
 
-// Lista ordenada de chaves do quadro de dias, conforme o período da folha.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Lista ordenada de chaves do quadro de dias, conforme o período da folha —
+// caminho LEGADO: 5 ou 10 chaves simbólicas fixas ("MONDAY".."W2_FRIDAY").
+// Ainda usado pelas folhas antigas (sem weekEnd) e pelos moldes em branco de
+// impressão (TimesheetView/LeaderTimesheetView, que não têm data real). Pra
+// folhas com data real e duração livre, ver getTimesheetDates abaixo.
 export function getTimesheetDayKeys(periodType: TimesheetPeriodType): readonly string[] {
   return periodType === "biweekly" ? TIMESHEET_DAYS_BIWEEKLY : TIMESHEET_DAYS;
 }
 
-// Rótulo exibido no cabeçalho da coluna — nome completo do dia na semanal
-// ("MONDAY"), abreviado na quinzenal ("MON", repetido nas duas semanas).
+// Lista ordenada das chaves REAIS de dia de uma folha: quando `weekEnd`
+// existe (folhas novas, ver /my/timesheets/lancar), a folha tem duração
+// livre e cada chave já é a própria data ISO do dia útil ("2026-09-16") em
+// vez de um símbolo fixo — permite qualquer início/fim, não só 5 ou 10 dias.
+// Sem `weekEnd` (folhas antigas), cai no comportamento de sempre.
+export function getTimesheetDates(weekStart: string, weekEnd: string | null, periodType: TimesheetPeriodType): readonly string[] {
+  if (weekEnd) return workingDaysInRange(weekStart, weekEnd);
+  return getTimesheetDayKeys(periodType);
+}
+
+// Rótulo exibido no cabeçalho da coluna — dia da semana (MON/TUE/...) tanto
+// pra uma data ISO real (folha de duração livre) quanto pra uma chave
+// simbólica legada ("MONDAY"/"W1_MONDAY"...).
 export function timesheetDayLabel(dayKey: string): string {
+  if (ISO_DATE_RE.test(dayKey)) return weekdayShort(dayKey);
   const base = dayKey.startsWith("W1_") || dayKey.startsWith("W2_") ? dayKey.slice(3) : dayKey;
   return base === dayKey ? base : SHORT_DAY_LABEL[base] ?? base;
 }
@@ -97,6 +117,9 @@ export type TimesheetDTO = {
   buildingNome: string;
   buildingWorkOrder: string | null;
   weekStart: string;
+  // Fim real do período — só presente nas folhas novas (duração livre, ver
+  // getTimesheetDates). Nulo nas folhas antigas (duração fixa por periodType).
+  weekEnd: string | null;
   periodType: TimesheetPeriodType;
   status: TimesheetStatus;
   entries: TimesheetEntries;

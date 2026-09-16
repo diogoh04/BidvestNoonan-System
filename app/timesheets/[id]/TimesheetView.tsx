@@ -179,6 +179,23 @@ function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[
   return pct.map((p) => p * factor);
 }
 
+// As colunas do colgroup são em % — numa tabela `w-full` isso sempre cabe na
+// tela, só que espremendo cada coluna até o texto vazar por cima da vizinha
+// (era a bagunça vista ao trocar pra Biweekly, com o dobro de colunas de
+// dia). O que faz a tabela realmente rolar de lado em vez de espremer é ter
+// uma largura MÍNIMA em px maior que a tela — as % do colgroup passam a
+// distribuir espaço dentro desse mínimo, não mais dentro da tela toda. Só
+// conta pra tela: no print a classe `ts-table` zera esse mínimo (ver
+// <style jsx global> no fim do arquivo).
+const FRONT_FIXED_MIN_PX = [70, 60, 60, 150, 90]; // Building, Hours, WO, Name, Staff Number
+const BACK_FIXED_MIN_PX = [80, 60, 60, 130, 90]; // Building Covers, Hours, WO, Name, Staff Number
+const DAY_COL_MIN_PX = 96; // célula com IN+OUT lado a lado, ~48px de alvo de toque cada
+const SPACER_MIN_PX = 8;
+
+function minTableWidthPx(fixedPx: number[], dayCount: number, hasSpacer: boolean): number {
+  return fixedPx.reduce((a, b) => a + b, 0) + dayCount * DAY_COL_MIN_PX + (hasSpacer ? SPACER_MIN_PX : 0);
+}
+
 // Mesma ideia do frontTableSizing, mas pro verso ("Building Covers") — hoje
 // era tudo fixo (text-[11px]/h-8), então com mais de 7 covers a tabela
 // crescia sem limite. O piso da primeira faixa reproduz o tamanho de hoje
@@ -307,6 +324,8 @@ export default function TimesheetView({ building }: { building: Building }) {
   const DAYS = getTimesheetDayKeys(periodType);
   const hasSpacer = periodType === "biweekly";
   const spacerCount = hasSpacer ? 1 : 0;
+  const frontMinWidthPx = minTableWidthPx(FRONT_FIXED_MIN_PX, DAYS.length, hasSpacer);
+  const backMinWidthPx = minTableWidthPx(BACK_FIXED_MIN_PX, DAYS.length, hasSpacer);
 
   const [covers, setCovers] = useState<Cover[]>(building.covers);
   const backRowCount = covers.length + Math.max(MIN_COVER_ROWS - covers.length, 1) + 12;
@@ -461,7 +480,13 @@ export default function TimesheetView({ building }: { building: Building }) {
         </span>
       </div>
 
-      <table className={`mt-6 w-full table-fixed border-collapse print:mt-2 ${sz.text}`}>
+      <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
+
+      <div className="mt-2 -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
+      <table
+        className={`ts-table w-full table-fixed border-collapse print:mt-2 ${sz.text}`}
+        style={{ minWidth: `${frontMinWidthPx}px` }}
+      >
         <colgroup>
           {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
@@ -511,7 +536,7 @@ export default function TimesheetView({ building }: { building: Building }) {
           {rows.map((r, i) => (
             <tr key={i}>
               {editMode ? (
-                <td className={`${cell} text-center font-bold align-middle`}>
+                <td className={`${cell} text-center font-bold align-middle break-words`}>
                   {r.kind === "staff" ? (
                     <input
                       type="text"
@@ -526,18 +551,18 @@ export default function TimesheetView({ building }: { building: Building }) {
                 </td>
               ) : rowBuildingAllSame ? (
                 i === 0 && (
-                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
                     {predios[0] || building.nome}
                   </td>
                 )
               ) : (
-                <td className={`${cell} text-center font-bold align-middle`}>
+                <td className={`${cell} text-center font-bold align-middle break-words`}>
                   {effPredio(r) || building.nome}
                 </td>
               )}
               <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
               {editMode ? (
-                <td className={`${cell} text-center font-bold align-middle`}>
+                <td className={`${cell} text-center font-bold align-middle break-words`}>
                   {r.kind === "staff" ? (
                     <input
                       type="text"
@@ -552,12 +577,12 @@ export default function TimesheetView({ building }: { building: Building }) {
                 </td>
               ) : rowWoAllSame ? (
                 i === 0 && (
-                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
                     {wos[0] || (building.workOrder ?? "")}
                   </td>
                 )
               ) : (
-                <td className={`${cell} text-center font-bold align-middle`}>
+                <td className={`${cell} text-center font-bold align-middle break-words`}>
                   {effWo(r) || (building.workOrder ?? "")}
                 </td>
               )}
@@ -590,6 +615,7 @@ export default function TimesheetView({ building }: { building: Building }) {
           ))}
         </tbody>
       </table>
+      </div>
 
       <div className="mt-10 print:mt-0 break-before-page">
         <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
@@ -637,7 +663,13 @@ export default function TimesheetView({ building }: { building: Building }) {
           {coverError && <span className="text-xs text-danger">{coverError}</span>}
         </div>
 
-        <table className={`w-full table-fixed border-collapse ${backSz.text}`}>
+        <p className="mb-1 text-xs text-ink/40 sm:hidden print:hidden">Swipe the table sideways to see all days →</p>
+
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:mx-0 print:overflow-visible print:px-0">
+        <table
+          className={`ts-table w-full table-fixed border-collapse ${backSz.text}`}
+          style={{ minWidth: `${backMinWidthPx}px` }}
+        >
           <colgroup>
             {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
               <col key={i} style={{ width: `${w}%` }} />
@@ -820,6 +852,7 @@ export default function TimesheetView({ building }: { building: Building }) {
             <BlankRow n={4} cell={backCell} signCell={backSignCell} textClass={backSz.text} days={DAYS} spacer={hasSpacer} />
           </tbody>
         </table>
+        </div>
       </div>
 
       <style jsx global>{`
@@ -830,6 +863,9 @@ export default function TimesheetView({ building }: { building: Building }) {
           }
           .break-before-page {
             break-before: page;
+          }
+          .ts-table {
+            min-width: 0 !important;
           }
         }
       `}</style>

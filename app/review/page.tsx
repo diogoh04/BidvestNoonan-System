@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 import Header from "@/components/Header";
 import ReviewTabs from "@/components/ReviewTabs";
 import { getCurrentUser } from "@/lib/auth";
-import { formatWeekRange, formatFortnightRange } from "@/lib/week";
+import { formatPeriodRange } from "@/lib/week";
 import type { TimesheetDTO } from "@/lib/types";
 
 async function getBaseUrl() {
@@ -68,7 +68,9 @@ export default async function ReviewPage() {
             const pending = r.items.some((t) => t.status === "submitted");
             const teamNum = first.submittedByTeamNumber;
             const range =
-              first.periodType === "biweekly" ? formatFortnightRange(r.weekStart) : `Week ${formatWeekRange(r.weekStart)}`;
+              first.periodType === "biweekly"
+                ? formatPeriodRange(r.weekStart, first.weekEnd, first.periodType)
+                : `Week ${formatPeriodRange(r.weekStart, first.weekEnd, first.periodType)}`;
             return (
               <Link
                 key={`${r.weekStart}-${r.userId}`}

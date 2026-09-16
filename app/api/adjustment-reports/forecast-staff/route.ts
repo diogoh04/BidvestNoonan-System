@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
-import { isWithinFortnight } from "@/lib/week";
+import { isWithinRange, fortnightEndISO } from "@/lib/week";
 import { tlOwnsBuilding } from "@/lib/teamLeaderScope";
 import { toJSONSafe, type TimesheetEntries } from "@/lib/types";
 
@@ -30,10 +30,14 @@ export async function GET(req: NextRequest) {
   const sheets = await prisma.timesheet.findMany({
     where: { buildingId: BigInt(buildingId), periodType: "biweekly", deletedAt: null },
     orderBy: { weekStart: "desc" },
-    select: { weekStart: true, entries: true, submittedSnapshot: true },
+    select: { weekStart: true, weekEnd: true, entries: true, submittedSnapshot: true },
   });
 
-  const match = sheets.find((s) => isWithinFortnight(s.weekStart.toISOString().slice(0, 10), weekStart));
+  const match = sheets.find((s) => {
+    const start = s.weekStart.toISOString().slice(0, 10);
+    const end = s.weekEnd ? s.weekEnd.toISOString().slice(0, 10) : fortnightEndISO(start);
+    return isWithinRange(start, end, weekStart);
+  });
   if (!match) return NextResponse.json([]);
 
   const entries = (match.submittedSnapshot ?? match.entries) as unknown as TimesheetEntries;

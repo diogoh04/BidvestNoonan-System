@@ -642,7 +642,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                   return (
                   <tr key={b.id + i}>
                     {editMode ? (
-                      <td className={`${cell} text-center font-bold align-middle`}>
+                      <td className={`${cell} text-center font-bold align-middle break-words`}>
                         {r.kind === "staff" ? (
                           <input
                             type="text"
@@ -657,18 +657,18 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                       </td>
                     ) : buildingAllSame ? (
                       i === 0 && (
-                        <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                        <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
                           {predios[0] || b.nome}
                         </td>
                       )
                     ) : (
-                      <td className={`${cell} text-center font-bold align-middle`}>
+                      <td className={`${cell} text-center font-bold align-middle break-words`}>
                         {effPredio(r) || b.nome}
                       </td>
                     )}
                     <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
                     {editMode ? (
-                      <td className={`${cell} text-center font-bold align-middle`}>
+                      <td className={`${cell} text-center font-bold align-middle break-words`}>
                         {r.kind === "staff" ? (
                           <input
                             type="text"
@@ -683,12 +683,12 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
                       </td>
                     ) : woAllSame ? (
                       i === 0 && (
-                        <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle`}>
+                        <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
                           {wos[0] || (b.workOrder ?? "")}
                         </td>
                       )
                     ) : (
-                      <td className={`${cell} text-center font-bold align-middle`}>
+                      <td className={`${cell} text-center font-bold align-middle break-words`}>
                         {effWo(r) || (b.workOrder ?? "")}
                       </td>
                     )}
