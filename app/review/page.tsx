@@ -3,8 +3,9 @@ import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import Header from "@/components/Header";
 import ReviewTabs from "@/components/ReviewTabs";
+import DateRangeFilterForm from "@/components/DateRangeFilterForm";
+import ReviewWeeksListClient from "./ReviewWeeksListClient";
 import { getCurrentUser } from "@/lib/auth";
-import { formatPeriodRange } from "@/lib/week";
 import type { TimesheetDTO } from "@/lib/types";
 
 async function getBaseUrl() {
@@ -14,9 +15,13 @@ async function getBaseUrl() {
   return `${protocol}://${host}`;
 }
 
-async function getSubmittedTimesheets(): Promise<TimesheetDTO[]> {
+async function getSubmittedTimesheets(dateFrom?: string, dateTo?: string): Promise<TimesheetDTO[]> {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/timesheets`, {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+  const qs = params.toString();
+  const res = await fetch(`${base}/api/timesheets${qs ? `?${qs}` : ""}`, {
     cache: "no-store",
     headers: { cookie: headers().get("cookie") ?? "" },
   });
@@ -25,9 +30,14 @@ async function getSubmittedTimesheets(): Promise<TimesheetDTO[]> {
   return all.filter((t) => t.status !== "draft");
 }
 
-export default async function ReviewPage() {
+export default async function ReviewPage({
+  searchParams,
+}: {
+  searchParams: { dateFrom?: string; dateTo?: string };
+}) {
   const user = await getCurrentUser();
-  const timesheets = await getSubmittedTimesheets();
+  const { dateFrom, dateTo } = searchParams;
+  const timesheets = await getSubmittedTimesheets(dateFrom, dateTo);
 
   // Uma linha por (quem enviou + semana) — Team N · nome do TL · quinzena.
   const byKey = new Map<string, { weekStart: string; userId: string; items: TimesheetDTO[] }>();
@@ -62,40 +72,9 @@ export default async function ReviewPage() {
           </Link>
         </div>
 
-        <div className="mt-6 space-y-2">
-          {rows.map((r) => {
-            const first = r.items[0];
-            const pending = r.items.some((t) => t.status === "submitted");
-            const teamNum = first.submittedByTeamNumber;
-            const range =
-              first.periodType === "biweekly"
-                ? formatPeriodRange(r.weekStart, first.weekEnd, first.periodType)
-                : `Week ${formatPeriodRange(r.weekStart, first.weekEnd, first.periodType)}`;
-            return (
-              <Link
-                key={`${r.weekStart}-${r.userId}`}
-                href={`/review/${r.weekStart}/${r.userId}`}
-                className="flex items-center justify-between rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
-              >
-                <div>
-                  <div className="font-medium text-ink">
-                    {teamNum != null ? `Team ${teamNum} · ` : ""}
-                    {first.submittedByNome ?? "Removed account"}
-                  </div>
-                  <div className="text-xs text-ink/40">
-                    {range} · {r.items.length} building{r.items.length !== 1 ? "s" : ""}
-                  </div>
-                </div>
-                {pending ? (
-                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">Pending</span>
-                ) : (
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">Done</span>
-                )}
-              </Link>
-            );
-          })}
-          {rows.length === 0 && <p className="text-sm text-ink/40">No timesheet submitted yet.</p>}
-        </div>
+        <DateRangeFilterForm clearHref="/review" dateFrom={dateFrom} dateTo={dateTo} />
+
+        <ReviewWeeksListClient initialRows={rows} />
       </main>
     </>
   );

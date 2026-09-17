@@ -7,7 +7,7 @@ import { toJSONSafe } from "@/lib/types";
 import { mapTimesheet, timesheetInclude } from "@/lib/timesheetDto";
 import { tlBuildingIds, tlOwnsBuilding } from "@/lib/teamLeaderScope";
 
-// GET /api/timesheets?buildingId=&weekStart=&status=
+// GET /api/timesheets?buildingId=&weekStart=&dateFrom=&dateTo=&status=
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const buildingIdParam = searchParams.get("buildingId");
   const weekStart = searchParams.get("weekStart");
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
   const status = searchParams.get("status");
   const submittedByUserId = searchParams.get("submittedByUserId");
   const deletedParam = searchParams.get("deleted");
@@ -44,6 +46,10 @@ export async function GET(req: NextRequest) {
   }
 
   if (weekStart) and.push({ weekStart: new Date(weekStart + "T00:00:00Z") });
+  // Filtro de período (tela de review) — quinzenas LANÇADAS entre as duas
+  // datas, ou seja, o weekStart (data de início) cai dentro do intervalo.
+  if (dateFrom) and.push({ weekStart: { gte: new Date(dateFrom + "T00:00:00Z") } });
+  if (dateTo) and.push({ weekStart: { lte: new Date(dateTo + "T00:00:00Z") } });
   if (status === "draft" || status === "submitted" || status === "done") and.push({ status });
 
   // Team Leader nunca vê a lixeira; Master/Supervisor só quando pedem

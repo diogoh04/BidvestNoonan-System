@@ -116,18 +116,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(toJSONSafe(mapTimesheet(updated)));
 }
 
-// DELETE — na verdade move pra lixeira (deletedAt/deletedByUserId), nunca
-// apaga a linha de fato: dá pra restaurar depois em /review/excluidas se
-// foi excluída sem querer. Team Leader só na folha do próprio prédio
-// enquanto ela ainda não foi concluída pelo supervisor (preserva o
-// histórico já revisado); Master e Supervisor podem em qualquer status.
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+// DELETE — por padrão move pra lixeira (deletedAt/deletedByUserId), nunca
+// apaga a linha de fato: dá pra restaurar depois em /review/excluidas se foi
+// excluída sem querer. Team Leader só na folha do próprio prédio enquanto
+// ela ainda não foi concluída pelo supervisor (preserva o histórico já
+// revisado); Master e Supervisor podem em qualquer status.
+//
+// ?permanent=1 — apaga de vez (tira do banco de verdade), só disponível pra
+// quem já está NA lixeira (deletedAt já setado) e só Master/Supervisor,
+// direto de /review/excluidas. Usado pra limpar folha de teste — sem isso
+// ela ficaria acumulando na lixeira pra sempre.
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { timesheet, allowed } = await loadWithOwnership(BigInt(params.id), user);
   if (!timesheet) return NextResponse.json({ error: "Timesheet not found" }, { status: 404 });
   if (!allowed) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+
+  const permanent = new URL(req.url).searchParams.get("permanent") === "1";
+  if (permanent) {
+    if (!hasRole(user, "master", "supervisor")) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+    if (!timesheet.deletedAt) {
+      return NextResponse.json({ error: "Only an already-deleted timesheet can be permanently removed" }, { status: 409 });
+    }
+    await prisma.timesheet.delete({ where: { id: timesheet.id } });
+    return NextResponse.json({ ok: true });
+  }
 
   if (hasRole(user, "team_leader") && timesheet.status === "done") {
     return NextResponse.json({ error: "Timesheet already completed by supervisor cannot be deleted" }, { status: 409 });

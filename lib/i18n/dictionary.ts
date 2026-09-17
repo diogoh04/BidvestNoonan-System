@@ -94,7 +94,7 @@ export const pt: Record<string, string> = {
   // Lancar (criar/abrir quinzena)
   "Start date:": "Data início:",
   "End date:": "Data fim:",
-  "working days": "dias úteis",
+  days: "dias",
   "or open a logged one:": "ou abra uma já lançada:",
   "Select an already logged fortnight...": "Selecione uma quinzena já lançada...",
   "weekly, legacy": "semanal, legado",
@@ -114,6 +114,7 @@ export const pt: Record<string, string> = {
   // CombinedTimesheetEditor (chrome — fora da folha impressa)
   Submitted: "Enviado",
   "Print / Export PDF": "Imprimir / Exportar PDF",
+  "Auto-fill hours": "Preencher horários automaticamente",
   "Swipe the table sideways to see all days →": "Deslize a tabela para o lado para ver todos os dias →",
   "Search staff...": "Buscar funcionário...",
   Hours: "Horas",

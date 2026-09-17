@@ -113,6 +113,24 @@ export function workingDaysInRange(startISO: string, endISO: string): string[] {
   return out;
 }
 
+// Todos os dias corridos (seg a dom, sem pular fim de semana) entre startISO
+// e endISO, inclusive nas duas pontas. De propósito SEPARADA de
+// workingDaysInRange acima: aquela alimenta a grade da folha de sign in/out
+// (sempre seg-sex, não mexe) — esta é só pra contar/listar dias reais em
+// telas que não são a grade em si (ex.: quantos dias tem o período escolhido
+// em /my/timesheets/lancar, ou separar um ajuste "dia 14 ao 16" em 3 linhas
+// em AdjustmentReportView).
+export function allDaysInRange(startISO: string, endISO: string): string[] {
+  const out: string[] = [];
+  const d = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  while (d <= end) {
+    out.push(toISODate(d));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
 // Generalização de isWithinFortnight pra período de duração real (endISO
 // vem do Timesheet.weekEnd da folha já existente) em vez do +13 fixo.
 export function isWithinRange(startISO: string, endISO: string, dateISO: string): boolean {

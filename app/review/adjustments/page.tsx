@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import Header from "@/components/Header";
 import ReviewTabs from "@/components/ReviewTabs";
+import DateRangeFilterForm from "@/components/DateRangeFilterForm";
+import ReviewAdjustmentsListClient from "./ReviewAdjustmentsListClient";
 import { getCurrentUser } from "@/lib/auth";
-import { formatWeekRange } from "@/lib/week";
 import type { AdjustmentReportDTO } from "@/lib/types";
 
 async function getBaseUrl() {
@@ -13,9 +13,13 @@ async function getBaseUrl() {
   return `${protocol}://${host}`;
 }
 
-async function getReports(): Promise<AdjustmentReportDTO[]> {
+async function getReports(dateFrom?: string, dateTo?: string): Promise<AdjustmentReportDTO[]> {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/adjustment-reports`, {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+  const qs = params.toString();
+  const res = await fetch(`${base}/api/adjustment-reports${qs ? `?${qs}` : ""}`, {
     cache: "no-store",
     headers: { cookie: headers().get("cookie") ?? "" },
   });
@@ -23,45 +27,14 @@ async function getReports(): Promise<AdjustmentReportDTO[]> {
   return res.json();
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB");
-}
-
-export default async function ReviewAdjustmentsPage() {
+export default async function ReviewAdjustmentsPage({
+  searchParams,
+}: {
+  searchParams: { dateFrom?: string; dateTo?: string };
+}) {
   const user = await getCurrentUser();
-  const reports = await getReports();
-
-  const pending = reports.filter((r) => r.status === "submitted");
-  const done = reports.filter((r) => r.status === "done");
-
-  function row(r: AdjustmentReportDTO) {
-    return (
-      <Link
-        key={r.id}
-        href={`/review/adjustments/${r.id}`}
-        className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
-      >
-        <div>
-          <div className="font-medium text-ink">
-            {r.submittedByTeamNumber != null ? `Team ${r.submittedByTeamNumber} · ` : ""}
-            {r.submittedByNome ?? "—"} · Week {formatWeekRange(r.weekStart)}
-          </div>
-          <div className="text-xs text-ink/40">
-            {r.itemCount} item{r.itemCount !== 1 ? "s" : ""}
-            {r.groups.length > 0 ? ` · ${r.groups.map((g) => g.buildingNome).join(", ")}` : ""}
-            {r.submittedAt ? ` · sent ${formatDate(r.submittedAt)}` : ""}
-          </div>
-        </div>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-            r.status === "done" ? "bg-green-50 text-success" : "bg-amber-50 text-amber-700"
-          }`}
-        >
-          {r.status === "done" ? "Done" : "Pending"}
-        </span>
-      </Link>
-    );
-  }
+  const { dateFrom, dateTo } = searchParams;
+  const reports = await getReports(dateFrom, dateTo);
 
   return (
     <>
@@ -74,21 +47,9 @@ export default async function ReviewAdjustmentsPage() {
           Weekly reports of changes team leaders made after sending a forecast. Review each and mark it done.
         </p>
 
-        {reports.length === 0 && <p className="mt-6 text-sm text-ink/40">No adjustment reports yet.</p>}
+        <DateRangeFilterForm clearHref="/review/adjustments" dateFrom={dateFrom} dateTo={dateTo} />
 
-        {pending.length > 0 && (
-          <div className="mt-6">
-            <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">Pending</h2>
-            <div className="space-y-2">{pending.map(row)}</div>
-          </div>
-        )}
-
-        {done.length > 0 && (
-          <div className="mt-6">
-            <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">Done</h2>
-            <div className="space-y-2">{done.map(row)}</div>
-          </div>
-        )}
+        <ReviewAdjustmentsListClient initialReports={reports} />
       </main>
     </>
   );

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import Header from "@/components/Header";
+import DateRangeFilterForm from "@/components/DateRangeFilterForm";
 import { getCurrentUser } from "@/lib/auth";
 import ExcluidasListClient from "./ExcluidasListClient";
 import type { TimesheetDTO } from "@/lib/types";
@@ -13,9 +14,12 @@ async function getBaseUrl() {
   return `${protocol}://${host}`;
 }
 
-async function getDeletedTimesheets(): Promise<TimesheetDTO[]> {
+async function getDeletedTimesheets(dateFrom?: string, dateTo?: string): Promise<TimesheetDTO[]> {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/timesheets?deleted=1`, {
+  const params = new URLSearchParams({ deleted: "1" });
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+  const res = await fetch(`${base}/api/timesheets?${params.toString()}`, {
     cache: "no-store",
     headers: { cookie: headers().get("cookie") ?? "" },
   });
@@ -23,9 +27,14 @@ async function getDeletedTimesheets(): Promise<TimesheetDTO[]> {
   return res.json();
 }
 
-export default async function ExcluidasPage() {
+export default async function ExcluidasPage({
+  searchParams,
+}: {
+  searchParams: { dateFrom?: string; dateTo?: string };
+}) {
   const user = await getCurrentUser();
-  const timesheets = await getDeletedTimesheets();
+  const { dateFrom, dateTo } = searchParams;
+  const timesheets = await getDeletedTimesheets(dateFrom, dateTo);
 
   return (
     <>
@@ -37,8 +46,10 @@ export default async function ExcluidasPage() {
         </Link>
         <h1 className="mt-2 font-display text-2xl font-bold text-ink">Deleted timesheets</h1>
         <p className="mt-1 text-sm text-ink/50">
-          Deleted by Master or Supervisor. Can be restored if done by mistake.
+          Deleted by Master or Supervisor. Can be restored if done by mistake, or permanently removed (e.g. test data).
         </p>
+
+        <DateRangeFilterForm clearHref="/review/excluidas" dateFrom={dateFrom} dateTo={dateTo} />
 
         <ExcluidasListClient initialTimesheets={timesheets} />
       </main>

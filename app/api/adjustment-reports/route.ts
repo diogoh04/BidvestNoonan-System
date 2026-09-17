@@ -5,11 +5,16 @@ import { adjustmentReportCreateSchema } from "@/lib/validation";
 import { toJSONSafe } from "@/lib/types";
 import { adjustmentReportInclude, mapAdjustmentReport } from "@/lib/adjustmentReportDto";
 
-// GET /api/adjustment-reports — TL: os próprios; Master/Supervisor: todos.
-// Pendentes (submitted) primeiro, depois mais recente.
-export async function GET(_req: NextRequest) {
+// GET /api/adjustment-reports?dateFrom=&dateTo= — TL: os próprios;
+// Master/Supervisor: todos. Pendentes (submitted) primeiro, depois mais
+// recente.
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
 
   const where: any = {};
   if (hasRole(user, "team_leader")) {
@@ -19,6 +24,15 @@ export async function GET(_req: NextRequest) {
   } else {
     // Supervisor/Master não vê rascunhos de TL — só o que foi enviado.
     where.status = { in: ["submitted", "done"] };
+  }
+
+  // Filtro de período (tela de review) — mesmo critério do /api/timesheets:
+  // relatórios cujo weekStart cai dentro do intervalo.
+  if (dateFrom || dateTo) {
+    where.weekStart = {
+      ...(dateFrom ? { gte: new Date(dateFrom + "T00:00:00Z") } : {}),
+      ...(dateTo ? { lte: new Date(dateTo + "T00:00:00Z") } : {}),
+    };
   }
 
   const reports = await prisma.adjustmentReport.findMany({

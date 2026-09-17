@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw, User } from "lucide-react";
+import { RotateCcw, Trash2, User } from "lucide-react";
 import { formatWeekRange } from "@/lib/week";
 import type { TimesheetDTO, TimesheetStatus } from "@/lib/types";
 
@@ -25,6 +25,10 @@ function formatDateTime(iso: string | null) {
 export default function ExcluidasListClient({ initialTimesheets }: { initialTimesheets: TimesheetDTO[] }) {
   const [timesheets, setTimesheets] = useState(initialTimesheets);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  // Confirmação antes de excluir de vez — ação sem volta (tira do banco de
+  // verdade), diferente de mover pra lixeira, que sempre dá pra desfazer.
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingForeverId, setDeletingForeverId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function restore(id: string) {
@@ -45,6 +49,24 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
       setError(e.message);
     } finally {
       setRestoringId(null);
+    }
+  }
+
+  async function deleteForever(id: string) {
+    setError(null);
+    setDeletingForeverId(id);
+    try {
+      const res = await fetch(`/api/timesheets/${id}?permanent=1`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Could not permanently delete the timesheet");
+      }
+      setTimesheets((prev) => prev.filter((t) => t.id !== id));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDeletingForeverId(null);
+      setConfirmingDeleteId(null);
     }
   }
 
@@ -74,31 +96,63 @@ export default function ExcluidasListClient({ initialTimesheets }: { initialTime
             <span className="text-xs text-ink/40">({items.length})</span>
           </div>
           <div className="divide-y divide-line">
-            {items.map((t) => (
-              <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm text-ink">
-                    {t.buildingNome}
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[t.status]}`}>
-                      {STATUS_LABEL[t.status]}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-ink/50">
-                    Week {formatWeekRange(t.weekStart)} · Deleted by {t.deletedByNome ?? "—"} on{" "}
-                    {formatDateTime(t.deletedAt)}
+            {items.map((t) =>
+              confirmingDeleteId === t.id ? (
+                <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 bg-red-50/40 px-4 py-3">
+                  <span className="text-sm text-danger">
+                    Permanently delete {t.buildingNome} · Week {formatWeekRange(t.weekStart)}? This cannot be undone.
+                  </span>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => deleteForever(t.id)}
+                      disabled={deletingForeverId === t.id}
+                      className="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmingDeleteId(null)}
+                      className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm text-ink">
+                      {t.buildingNome}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[t.status]}`}>
+                        {STATUS_LABEL[t.status]}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-ink/50">
+                      Week {formatWeekRange(t.weekStart)} · Deleted by {t.deletedByNome ?? "—"} on{" "}
+                      {formatDateTime(t.deletedAt)}
+                    </div>
+                  </div>
 
-                <button
-                  onClick={() => restore(t.id)}
-                  disabled={restoringId === t.id}
-                  className="flex shrink-0 items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
-                >
-                  <RotateCcw size={14} />
-                  Restore
-                </button>
-              </div>
-            ))}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => restore(t.id)}
+                      disabled={restoringId === t.id}
+                      className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol disabled:opacity-50"
+                    >
+                      <RotateCcw size={14} />
+                      Restore
+                    </button>
+                    <button
+                      onClick={() => setConfirmingDeleteId(t.id)}
+                      className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-danger transition hover:border-danger hover:bg-red-50"
+                    >
+                      <Trash2 size={14} />
+                      Delete forever
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         </div>
       ))}

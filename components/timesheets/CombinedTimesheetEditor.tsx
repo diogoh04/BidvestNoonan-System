@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Printer, Plus, X } from "lucide-react";
+import { Printer, Plus, X, Wand2 } from "lucide-react";
 import {
   getTimesheetDates,
   timesheetDayLabel,
@@ -28,6 +28,18 @@ const EMPTY_DAY: DayValue = { in: null, out: null };
 // Coluna vazia entre a sexta da semana 1 e a segunda da semana 2, só na
 // quinzenal — sem borda/conteúdo, só pra separar visualmente as semanas.
 const SPACER_CLASS = "w-2 border-0 bg-white p-0 print:bg-transparent";
+
+// Tabela fixa horas semanais → sign in/out — usada pelo botão "Auto-fill
+// hours" (ver autoFillHours abaixo). De propósito é só isso, sem fórmula
+// genérica pra outros valores: quem tiver uma carga fora daqui fica de fora
+// do preenchimento automático (decisão do usuário, não é um bug).
+// Formato "H" pra hora cheia (sem zero à esquerda nem ":00") e "H:MM" só
+// quando tem minuto quebrado (ex.: "9:30") — decisão do usuário.
+const HOURS_SIGN_TIMES: Record<number, { in: string; out: string }> = {
+  20: { in: "6", out: "10" },
+  15: { in: "6", out: "9" },
+  10: { in: "6", out: "8" },
+};
 
 const STATUS_LABEL: Record<TimesheetDTO["status"], string> = {
   draft: "Draft",
@@ -86,9 +98,12 @@ function scaleFixedCols(pct: number[], dayCount: number): number[] {
 // distribuir espaço dentro desse mínimo, não mais dentro da tela toda. Só
 // conta pra tela: no print a classe `ts-table` zera esse mínimo (ver
 // <style jsx global> no fim do arquivo).
-const FRONT_FIXED_MIN_PX = [60, 60, 60, 150, 90]; // Building, Hours, WO, Name, Staff Number
-const BACK_FIXED_MIN_PX = [80, 60, 60, 130, 90]; // Building Covers, Hours, WO, Name, Staff Number
-const DAY_COL_MIN_PX = 96; // célula com IN+OUT lado a lado, ~48px de alvo de toque cada
+// Hours e WO ganharam mais espaço (60→70 / 60→80) porque um WO de 6 dígitos
+// ("514161") ou o cabeçalho "Xh total" não cabiam — vinha de Name (150→130 /
+// 130→110), que sobrava de longe.
+const FRONT_FIXED_MIN_PX = [60, 70, 80, 130, 90]; // Building, Hours, WO, Name, Staff Number
+const BACK_FIXED_MIN_PX = [80, 70, 80, 110, 90]; // Building Covers, Hours, WO, Name, Staff Number
+const DAY_COL_MIN_PX = 120; // célula com IN+OUT lado a lado, ~60px cada - "06:00" (5 char) não cabia em 48px
 const SPACER_MIN_PX = 8;
 
 function minTableWidthPx(fixedPx: number[], dayCount: number, spacerCount: number): number {
@@ -320,6 +335,35 @@ export default function CombinedTimesheetEditor({
     scheduleSave(timesheetId, next);
   }
 
+  // Botão "Auto-fill hours": preenche entrada/saída de todo staff cuja carga
+  // horária bate com HOURS_SIGN_TIMES, em todos os dias do período — só nas
+  // células ainda vazias (nunca sobrescreve o que o Team Leader já digitou).
+  // Cover/openSlot ficam de fora (só kind === "staff"). Um scheduleSave por
+  // timesheet, não por célula, pra não disparar dezenas de saves em série.
+  function autoFillHours() {
+    timesheets.forEach((t) => {
+      if (!isEditable(t)) return;
+      const rows = rowsByTimesheet[t.id] ?? [];
+      let changed = false;
+      const next = rows.map((r) => {
+        if (r.kind !== "staff" || r.horas == null) return r;
+        const times = HOURS_SIGN_TIMES[r.horas];
+        if (!times) return r;
+        const nextDays = { ...r.days };
+        for (const d of DAYS) {
+          const cur = r.days[d] ?? EMPTY_DAY;
+          const filled = { in: cur.in || times.in, out: cur.out || times.out };
+          if (filled.in !== cur.in || filled.out !== cur.out) {
+            nextDays[d] = filled;
+            changed = true;
+          }
+        }
+        return { ...r, days: nextDays };
+      });
+      if (changed) scheduleSave(t.id, next);
+    });
+  }
+
   async function addCover() {
     if (!coverNome.trim() || !coverTimesheetId) return;
     setSavingCover(true);
@@ -438,6 +482,15 @@ export default function CombinedTimesheetEditor({
           ))}
         </div>
         <div className="flex items-center gap-2">
+          {timesheets.some((t) => isEditable(t)) && (
+            <button
+              onClick={autoFillHours}
+              className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
+            >
+              <Wand2 size={16} />
+              {tr("Auto-fill hours")}
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
@@ -502,7 +555,7 @@ export default function CombinedTimesheetEditor({
         style={{ minWidth: `${frontMinWidthPx}px` }}
       >
         <colgroup>
-          {scaleFixedCols([9, 4, 7, 22, 9], DAYS.length).map((w, i) => (
+          {scaleFixedCols([9, 6, 9, 18, 9], DAYS.length).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
           ))}
           {DAYS.map((d, i) => (
@@ -515,7 +568,9 @@ export default function CombinedTimesheetEditor({
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>
-            <th rowSpan={2} className={`${cell} align-middle`}>{grandTotalHours}h total</th>
+            <th rowSpan={2} className={`${cell} align-middle`}>
+              <span className="text-[11px] leading-tight print:text-[7px]">{grandTotalHours}h total</span>
+            </th>
             <th rowSpan={2} className={`${cell} align-middle`}>WO</th>
             <th rowSpan={2} className={`${cell} align-middle`}>Name</th>
             <th rowSpan={2} className={`${cell} align-middle`}>Staff Number</th>
@@ -675,7 +730,7 @@ export default function CombinedTimesheetEditor({
                       )}
                       <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
                       {editMode ? (
-                        <td className={`${cell} text-center font-bold align-middle break-words`}>
+                        <td className={`${cell} text-center font-bold align-middle overflow-hidden whitespace-nowrap text-ellipsis`}>
                           <input
                             type="text"
                             value={rowOverrides[key]?.wo ?? t.buildingWorkOrder ?? ""}
@@ -689,12 +744,12 @@ export default function CombinedTimesheetEditor({
                         </td>
                       ) : woAllSame ? (
                         i === 0 && (
-                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
+                          <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle overflow-hidden whitespace-nowrap text-ellipsis`}>
                             {tWos[0]}
                           </td>
                         )
                       ) : (
-                        <td className={`${cell} text-center font-bold align-middle break-words`}>{tWos[i]}</td>
+                        <td className={`${cell} text-center font-bold align-middle overflow-hidden whitespace-nowrap text-ellipsis`}>{tWos[i]}</td>
                       )}
                       <td className={cell}>{r.nome ?? <span className="text-ink/30">Open slot</span>}</td>
                       <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
@@ -781,7 +836,7 @@ export default function CombinedTimesheetEditor({
           style={{ minWidth: `${backMinWidthPx}px` }}
         >
           <colgroup>
-            {scaleFixedCols([9, 4, 7, 18, 13], DAYS.length).map((w, i) => (
+            {scaleFixedCols([9, 6, 9, 14, 13], DAYS.length).map((w, i) => (
               <col key={i} style={{ width: `${w}%` }} />
             ))}
             {DAYS.map((d, i) => (
@@ -849,7 +904,7 @@ export default function CombinedTimesheetEditor({
                   )}
                 </td>
                 <td className={`${backCell} text-center`}>{row.horas ?? ""}</td>
-                <td className={`${backCell} text-center`}>
+                <td className={`${backCell} overflow-hidden whitespace-nowrap text-ellipsis text-center`}>
                   {editMode ? (
                     <input
                       type="text"

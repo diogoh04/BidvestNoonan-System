@@ -187,9 +187,12 @@ function scaleFixedCols(pct: number[], periodType: TimesheetPeriodType): number[
 // distribuir espaço dentro desse mínimo, não mais dentro da tela toda. Só
 // conta pra tela: no print a classe `ts-table` zera esse mínimo (ver
 // <style jsx global> no fim do arquivo).
-const FRONT_FIXED_MIN_PX = [70, 60, 60, 150, 90]; // Building, Hours, WO, Name, Staff Number
-const BACK_FIXED_MIN_PX = [80, 60, 60, 130, 90]; // Building Covers, Hours, WO, Name, Staff Number
-const DAY_COL_MIN_PX = 96; // célula com IN+OUT lado a lado, ~48px de alvo de toque cada
+// Hours e WO ganharam mais espaço (60→70 / 60→80) porque um WO de 6 dígitos
+// ("514161") ou o cabeçalho "Xh total" não cabiam — vinha de Name (150→130 /
+// 130→110), que sobrava de longe.
+const FRONT_FIXED_MIN_PX = [70, 70, 80, 130, 90]; // Building, Hours, WO, Name, Staff Number
+const BACK_FIXED_MIN_PX = [80, 70, 80, 110, 90]; // Building Covers, Hours, WO, Name, Staff Number
+const DAY_COL_MIN_PX = 120; // célula com IN+OUT lado a lado, ~60px cada - "06:00" (5 char) não cabia em 48px
 const SPACER_MIN_PX = 8;
 
 function minTableWidthPx(fixedPx: number[], dayCount: number, hasSpacer: boolean): number {
@@ -488,7 +491,7 @@ export default function TimesheetView({ building }: { building: Building }) {
         style={{ minWidth: `${frontMinWidthPx}px` }}
       >
         <colgroup>
-          {scaleFixedCols([9, 4, 7, 22, 9], periodType).map((w, i) => (
+          {scaleFixedCols([9, 6, 9, 18, 9], periodType).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
           ))}
           {DAYS.map((d, i) => (
@@ -502,7 +505,9 @@ export default function TimesheetView({ building }: { building: Building }) {
         <thead>
           <tr>
             <th rowSpan={2} className={`${cell} align-middle`}>Building</th>
-            <th rowSpan={2} className={`${cell} align-middle`}>{totalHours}h total</th>
+            <th rowSpan={2} className={`${cell} align-middle`}>
+              <span className="text-[11px] leading-tight print:text-[7px]">{totalHours}h total</span>
+            </th>
             <th rowSpan={2} className={`${cell} align-middle`}>WO</th>
             <th rowSpan={2} className={`${cell} align-middle`}>Name</th>
             <th rowSpan={2} className={`${cell} align-middle`}>Staff Number</th>
@@ -562,7 +567,7 @@ export default function TimesheetView({ building }: { building: Building }) {
               )}
               <td className={`${cell} text-center`}>{r.horas ?? ""}</td>
               {editMode ? (
-                <td className={`${cell} text-center font-bold align-middle break-words`}>
+                <td className={`${cell} text-center font-bold align-middle overflow-hidden whitespace-nowrap text-ellipsis`}>
                   {r.kind === "staff" ? (
                     <input
                       type="text"
@@ -577,12 +582,12 @@ export default function TimesheetView({ building }: { building: Building }) {
                 </td>
               ) : rowWoAllSame ? (
                 i === 0 && (
-                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle break-words`}>
+                  <td rowSpan={rows.length} className={`${cell} text-center font-bold align-middle overflow-hidden whitespace-nowrap text-ellipsis`}>
                     {wos[0] || (building.workOrder ?? "")}
                   </td>
                 )
               ) : (
-                <td className={`${cell} text-center font-bold align-middle break-words`}>
+                <td className={`${cell} text-center font-bold align-middle overflow-hidden whitespace-nowrap text-ellipsis`}>
                   {effWo(r) || (building.workOrder ?? "")}
                 </td>
               )}
@@ -671,7 +676,7 @@ export default function TimesheetView({ building }: { building: Building }) {
           style={{ minWidth: `${backMinWidthPx}px` }}
         >
           <colgroup>
-            {scaleFixedCols([9, 4, 7, 18, 13], periodType).map((w, i) => (
+            {scaleFixedCols([9, 6, 9, 14, 13], periodType).map((w, i) => (
               <col key={i} style={{ width: `${w}%` }} />
             ))}
             {DAYS.map((d, i) => (
@@ -731,7 +736,7 @@ export default function TimesheetView({ building }: { building: Building }) {
                   )}
                 </td>
                 <td className={`${backCell} text-center`}>{c.horas ?? ""}</td>
-                <td className={`${backCell} text-center`}>
+                <td className={`${backCell} overflow-hidden whitespace-nowrap text-ellipsis text-center`}>
                   {editMode ? (
                     <input
                       type="text"

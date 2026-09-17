@@ -8,7 +8,7 @@ import {
   isWithinRange,
   snapToWorkingDay,
   fortnightEndISO,
-  workingDaysInRange,
+  allDaysInRange,
 } from "@/lib/week";
 import CombinedTimesheetEditor from "@/components/timesheets/CombinedTimesheetEditor";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -327,7 +327,10 @@ export default function LancarClient({
   // Só deixa o fim livre enquanto ainda não existe período pra essa data —
   // uma vez lançado, início e fim ficam fixos (igual weekStart já era).
   const endEditable = pendingChoice;
-  const workingDayCount = workingDaysInRange(weekStart, weekEnd).length;
+  // Conta dias corridos (seg a dom), não dias úteis — a folha em si
+  // continua só seg-sex (getTimesheetDates), isso aqui é só o texto de apoio
+  // ao lado do seletor de datas.
+  const dayCount = allDaysInRange(weekStart, weekEnd).length;
 
   return (
     <div>
@@ -349,7 +352,7 @@ export default function LancarClient({
           className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol disabled:bg-surface disabled:text-ink/40 sm:py-1.5 sm:text-sm"
         />
         <span className="text-sm text-ink/60">
-          <span className="text-ink/40">({workingDayCount} {t("working days")})</span>
+          <span className="text-ink/40">({dayCount} {t("days")})</span>
         </span>
 
         {existingWeeks.length > 0 && (

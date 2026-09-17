@@ -135,15 +135,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(toJSONSafe(mapAdjustmentReport(fresh)));
 }
 
+// TL dono: só o próprio rascunho, antes de enviar. Master/Supervisor: só um
+// relatório já ENVIADO (submitted/done) — limpeza da tela de review. Não
+// existe lixeira pra ajustes (sem deletedAt no schema), então pros dois
+// casos é sempre definitivo, sem "restaurar" depois.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
   const { report, isOwnerTL } = await load(BigInt(params.id), user);
   if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
-  // Só o TL dono, e só enquanto rascunho — depois de enviado não dá mais.
-  if (!isOwnerTL || report.status !== "draft") {
-    return NextResponse.json({ error: "Only your own draft can be deleted" }, { status: 403 });
+
+  const ownerCanDelete = isOwnerTL && report.status === "draft";
+  const supervisorCanDelete = hasRole(user, "master", "supervisor") && report.status !== "draft";
+  if (!ownerCanDelete && !supervisorCanDelete) {
+    return NextResponse.json({ error: "Not authorized to delete this report" }, { status: 403 });
   }
 
   await prisma.adjustmentReport.delete({ where: { id: report.id } });
