@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Filter, UserPlus, Users, ClipboardList, UserCircle } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { ArrowLeft, Filter, UserPlus, Users, ClipboardList, UserCircle } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 import LanguageToggle from "./LanguageToggle";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -10,11 +11,30 @@ import type { AppRole } from "@/lib/types";
 
 export default function Header({ role }: { role: AppRole }) {
   const { t } = useLanguage();
+  const router = useRouter();
+  const pathname = usePathname();
+  // "/" é o hub de cada papel (ver app/page.tsx) — não tem pra onde voltar
+  // dali, então some. Usa o histórico do navegador (não um mapa de "pai" de
+  // cada rota) de propósito: com dezenas de telas de detalhe diferentes,
+  // manter esse mapa manualmente seria mais frágil do que confiar em como a
+  // pessoa realmente chegou aqui.
+  const showBack = pathname !== "/";
 
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-white">
       <div className="mx-auto grid max-w-6xl grid-cols-3 items-center gap-1 px-2 py-2.5 sm:gap-2 sm:px-6 sm:py-4">
         <div className="flex justify-start gap-1.5 sm:gap-2">
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => router.back()}
+              title={t("Back")}
+              className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol sm:gap-2 sm:px-3 sm:py-2"
+            >
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">{t("Back")}</span>
+            </button>
+          )}
           {role === "master" && (
             <Link
               href="/filter"

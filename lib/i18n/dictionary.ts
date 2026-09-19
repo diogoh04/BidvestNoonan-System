@@ -6,6 +6,7 @@
 // documento oficial que Master/Supervisor também usam.
 export const pt: Record<string, string> = {
   // Header / navegação / dashboard
+  Back: "Voltar",
   "My Profile": "Meu Perfil",
   Logout: "Sair",
   "Select a view": "Selecione uma visão",
@@ -54,12 +55,19 @@ export const pt: Record<string, string> = {
   "Open slot": "Vaga em aberto",
   "no hours set": "sem horas definidas",
   Sheet: "Folha",
+  "Fill slot": "Preencher vaga",
+  "Could not fill this slot": "Não foi possível preencher esta vaga",
 
   // StaffRow (notas)
   Notes: "Notas",
   "Write a note...": "Escreva uma nota...",
   "No notes yet.": "Nenhuma nota ainda.",
   "Failed to save note": "Não foi possível salvar a nota",
+  "Attach photo": "Anexar foto",
+  Remove: "Remover",
+  "Failed to upload photo": "Não foi possível enviar a foto",
+  "Image is too large (max 8MB)": "Imagem muito grande (máx. 8MB)",
+  "Only image files are allowed": "Só são permitidos arquivos de imagem",
   "Failed to delete note": "Não foi possível excluir a nota",
   "Failed to delete entry": "Não foi possível excluir o registro",
   "Failed to delete": "Não foi possível excluir",

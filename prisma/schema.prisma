@@ -308,6 +308,12 @@ model Feedback {
   data     DateTime? @default(now())
   workerId BigInt?   @map("worker_id")
 
+  // URLs das fotos anexadas (Vercel Blob — ver POST /api/upload). Guardado
+  // aqui, não numa tabela à parte, porque é sempre lido/escrito junto com a
+  // nota (nunca filtrado/listado sozinho) — mesmo padrão de
+  // Staff.leaveReasons. Migration 33.
+  fotos    String[]  @default([])
+
   staff    Staff?    @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@map("feedback")

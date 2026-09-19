@@ -76,8 +76,13 @@ export default async function MyBuildingsPage() {
 
               {/* Reordenar e "Sheet labels" (Building/WO por pessoa na folha
                   impressa) ficam liberados aqui — canManageStaff=false continua
-                  escondendo horas/editar/excluir/histórico, que são exclusivos
-                  do Master (ver comentário em StaffRow). */}
+                  escondendo editar horas/histórico, que são exclusivos do
+                  Master (ver comentário em StaffRow). canFillSlots e
+                  canRemoveStaff à parte: o team leader pode preencher uma
+                  vaga em aberto do próprio prédio com alguém já cadastrado
+                  no sistema (ver POST /api/buildings/[id]/staff) e também
+                  tirar alguém de lá (DELETE no mesmo endpoint), sem poder
+                  editar horas ou ver o histórico completo dos cleaners. */}
               <BuildingStaffClient
                 staff={b.cleaners}
                 emptyLabel="No cleaner assigned to this building."
@@ -87,6 +92,8 @@ export default async function MyBuildingsPage() {
                 buildingWorkOrder={b.workOrder}
                 role="cleaner"
                 canManageStaff={false}
+                canFillSlots={true}
+                canRemoveStaff={true}
               />
             </section>
           ))}

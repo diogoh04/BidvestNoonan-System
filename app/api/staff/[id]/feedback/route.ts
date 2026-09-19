@@ -27,6 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         id: f.id.toString(),
         texto: f.texto,
         data: f.data ? f.data.toISOString() : null,
+        fotos: f.fotos,
       }))
     )
   );
@@ -46,12 +47,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const created = await prisma.feedback.create({
     data: {
       texto: parsed.data.texto,
+      fotos: parsed.data.fotos,
       workerId: BigInt(params.id),
     },
   });
 
   return NextResponse.json(
-    toJSONSafe({ id: created.id.toString(), texto: created.texto, data: created.data?.toISOString() ?? null }),
+    toJSONSafe({
+      id: created.id.toString(),
+      texto: created.texto,
+      data: created.data?.toISOString() ?? null,
+      fotos: created.fotos,
+    }),
     { status: 201 }
   );
 }

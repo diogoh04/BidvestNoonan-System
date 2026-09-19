@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 
@@ -12,12 +13,22 @@ export async function DELETE(
   }
 
   try {
-    const result = await prisma.feedback.deleteMany({
+    const target = await prisma.feedback.findFirst({
       where: { id: BigInt(params.feedbackId), workerId: BigInt(params.id) },
     });
-    if (result.count === 0) {
+    if (!target) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
+
+    await prisma.feedback.delete({ where: { id: target.id } });
+
+    // Best-effort: apaga as fotos do Blob junto. Se falhar (arquivo já
+    // sumiu, token indisponível etc.), a nota já foi apagada mesmo assim —
+    // não vale travar a exclusão por causa de um anexo órfão.
+    if (target.fotos.length > 0) {
+      await del(target.fotos).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Failed to delete note" }, { status: 500 });

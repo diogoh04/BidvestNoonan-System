@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Clock, Pencil, Check, X, GripVertical, RotateCcw, Tag } from "lucide-react";
+import { Clock, Pencil, Check, X, GripVertical, RotateCcw, Tag, UserPlus } from "lucide-react";
+import StaffSearchInput from "@/components/StaffSearchInput";
 import {
   DndContext,
   PointerSensor,
@@ -153,6 +154,8 @@ export default function BuildingStaffClient({
   buildingWorkOrder,
   role,
   canManageStaff = true,
+  canFillSlots = canManageStaff,
+  canRemoveStaff = canManageStaff,
 }: {
   staff: StaffItem[];
   emptyLabel: string;
@@ -169,11 +172,23 @@ export default function BuildingStaffClient({
   // vínculo ou abrir o histórico é exclusivo do Master (mesma regra que já
   // vale pro StaffRow — ver comentário lá).
   canManageStaff?: boolean;
+  // Preencher uma "Open slot" buscando alguém já cadastrado no sistema (ver
+  // POST /api/buildings/[id]/staff). Default = canManageStaff (Master já
+  // podia fazer isso indiretamente pelo cadastro do staff); liberado à parte
+  // pro team_leader em /my, que não tem canManageStaff.
+  canFillSlots?: boolean;
+  // Remover alguém deste prédio (tirar o vínculo cleaner) sem liberar editar
+  // horas/histórico junto — ver comentário em StaffRow.canRemove. Default =
+  // canManageStaff; liberado à parte pro team_leader em /my (contrapartida
+  // do "Fill slot" acima: quem pode colocar alguém também pode tirar).
+  canRemoveStaff?: boolean;
 }) {
   const [list, setList] = useState(staff);
   const [slots, setSlots] = useState(initialSlots ?? []);
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [fillingSlotId, setFillingSlotId] = useState<string | null>(null);
+  const [fillError, setFillError] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
   // Editor de Building/WO por pessoa na folha — escondido por padrão (é raro),
   // já aberto quando alguém tem rótulo definido.
@@ -259,6 +274,39 @@ export default function BuildingStaffClient({
     }
   }
 
+  // Preenche uma "Open slot" com alguém já cadastrado no sistema (ver POST
+  // /api/buildings/[id]/staff) — cria o vínculo cleaner com horas = da vaga.
+  // Não precisa saber qual BuildingSlot exatamente foi escolhido: assim que
+  // `list` ganha alguém com horas que casa, computeOpenSlots já não mostra
+  // mais essa vaga como aberta (ver lib/openSlots.ts).
+  async function fillSlot(horas: number, staff: { id: string; nome: string; staffNumber: string | null }) {
+    if (!buildingId) return;
+    setFillError(null);
+    try {
+      const res = await fetch(`/api/buildings/${buildingId}/staff`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId: staff.id, horas }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Could not fill this slot");
+      setList((prev) => [
+        ...prev,
+        {
+          id: staff.id,
+          sbId: body.sbId,
+          nome: staff.nome,
+          staffNumber: staff.staffNumber,
+          telefone: null,
+          horasSemana: body.horasSemana ?? horas,
+        },
+      ]);
+      setFillingSlotId(null);
+    } catch (e: any) {
+      setFillError(e.message);
+    }
+  }
+
   if (list.length === 0 && openSlots.length === 0) {
     return <p className="text-sm text-ink/40">{t(emptyLabel)}</p>;
   }
@@ -277,6 +325,7 @@ export default function BuildingStaffClient({
           buildingId={buildingId}
           role={role}
           canManage={canManageStaff}
+          canRemove={canRemoveStaff}
           onDeleted={(sbId) => setList((prev) => prev.filter((p) => p.sbId !== sbId))}
         />
         {sheetFieldsOn && (
@@ -382,50 +431,86 @@ export default function BuildingStaffClient({
       {openSlots.map((slot, i) => (
         <div
           key={slot.id}
-          className="flex items-center justify-between gap-2 rounded-md border border-dashed border-line bg-surface px-4 py-3"
+          className="rounded-md border border-dashed border-line bg-surface px-4 py-3"
         >
-          <span className="flex items-center gap-2 text-sm text-ink/40">
-            <span className="w-5 shrink-0 text-center font-mono text-xs">{sortedList.length + i + 1}</span>
-            {t("Open slot")}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-sm text-ink/40">
+              <span className="w-5 shrink-0 text-center font-mono text-xs">{sortedList.length + i + 1}</span>
+              {t("Open slot")}
+            </span>
 
-          {!canManageStaff ? (
-            <span className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink/50">
-              <Clock size={13} className="text-ink/30" />
-              {slot.horas}h/wk
-            </span>
-          ) : editingSlotId === slot.id ? (
-            <span className="flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1.5 text-xs">
-              <input
-                type="number"
-                min={1}
-                step={0.25}
-                autoFocus
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && saveSlotHours(slot.id)}
-                className="w-14 border-none bg-transparent text-ink outline-none"
-              />
-              <span className="text-ink/50">h/wk</span>
-              <button onClick={() => saveSlotHours(slot.id)} className="text-petrol hover:text-petrolDark">
-                <Check size={14} />
+            {!canManageStaff ? (
+              <span className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink/50">
+                <Clock size={13} className="text-ink/30" />
+                {slot.horas}h/wk
+              </span>
+            ) : editingSlotId === slot.id ? (
+              <span className="flex items-center gap-1 rounded-md border border-petrol bg-white px-2 py-1.5 text-xs">
+                <input
+                  type="number"
+                  min={1}
+                  step={0.25}
+                  autoFocus
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveSlotHours(slot.id)}
+                  className="w-14 border-none bg-transparent text-ink outline-none"
+                />
+                <span className="text-ink/50">h/wk</span>
+                <button onClick={() => saveSlotHours(slot.id)} className="text-petrol hover:text-petrolDark">
+                  <Check size={14} />
+                </button>
+                <button onClick={() => setEditingSlotId(null)} className="text-ink/40 hover:text-ink">
+                  <X size={14} />
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => {
+                  setEditingSlotId(slot.id);
+                  setEditValue(slot.horas.toString());
+                }}
+                className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink/60 hover:border-petrol hover:text-petrol"
+              >
+                <Clock size={13} />
+                {slot.horas}h/wk
+                <Pencil size={12} />
               </button>
-              <button onClick={() => setEditingSlotId(null)} className="text-ink/40 hover:text-ink">
-                <X size={14} />
-              </button>
-            </span>
-          ) : (
-            <button
-              onClick={() => {
-                setEditingSlotId(slot.id);
-                setEditValue(slot.horas.toString());
-              }}
-              className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs text-ink/60 hover:border-petrol hover:text-petrol"
-            >
-              <Clock size={13} />
-              {slot.horas}h/wk
-              <Pencil size={12} />
-            </button>
+            )}
+          </div>
+
+          {canFillSlots && !!buildingId && (
+            <div className="mt-2 pl-7">
+              {fillingSlotId === slot.id ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <StaffSearchInput
+                    onSelect={(picked) => fillSlot(slot.horas, picked)}
+                    placeholder={t("Search staff...")}
+                    className="w-56 rounded-md border border-line px-2 py-1.5 text-xs outline-none focus:border-petrol"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFillingSlotId(null);
+                      setFillError(null);
+                    }}
+                    className="text-ink/40 hover:text-ink"
+                  >
+                    <X size={14} />
+                  </button>
+                  {fillError && <span className="w-full text-xs text-danger">{t(fillError)}</span>}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFillingSlotId(slot.id)}
+                  className="flex items-center gap-1.5 rounded-md border border-dashed border-petrol/40 bg-white px-2.5 py-1.5 text-xs text-petrol transition hover:border-petrol"
+                >
+                  <UserPlus size={13} />
+                  {t("Fill slot")}
+                </button>
+              )}
+            </div>
           )}
         </div>
       ))}

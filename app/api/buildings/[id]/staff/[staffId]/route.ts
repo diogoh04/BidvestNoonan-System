@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/auth";
+import { tlOwnsBuilding } from "@/lib/teamLeaderScope";
 import { closeBuildingAssignment } from "@/lib/staffHistory";
 
 export async function DELETE(
@@ -8,12 +9,18 @@ export async function DELETE(
   { params }: { params: { id: string; staffId: string } }
 ) {
   const user = await getCurrentUser();
-  if (!hasRole(user, "master")) {
+  const buildingId = BigInt(params.id);
+  const isTeamLeader = hasRole(user, "team_leader");
+
+  if (isTeamLeader) {
+    if (!(await tlOwnsBuilding(user!, buildingId))) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+  } else if (!hasRole(user, "master")) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const staffId = BigInt(params.staffId);
-  const buildingId = BigInt(params.id);
 
   // O mesmo staff pode ter vários vínculos no mesmo prédio (cleaner em dois
   // turnos/postos, ou cleaner + team leader). `sbId` identifica exatamente
@@ -31,6 +38,14 @@ export async function DELETE(
 
   if (!target) {
     return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+  }
+
+  // team_leader só tira cleaner — o vínculo "team_leader" (legado) continua
+  // exclusivo do Master, que é quem liga/desliga líder de time de verdade
+  // (ver lib/teams.ts). Checado no `target` resolvido (não só no `role` da
+  // query) porque `sbId` sozinho poderia apontar direto pra um vínculo desses.
+  if (isTeamLeader && target.role !== "cleaner") {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   await prisma.staffBuilding.delete({ where: { id: target.id } });

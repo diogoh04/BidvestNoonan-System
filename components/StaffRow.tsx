@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { MessageSquarePlus, MessageCircle, Pencil, Trash2, X, History as HistoryIcon } from "lucide-react";
+import { MessageSquarePlus, MessageCircle, Pencil, Trash2, X, History as HistoryIcon, Paperclip } from "lucide-react";
 import { toWhatsAppHref } from "@/lib/phone";
 import {
   HISTORY_KIND_LABELS,
@@ -28,12 +28,16 @@ type StaffRowProps = {
   role?: "cleaner" | "team_leader";
   // Recebe o `sbId` removido (ou o id do staff, se não houver vínculo).
   onDeleted?: (key: string) => void;
-  // Team Leader vê e comenta, mas não edita/exclui staff (isso é admin,
-  // exclusivo do Master) — o painel de histórico também é exclusivo dele.
+  // Team Leader vê e comenta, mas não edita staff nem abre o histórico (isso
+  // é admin, exclusivo do Master).
   canManage?: boolean;
+  // Remover o vínculo (tirar a pessoa deste prédio) — separado de
+  // `canManage` pra dar essa ação ao Team Leader (ver /my) sem liberar
+  // editar/histórico junto. Default = canManage (Master sempre pôde).
+  canRemove?: boolean;
 };
 
-type Observation = { id: string; texto: string | null; data: string | null };
+type Observation = { id: string; texto: string | null; data: string | null; fotos?: string[] };
 type Panel = null | "notes" | "history";
 
 const HISTORY_KIND_STYLE: Record<StaffHistoryDTO["kind"], string> = {
@@ -53,6 +57,7 @@ export default function StaffRow({
   role,
   onDeleted,
   canManage = true,
+  canRemove = canManage,
 }: StaffRowProps) {
   const { t } = useLanguage();
   const [panel, setPanel] = useState<Panel>(null);
@@ -60,6 +65,13 @@ export default function StaffRow({
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fotos escolhidas mas ainda não enviadas — só sobem pro Blob (ver POST
+  // /api/upload) no momento de salvar a nota, não na hora de escolher o
+  // arquivo (evita anexo órfão se a pessoa desistir de salvar).
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [history, setHistory] = useState<Observation[] | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -101,18 +113,50 @@ export default function StaffRow({
     }
   }
 
+  function addPendingFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const picked = Array.from(files);
+    setPendingFiles((prev) => [...prev, ...picked]);
+    setPendingPreviews((prev) => [...prev, ...picked.map((f) => URL.createObjectURL(f))]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removePendingFile(index: number) {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+    setPendingPreviews((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
   async function saveObservation() {
     if (!obsText.trim()) return;
     setSaving(true);
     setError(null);
     try {
+      // Sobe as fotos primeiro (uma por vez é suficiente aqui — não é um
+      // volume que justifique paralelizar) pra só criar a nota com os
+      // pathnames já prontos (ver GET /api/files pra como isso vira imagem).
+      const fotos: string[] = [];
+      for (const file of pendingFiles) {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(body?.error ?? "Failed to upload photo");
+        fotos.push(body.pathname);
+      }
+
       const res = await fetch(`/api/staff/${id}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texto: obsText }),
+        body: JSON.stringify({ texto: obsText, fotos }),
       });
       if (!res.ok) throw new Error("Failed to save note");
       setObsText("");
+      pendingPreviews.forEach((url) => URL.revokeObjectURL(url));
+      setPendingFiles([]);
+      setPendingPreviews([]);
       const updated = await fetch(`/api/staff/${id}/feedback`).then((r) => r.json());
       setHistory(updated);
     } catch (e: any) {
@@ -217,14 +261,16 @@ export default function StaffRow({
               >
                 <Pencil size={18} />
               </Link>
-              <button
-                title="Delete"
-                onClick={() => setConfirmingDelete(true)}
-                className="rounded-md p-2 text-ink/60 transition hover:bg-red-50 hover:text-danger"
-              >
-                <Trash2 size={18} />
-              </button>
             </>
+          )}
+          {canRemove && (
+            <button
+              title="Delete"
+              onClick={() => setConfirmingDelete(true)}
+              className="rounded-md p-2 text-ink/60 transition hover:bg-red-50 hover:text-danger"
+            >
+              <Trash2 size={18} />
+            </button>
           )}
         </div>
       </div>
@@ -245,8 +291,41 @@ export default function StaffRow({
               disabled={saving}
               className="rounded-md bg-petrol px-3 py-2 text-sm font-medium text-white transition hover:bg-petrolDark disabled:opacity-50"
             >
-              {t("Save")}
+              {saving ? t("Saving...") : t("Save")}
             </button>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => addPendingFiles(e.target.files)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-md border border-dashed border-line px-2 py-1 text-xs text-ink/50 transition hover:border-petrol hover:text-petrol"
+            >
+              <Paperclip size={12} />
+              {t("Attach photo")}
+            </button>
+            {pendingPreviews.map((src, i) => (
+              <div key={src} className="group relative h-10 w-10 shrink-0 overflow-hidden rounded border border-line">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePendingFile(i)}
+                  title={t("Remove")}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition group-hover:opacity-100"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
           </div>
 
           <div className="mt-3">
@@ -266,6 +345,26 @@ export default function StaffRow({
                       {obs.data && (
                         <div className="mt-0.5 font-mono text-xs text-ink/40">
                           {new Date(obs.data).toLocaleString("en-GB")}
+                        </div>
+                      )}
+                      {obs.fotos && obs.fotos.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {obs.fotos.map((pathname) => {
+                            // Store do Blob é privado — não dá pra apontar
+                            // direto pra URL do blob, tem que passar pelo
+                            // proxy autenticado (ver GET /api/files).
+                            const src = `/api/files?pathname=${encodeURIComponent(pathname)}`;
+                            return (
+                              <a key={pathname} href={src} target="_blank" rel="noopener noreferrer">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={src}
+                                  alt=""
+                                  className="h-12 w-12 rounded border border-line object-cover transition hover:opacity-80"
+                                />
+                              </a>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

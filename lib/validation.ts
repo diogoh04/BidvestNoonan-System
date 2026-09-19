@@ -120,6 +120,11 @@ export type StaffInput = z.infer<typeof staffInputSchema>;
 
 export const feedbackInputSchema = z.object({
   texto: z.string().trim().min(1, "Note cannot be empty"),
+  // Pathnames dentro do Blob store (ex.: "feedback/xxx.png"), já enviados
+  // pro Vercel Blob (ver POST /api/upload) — a nota só guarda a referência,
+  // o upload em si acontece antes, à parte. Não é URL porque o store é
+  // privado (ver GET /api/files).
+  fotos: z.array(z.string().min(1).startsWith("feedback/")).max(10).optional().default([]),
 });
 
 export const buildingInputSchema = z.object({
