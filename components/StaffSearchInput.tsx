@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type StaffResult = { id: string; nome: string | null; staffNumber: string | null };
 
@@ -17,6 +17,7 @@ export default function StaffSearchInput({
   const [results, setResults] = useState<StaffResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -37,6 +38,26 @@ export default function StaffSearchInput({
     return () => clearTimeout(timeout);
   }, [query]);
 
+  // Fecha ao tocar/clicar fora — não usa onBlur do input: no Safari/iOS o
+  // blur do input dispara ANTES do clique na sugestão (touchend -> blur ->
+  // mousedown/click), então um timeout de blur podia fechar a lista antes do
+  // toque na opção chegar a registrar (o "clique não fica salvo" no celular).
+  // Checar se o alvo do toque está fora do container evita essa corrida.
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: MouseEvent | TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [open]);
+
   function pick(staff: StaffResult) {
     if (!staff.nome) return;
     onSelect({ id: staff.id, nome: staff.nome, staffNumber: staff.staffNumber });
@@ -46,12 +67,11 @@ export default function StaffSearchInput({
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
         className={
           className ??
@@ -69,7 +89,6 @@ export default function StaffSearchInput({
               <button
                 type="button"
                 key={s.id}
-                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(s)}
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-surface"
               >

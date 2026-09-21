@@ -335,25 +335,27 @@ export default function LancarClient({
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-ink">{t("Start date:")}</label>
-        <input
-          type="date"
-          value={weekStart}
-          onChange={(e) => changeWeek(e.target.value)}
-          className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
-        />
-        <label className="text-sm font-medium text-ink">{t("End date:")}</label>
-        <input
-          type="date"
-          value={weekEnd}
-          min={weekStart}
-          disabled={!endEditable}
-          onChange={(e) => changeWeekEnd(e.target.value)}
-          className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol disabled:bg-surface disabled:text-ink/40 sm:py-1.5 sm:text-sm"
-        />
-        <span className="text-sm text-ink/60">
-          <span className="text-ink/40">({dayCount} {t("days")})</span>
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm font-medium text-ink">{t("Start date:")}</label>
+          <input
+            type="date"
+            value={weekStart}
+            onChange={(e) => changeWeek(e.target.value)}
+            className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
+          />
+          <label className="text-sm font-medium text-ink">{t("End date:")}</label>
+          <input
+            type="date"
+            value={weekEnd}
+            min={weekStart}
+            disabled={!endEditable}
+            onChange={(e) => changeWeekEnd(e.target.value)}
+            className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol disabled:bg-surface disabled:text-ink/40 sm:py-1.5 sm:text-sm"
+          />
+          <span className="text-sm text-ink/60">
+            <span className="text-ink/40">({dayCount} {t("days")})</span>
+          </span>
+        </div>
 
         {existingWeeks.length > 0 && (
           <>
