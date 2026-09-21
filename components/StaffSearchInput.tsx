@@ -79,7 +79,13 @@ export default function StaffSearchInput({
         }
       />
       {open && query.trim() !== "" && (
-        <div className="absolute z-10 mt-1 max-h-56 w-64 overflow-auto rounded-md border border-line bg-white shadow-lg">
+        // Fica no fluxo normal (não "absolute") de propósito: no Safari/iOS,
+        // o teclado desloca a área visível sem redimensionar o layout, e uma
+        // lista "position: absolute" podia acabar posicionada atrás do
+        // teclado — o toque parecia acertar o nome, mas caía fora da lista
+        // de verdade. Em vez de flutuar por cima, empurra o resto do
+        // formulário pra baixo, que sempre fica visível.
+        <div className="z-10 mt-1 max-h-56 w-full overflow-auto rounded-md border border-line bg-white shadow-lg">
           {loading && <div className="px-3 py-2 text-xs text-ink/40">Searching...</div>}
           {!loading && results.length === 0 && (
             <div className="px-3 py-2 text-xs text-ink/40">No staff found.</div>
