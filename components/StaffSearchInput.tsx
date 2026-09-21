@@ -73,6 +73,15 @@ export default function StaffSearchInput({
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
         placeholder={placeholder}
+        // Sem isso, o Safari trata como campo de nome/contato e pode
+        // oferecer autopreenchimento (Contatos, corretor, etc.) por cima da
+        // nossa lista de sugestões — o toque acerta o autopreenchimento do
+        // Safari em vez do nosso botão, e o campo volta vazio sem erro
+        // nenhum no console (o React nunca fica sabendo do toque).
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         className={
           className ??
           "rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
