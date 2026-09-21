@@ -12,6 +12,10 @@ html,
 body {
   background-color: #aaaaafe6;
   color: #06131e;
+  /* Rolagem horizontal só deve acontecer DENTRO de containers específicos
+     (ex.: a tabela da folha de ponto, via overflow-x-auto) — nunca na
+     página inteira. Rede de segurança contra qualquer vazamento futuro. */
+  overflow-x: hidden;
 }
 
 * {

@@ -114,25 +114,30 @@ export default function MyTimesheetsListClient({
             key={weekStart}
             className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
           >
-            <Link href={`/my/timesheets/lancar?week=${weekStart}`} className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-ink">
-                  {isBiweekly ? t("Fortnight") : t("Week")} {range}
-                </span>
-                {items.some((ts) => ts.fortnightPlanId) && (
-                  <span className="rounded-full bg-petrolLight px-2 py-0.5 text-[11px] font-medium text-petrol">
-                    {t("From fortnight")}
+            <Link
+              href={`/my/timesheets/lancar?week=${weekStart}`}
+              className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-ink">
+                    {isBiweekly ? t("Fortnight") : t("Week")} {range}
                   </span>
-                )}
+                  {items.some((ts) => ts.fortnightPlanId) && (
+                    <span className="rounded-full bg-petrolLight px-2 py-0.5 text-[11px] font-medium text-petrol">
+                      {t("From fortnight")}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-ink/40">
+                  {items.length} {t("building(s)")}
+                </div>
               </div>
-              <div className="text-xs text-ink/40">
-                {items.length} {t("building(s)")}
-              </div>
-            </Link>
 
-            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[status]}`}>
-              {t(STATUS_LABEL[status])}
-            </span>
+              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[status]}`}>
+                {t(STATUS_LABEL[status])}
+              </span>
+            </Link>
 
             {canDelete && (
               <button

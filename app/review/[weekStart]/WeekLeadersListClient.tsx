@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight, User, Trash2 } from "lucide-react";
+import { User, Trash2 } from "lucide-react";
 import type { TimesheetDTO } from "@/lib/types";
 
 export default function WeekLeadersListClient({
@@ -86,36 +86,31 @@ export default function WeekLeadersListClient({
             key={userId}
             className="flex items-center justify-between rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
           >
-            <Link href={`/review/${weekStart}/${userId}`} className="flex flex-1 items-center gap-3">
+            <Link href={`/review/${weekStart}/${userId}`} className="flex flex-1 flex-wrap items-center gap-3">
               <User size={18} className="text-petrol" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="font-medium text-ink">{username}</div>
                 <div className="text-xs text-ink/40">{items.length} building(s)</div>
               </div>
-            </Link>
-
-            <div className="flex shrink-0 items-center gap-2">
               {pending > 0 ? (
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                   Pending
                 </span>
               ) : (
-                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">
+                <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-success">
                   Done
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => setConfirmingId(userId)}
-                title="Delete this week's timesheets"
-                className="rounded-md p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
-              >
-                <Trash2 size={16} />
-              </button>
-              <Link href={`/review/${weekStart}/${userId}`} className="text-ink/30 hover:text-petrol">
-                <ChevronRight size={18} />
-              </Link>
-            </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setConfirmingId(userId)}
+              title="Delete this week's timesheets"
+              className="shrink-0 rounded-md p-1.5 text-ink/40 hover:bg-red-50 hover:text-danger"
+            >
+              <Trash2 size={16} />
+            </button>
           </div>
         );
       })}

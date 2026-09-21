@@ -472,7 +472,7 @@ export default function CombinedTimesheetEditor({
   const anyEditable = timesheets.some(isEditable);
 
   return (
-    <main className="mx-auto max-w-6xl bg-white px-3 py-6 sm:px-6 sm:py-10 print:max-w-none print:px-8 print:py-4">
+    <div className="bg-white print:px-8 print:py-4">
       <div className="mb-6 flex items-center justify-between gap-3 print:hidden">
         <div className="flex flex-wrap gap-2">
           {timesheets.map((t) => (
@@ -506,9 +506,13 @@ export default function CombinedTimesheetEditor({
         <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink print:text-sm">
           Sign In &amp; Sign Out Book
         </h1>
-        <div className="flex items-center gap-6">
+        <div className="flex min-w-0 items-center gap-6">
           {/* Sempre editável (não precisa clicar em "Edit") — só o nome, não
-              mexe no resto da folha. */}
+              mexe no resto da folha. min-w-0 + max-w-full: sem isso, o
+              atributo `size` (baseado no tamanho do texto) empurra a
+              coluna "auto" do grid pra fora da tela em nomes longos no
+              celular — no desktop/impressão continua se ajustando ao texto
+              normalmente. */}
           <input
             type="text"
             value={headerNome}
@@ -517,7 +521,7 @@ export default function CombinedTimesheetEditor({
               scheduleSaveHeader({ nomePredio: e.target.value, wo: "" });
             }}
             size={Math.max(headerNome.length, 1)}
-            className="border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-xs"
+            className="min-w-0 max-w-full border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-xs"
           />
           <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
         </div>
@@ -1025,6 +1029,6 @@ export default function CombinedTimesheetEditor({
           }
         }
       `}</style>
-    </main>
+    </div>
   );
 }

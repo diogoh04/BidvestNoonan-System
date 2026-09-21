@@ -457,9 +457,13 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
         <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink print:text-lg">
           Sign In &amp; Sign Out Book
         </h1>
-        <div className="flex items-center gap-6">
+        <div className="flex min-w-0 items-center gap-6">
           {/* Sempre editável (não precisa clicar em "Edit") — só o nome, não
-              mexe no resto da folha. */}
+              mexe no resto da folha. min-w-0 + max-w-full: sem isso, o
+              atributo `size` (baseado no tamanho do texto) empurra a
+              coluna "auto" do grid pra fora da tela em nomes longos no
+              celular — no desktop/impressão continua se ajustando ao texto
+              normalmente. */}
           <input
             type="text"
             value={headerNome}
@@ -468,7 +472,7 @@ export default function LeaderTimesheetView({ teamLeader }: { teamLeader: TeamLe
               scheduleSaveHeader({ nomePredio: e.target.value, wo: "" });
             }}
             size={Math.max(headerNome.length, 1)}
-            className="border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-sm"
+            className="min-w-0 max-w-full border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-sm"
           />
           <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-10 print:w-10" />
         </div>

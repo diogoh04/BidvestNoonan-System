@@ -166,18 +166,23 @@ export default function MyTimesheetsHubClient({
                   key={r.id}
                   className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-white px-4 py-3 transition hover:border-petrol"
                 >
-                  <Link href={`/my/timesheets/adjustments/${r.id}`} className="min-w-0 flex-1">
-                    <div className="font-medium text-ink">
-                      {t("Week")} {formatWeekRange(r.weekStart)}
+                  <Link
+                    href={`/my/timesheets/adjustments/${r.id}`}
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-ink">
+                        {t("Week")} {formatWeekRange(r.weekStart)}
+                      </div>
+                      <div className="text-xs text-ink/40">
+                        {r.itemCount} {r.itemCount !== 1 ? t("items") : t("item")}
+                        {r.groups.length > 0 ? ` · ${r.groups.map((g) => g.buildingNome).join(", ")}` : ""}
+                      </div>
                     </div>
-                    <div className="text-xs text-ink/40">
-                      {r.itemCount} {r.itemCount !== 1 ? t("items") : t("item")}
-                      {r.groups.length > 0 ? ` · ${r.groups.map((g) => g.buildingNome).join(", ")}` : ""}
-                    </div>
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[r.status]}`}>
+                      {t(r.status)}
+                    </span>
                   </Link>
-                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[r.status]}`}>
-                    {t(r.status)}
-                  </span>
                   {r.status === "draft" && (
                     <button
                       type="button"
