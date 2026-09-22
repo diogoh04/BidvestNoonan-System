@@ -70,6 +70,15 @@ export default function LancarClient({
   // mais recente já feito) o efeito que carrega o período pode rodar.
   const [bootstrapped, setBootstrapped] = useState(false);
 
+  // "New fortnight" (forceNew) parte da data de hoje — mas hoje quase sempre
+  // já cai dentro da quinzenal atual em andamento, e sem isto o efeito de
+  // baixo "achava" essa quinzenal existente e pulava direto pra ela, em vez
+  // de deixar o Team Leader escolher as datas de uma nova. Fica true só até
+  // a pessoa mexer numa data de propósito (changeWeek/changeWeekEnd/dropdown)
+  // — a partir daí, digitar uma data que já existe volta a abrir ela
+  // normalmente (isso é intencional, não o bug do "New fortnight").
+  const skipAutoMatch = useRef(forceNew);
+
   // Linhas ao vivo do editor (antes do auto-save chegar ao servidor) — usado
   // pra "Send to supervisor" não perder a última tecla digitada.
   const liveRows = useRef<Record<string, TimesheetRow[]>>({});
@@ -144,7 +153,7 @@ export default function LancarClient({
 
   useEffect(() => {
     if (!profile || !bootstrapped) return;
-    const found = findExistingPeriod(weekStart);
+    const found = skipAutoMatch.current ? null : findExistingPeriod(weekStart);
     if (found) {
       if (found.weekStart !== weekStart) {
         setWeekStart(found.weekStart); // recai no início real do período; o efeito roda de novo
@@ -264,14 +273,15 @@ export default function LancarClient({
 
   function changeWeek(dateStr: string) {
     if (!dateStr) return;
+    skipAutoMatch.current = false;
     // Fim de semana empurra pra segunda; qualquer dia útil vale como início.
-    const snapped = snapToWorkingDay(dateStr);
-    setWeekStart(snapped);
-    // Sugestão de fim (os 10 dias úteis de sempre) — só um ponto de partida;
-    // o usuário pode mudar livremente antes de clicar "Start blank". Se essa
-    // data já cair dentro de um período existente, o efeito acima sobrescreve
-    // com o fim real assim que encontra.
-    setWeekEnd(fortnightEndISO(snapped));
+    // Não mexe mais em weekEnd aqui — antes recalculava uma sugestão (10 dias
+    // úteis) toda vez que o início mudava, o que sobrescrevia sem avisar uma
+    // data final que o Team Leader já tivesse ajustado. Agora início e fim
+    // são dois campos totalmente independentes; se essa data já cair dentro
+    // de um período existente, o efeito acima carrega o fim real assim que
+    // encontra.
+    setWeekStart(snapToWorkingDay(dateStr));
   }
 
   function changeWeekEnd(dateStr: string) {
@@ -334,61 +344,76 @@ export default function LancarClient({
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm font-medium text-ink">{t("Start date:")}</label>
-          <input
-            type="date"
-            value={weekStart}
-            onChange={(e) => changeWeek(e.target.value)}
-            className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
-          />
-          <label className="text-sm font-medium text-ink">{t("End date:")}</label>
-          <input
-            type="date"
-            value={weekEnd}
-            min={weekStart}
-            disabled={!endEditable}
-            onChange={(e) => changeWeekEnd(e.target.value)}
-            className="rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol disabled:bg-surface disabled:text-ink/40 sm:py-1.5 sm:text-sm"
-          />
-          <span className="text-sm text-ink/60">
-            <span className="text-ink/40">({dayCount} {t("days")})</span>
-          </span>
+      {/* Uma vez enviada, a tela vira só um preview do que foi mandado — sem
+          seletor de data, sem "abrir outra quinzena", sem botão de enviar.
+          Pra ver outra semana, volta pra lista em /my/timesheets. */}
+      {!anySubmitted && (
+        <div className="mb-6 space-y-3 print:hidden">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
+            <label className="flex flex-col gap-1 text-xs font-medium text-ink/60">
+              {t("Start date")}
+              <input
+                type="date"
+                value={weekStart}
+                onChange={(e) => changeWeek(e.target.value)}
+                className="w-full rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol sm:w-auto sm:py-1.5 sm:text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-ink/60">
+              {t("End date")}
+              <input
+                type="date"
+                value={weekEnd}
+                min={weekStart}
+                disabled={!endEditable}
+                onChange={(e) => changeWeekEnd(e.target.value)}
+                className="w-full rounded-md border border-line px-3 py-2 text-base outline-none focus:border-petrol disabled:bg-surface disabled:text-ink/40 sm:w-auto sm:py-1.5 sm:text-sm"
+              />
+            </label>
+            <span className="pb-2 text-sm text-ink/40 sm:pb-1.5">
+              ({dayCount} {t("days")})
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {existingWeeks.length > 0 && (
+              <>
+                <span className="text-xs text-ink/40">{t("or open a logged one:")}</span>
+                <select
+                  value={existingWeeks.some((w) => w.weekStart === weekStart) ? weekStart : ""}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    skipAutoMatch.current = false;
+                    setWeekStart(e.target.value);
+                  }}
+                  className="max-w-full rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
+                >
+                  <option value="">{t("Select an already logged fortnight...")}</option>
+                  {existingWeeks.map((w) => (
+                    <option key={w.weekStart} value={w.weekStart}>
+                      {w.periodType === "biweekly"
+                        ? formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)
+                        : `${formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)} (${t("weekly, legacy")})`}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {allDraft && periodType === "biweekly" && (
+              <button
+                type="button"
+                onClick={sendToSupervisor}
+                disabled={sending}
+                className="ml-auto flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
+              >
+                <Send size={16} />
+                {sending ? t("Sending...") : t("Send to supervisor")}
+              </button>
+            )}
+          </div>
         </div>
-
-        {existingWeeks.length > 0 && (
-          <>
-            <span className="text-xs text-ink/40">{t("or open a logged one:")}</span>
-            <select
-              value={existingWeeks.some((w) => w.weekStart === weekStart) ? weekStart : ""}
-              onChange={(e) => e.target.value && setWeekStart(e.target.value)}
-              className="max-w-full rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
-            >
-              <option value="">{t("Select an already logged fortnight...")}</option>
-              {existingWeeks.map((w) => (
-                <option key={w.weekStart} value={w.weekStart}>
-                  {w.periodType === "biweekly"
-                    ? formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)
-                    : `${formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)} (${t("weekly, legacy")})`}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-
-        {allDraft && periodType === "biweekly" && (
-          <button
-            type="button"
-            onClick={sendToSupervisor}
-            disabled={sending}
-            className="ml-auto flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark disabled:opacity-50"
-          >
-            <Send size={16} />
-            {sending ? t("Sending...") : t("Send to supervisor")}
-          </button>
-        )}
-      </div>
+      )}
 
       {error && <p className="mb-4 text-sm text-danger print:hidden">{t(error)}</p>}
 

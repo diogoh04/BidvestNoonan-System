@@ -100,8 +100,8 @@ export const pt: Record<string, string> = {
   "Could not delete some buildings from this week": "Não foi possível excluir alguns prédios desta semana",
 
   // Lancar (criar/abrir quinzena)
-  "Start date:": "Data início:",
-  "End date:": "Data fim:",
+  "Start date": "Data início",
+  "End date": "Data fim",
   days: "dias",
   "or open a logged one:": "ou abra uma já lançada:",
   "Select an already logged fortnight...": "Selecione uma quinzena já lançada...",

@@ -335,7 +335,13 @@ export default function AdjustmentReportEditorClient({
                   </select>
                 </label>
 
-                <label className="flex flex-col gap-1 text-xs text-ink/50">
+                {/* div, não label: este campo troca de conteúdo (busca -> etiqueta
+                    com "×") no meio do clique — um <label> ao redor disso deixa o
+                    navegador "reencaminhar" o clique pro elemento novo que aparece
+                    na mesma posição (o botão "×" logo depois de escolher alguém),
+                    apagando a seleção na hora. Os outros campos abaixo continuam
+                    <label> normalmente porque não têm esse problema (conteúdo fixo). */}
+                <div className="flex flex-col gap-1 text-xs text-ink/50">
                   {t("Staff")}
                   {fromForecast ? (
                     <select
@@ -380,7 +386,7 @@ export default function AdjustmentReportEditorClient({
                       }
                     />
                   )}
-                </label>
+                </div>
 
                 <label className="flex flex-col gap-1 text-xs text-ink/50">
                   {withTime ? t("From date") : t("Effective date")}
