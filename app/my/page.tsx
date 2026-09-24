@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import Link from "next/link";
+import { Eye } from "lucide-react";
 import Header from "@/components/Header";
 import BuildingStaffClient from "@/components/BuildingStaffClient";
 import T from "@/components/T";
@@ -30,13 +32,24 @@ export default async function MyBuildingsPage() {
     <>
       <Header role="team_leader" />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink">
-            <T s="My Buildings" />
-          </h1>
-          <p className="mt-1 text-sm text-ink/50">
-            {buildings.length} <T s="building(s) under your responsibility." />
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink">
+              <T s="My Buildings" />
+            </h1>
+            <p className="mt-1 text-sm text-ink/50">
+              {buildings.length} <T s="building(s) under your responsibility." />
+            </p>
+          </div>
+          {!profile.noTeam && buildings.length > 0 && (
+            <Link
+              href="/my/preview"
+              className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink transition hover:border-petrol hover:text-petrol"
+            >
+              <Eye size={16} />
+              <T s="Preview sheet" />
+            </Link>
+          )}
         </div>
 
         <div className="mt-8 space-y-8">

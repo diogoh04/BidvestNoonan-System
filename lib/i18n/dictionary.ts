@@ -44,6 +44,10 @@ export const pt: Record<string, string> = {
     "Sua conta ainda não está vinculada a um time. Peça ao Master para vincular em Usuários.",
   "No building assigned to your account yet.": "Nenhum prédio atribuído à sua conta ainda.",
   "No cleaner assigned to this building.": "Nenhum cleaner atribuído a este prédio.",
+  "Preview sheet": "Pré-visualizar folha",
+  "Sheet preview": "Pré-visualização da folha",
+  "Just a preview of how the sheet looks today, with who's currently assigned — nothing here is saved.":
+    "Apenas uma pré-visualização de como a folha ficaria hoje, com quem está alocado agora — nada aqui é salvo.",
 
   // BuildingStaffClient (reordenar / Sheet labels)
   "Order:": "Ordem:",
@@ -108,6 +112,9 @@ export const pt: Record<string, string> = {
   "weekly, legacy": "semanal, legado",
   "Send to supervisor": "Enviar para o supervisor",
   "Sending...": "Enviando...",
+  "A fortnight must be at least 14 days (including weekends). Please adjust the end date.":
+    "Uma quinzena precisa ter pelo menos 14 dias (contando sábado e domingo). Ajuste a data de fim.",
+  "Type the Team Leader's name": "Digite o nome do Team Leader",
   "Could not load your profile. Please try again.": "Não foi possível carregar seu perfil. Tente novamente.",
   "No fortnight logged for": "Nenhuma quinzena lançada para",
   "Start blank": "Começar em branco",

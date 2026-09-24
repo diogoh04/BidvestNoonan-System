@@ -480,6 +480,11 @@ model TimesheetSheetOverride {
 
   nomePredio  String?  @map("nome_predio") @db.VarChar(255)
   workOrder   String?  @map("work_order") @db.VarChar(255)
+  // Só usado no scope "header" (ver CombinedTimesheetEditor) — nome do Team
+  // Leader digitado à mão nessa folha específica. Antes vinha automático de
+  // TeamLeader/Team.leaders; agora cada folha guarda o seu (o usuário pode
+  // digitar qualquer coisa, inclusive alguém cobrindo).
+  teamLeaderNome String? @map("team_leader_nome") @db.VarChar(255)
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

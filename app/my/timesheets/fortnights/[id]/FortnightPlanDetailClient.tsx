@@ -44,7 +44,13 @@ export default function FortnightPlanDetailClient({ plan }: { plan: FortnightPla
         </Link>
       </div>
 
-      <CombinedTimesheetEditor teamLeaderNome={null} timesheets={[synthetic]} onChanged={() => {}} readOnly />
+      <CombinedTimesheetEditor
+        teamLeaderNome={null}
+        timesheets={[synthetic]}
+        onChanged={() => {}}
+        readOnly
+        printable={false}
+      />
     </div>
   );
 }

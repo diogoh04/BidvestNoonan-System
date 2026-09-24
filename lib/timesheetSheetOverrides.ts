@@ -3,7 +3,7 @@
 // LeaderTimesheetView e CombinedTimesheetEditor). Nunca escreve em
 // predios/team/timesheet, só nessa tabela separada (TimesheetSheetOverride).
 
-export type SheetOverrideValue = { nomePredio: string; wo: string };
+export type SheetOverrideValue = { nomePredio: string; wo: string; teamLeaderNome?: string };
 
 export type SheetOverrideRow = {
   subjectType: string;
@@ -11,6 +11,9 @@ export type SheetOverrideRow = {
   scope: string;
   nomePredio: string | null;
   workOrder: string | null;
+  // Só preenchido no scope "header" (ver CombinedTimesheetEditor) — nome
+  // digitado à mão pelo Team Leader nessa folha específica.
+  teamLeaderNome: string | null;
 };
 
 // Busca todas as personalizações (qualquer scope) de um ou mais "assuntos"
@@ -48,7 +51,14 @@ export async function saveSheetOverride(
     await fetch("/api/timesheet-overrides", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subjectType, subjectId, scope, nomePredio: value.nomePredio, workOrder: value.wo }),
+      body: JSON.stringify({
+        subjectType,
+        subjectId,
+        scope,
+        nomePredio: value.nomePredio,
+        workOrder: value.wo,
+        teamLeaderNome: value.teamLeaderNome,
+      }),
     });
   } catch {
     // Best-effort — igual o resto da folha, se falhar o usuário só perde a

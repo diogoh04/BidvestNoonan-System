@@ -75,7 +75,11 @@ export default function MyTimesheetsListClient({
 
       {weeks.map(([weekStart, items]) => {
         const status = weekOverallStatus(items);
-        const canDelete = items.every((t) => t.status !== "done");
+        // Por enquanto, só dá pra excluir enquanto ainda está em draft — uma
+        // vez enviada ao supervisor (submitted/done), fica escondido (ver
+        // pedido do usuário: já testado o bastante, evitar exclusão sem
+        // querer de algo que o supervisor já pode estar revisando).
+        const canDelete = items.every((t) => t.status === "draft");
         const periodType = items[0]?.periodType ?? "weekly";
         const isBiweekly = periodType === "biweekly";
         const range = formatPeriodRange(weekStart, items[0]?.weekEnd ?? null, periodType);

@@ -226,6 +226,13 @@ export default function LancarClient({
   // com essa duração exata, não mais travado em 10 dias úteis.
   async function startNewFortnight(week: string, end: string, copyPrior: boolean) {
     if (!profile) return;
+    // Quinzena de verdade = 14 dias corridos (contando sábado/domingo), não
+    // só dias úteis — barra aqui em vez de deixar criar um período mais
+    // curto sem querer.
+    if (allDaysInRange(week, end).length < 14) {
+      alert(t("A fortnight must be at least 14 days (including weekends). Please adjust the end date."));
+      return;
+    }
     setLoading(true);
     setError(null);
     setPendingChoice(false);
@@ -376,30 +383,6 @@ export default function LancarClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {existingWeeks.length > 0 && (
-              <>
-                <span className="text-xs text-ink/40">{t("or open a logged one:")}</span>
-                <select
-                  value={existingWeeks.some((w) => w.weekStart === weekStart) ? weekStart : ""}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    skipAutoMatch.current = false;
-                    setWeekStart(e.target.value);
-                  }}
-                  className="max-w-full rounded-md border border-line px-2 py-2 text-base outline-none focus:border-petrol sm:py-1.5 sm:text-sm"
-                >
-                  <option value="">{t("Select an already logged fortnight...")}</option>
-                  {existingWeeks.map((w) => (
-                    <option key={w.weekStart} value={w.weekStart}>
-                      {w.periodType === "biweekly"
-                        ? formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)
-                        : `${formatPeriodRange(w.weekStart, w.weekEnd, w.periodType)} (${t("weekly, legacy")})`}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-
             {allDraft && periodType === "biweekly" && (
               <button
                 type="button"
@@ -461,10 +444,14 @@ export default function LancarClient({
           )}
 
           <CombinedTimesheetEditor
-            teamLeaderNome={profile?.nome ?? null}
+            // Não puxa mais automático do time (TeamLeader/Team.leaders) —
+            // o campo na folha fica em branco até o Team Leader digitar o
+            // próprio nome (ver CombinedTimesheetEditor, salvo por folha).
+            teamLeaderNome={null}
             timesheets={timesheets}
             onChanged={updateOne}
             onRowsChange={handleRowsChange}
+            printable={false}
           />
         </>
       )}

@@ -198,6 +198,8 @@ export default function CombinedTimesheetEditor({
   onChanged,
   onRowsChange,
   readOnly = false,
+  preview = false,
+  printable = true,
 }: {
   teamLeaderNome: string | null;
   timesheets: TimesheetDTO[];
@@ -207,6 +209,19 @@ export default function CombinedTimesheetEditor({
   // supervisor" não perder a última tecla digitada.
   onRowsChange?: (timesheetId: string, rows: TimesheetRow[]) => void;
   readOnly?: boolean;
+  // true só em /my/preview — versão enxuta pra só olhar quem está no prédio
+  // hoje: esconde status/auto-fill/print (topo), FORTNIGHT+legenda+Team
+  // Leader e a página de verso (covers) — nada disso importa pra essa
+  // pergunta específica ("quem tá alocado"), e como não é uma folha real
+  // (não tem semana, não foi enviada), mostrar esses campos só confundiria.
+  preview?: boolean;
+  // false nas telas do Team Leader (Log timesheet / quinzenal / preview) —
+  // impressão oficial acontece só pelo lado do Master, em /timesheets (ver
+  // TimesheetView/LeaderTimesheetView). Só esconde o botão "Print / Export
+  // PDF"; as classes print:* continuam no JSX (inofensivas — nunca disparam
+  // sem alguém chamar window.print()) porque são as MESMAS usadas pelo lado
+  // do Master/Supervisor (review), então não dá pra remover só daqui.
+  printable?: boolean;
 }) {
   // Apelidado `tr` (não `t`) porque `t` já é o nome-padrão da variável de
   // timesheet neste arquivo inteiro (`timesheets.map((t) => ...)`) — usar
@@ -226,16 +241,25 @@ export default function CombinedTimesheetEditor({
   // caminhos de render que checam editMode (sempre no ramo de leitura).
   const editMode = false;
   const [headerNome, setHeaderNome] = useState(() => timesheets.map((t) => t.buildingNome).join(", "));
+  // Nome digitado à mão pelo Team Leader (ver pedido: parar de puxar
+  // automaticamente de TeamLeader/Team.leaders — cada folha guarda o seu
+  // próprio, salvo junto do override "header", igual o nome do prédio).
+  const [teamLeaderNomeInput, setTeamLeaderNomeInput] = useState(teamLeaderNome ?? "");
   const [rowOverrides, setRowOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>({});
   const [coverOverrides, setCoverOverrides] = useState<Record<string, { nomePredio: string; wo: string }>>({});
   const overrideSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  function scheduleSaveOverride(debounceKey: string, subjectId: string, scope: string, value: { nomePredio: string; wo: string }) {
+  function scheduleSaveOverride(
+    debounceKey: string,
+    subjectId: string,
+    scope: string,
+    value: { nomePredio: string; wo: string; teamLeaderNome?: string }
+  ) {
     if (overrideSaveTimeouts.current[debounceKey]) clearTimeout(overrideSaveTimeouts.current[debounceKey]);
     overrideSaveTimeouts.current[debounceKey] = setTimeout(() => {
       saveSheetOverride("timesheet", subjectId, scope, value);
     }, 500);
   }
-  function scheduleSaveHeader(value: { nomePredio: string; wo: string }) {
+  function scheduleSaveHeader(value: { nomePredio: string; wo: string; teamLeaderNome?: string }) {
     const firstId = timesheets[0]?.id;
     if (!firstId) return;
     scheduleSaveOverride("header", firstId, "header", value);
@@ -250,7 +274,10 @@ export default function CombinedTimesheetEditor({
       const firstId = timesheets[0]?.id;
       if (firstId) {
         const header = overrides[`${firstId}:header`];
-        if (header) setHeaderNome(header.nomePredio ?? timesheets.map((t) => t.buildingNome).join(", "));
+        if (header) {
+          setHeaderNome(header.nomePredio ?? timesheets.map((t) => t.buildingNome).join(", "));
+          if (header.teamLeaderNome != null) setTeamLeaderNomeInput(header.teamLeaderNome);
+        }
       }
 
       setRowOverrides((prev) => {
@@ -473,46 +500,52 @@ export default function CombinedTimesheetEditor({
 
   return (
     <div className="bg-white print:px-8 print:py-4">
-      <div className="mb-6 flex items-center justify-between gap-3 print:hidden">
-        <div className="flex flex-wrap gap-2">
-          {timesheets.map((t) => (
-            <span key={t.id} className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[t.status]}`}>
-              {t.buildingNome}: {tr(STATUS_LABEL[t.status])}
-            </span>
-          ))}
+      {!preview && (
+        <div className="mb-6 flex items-center justify-between gap-3 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            {timesheets.map((t) => (
+              <span key={t.id} className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[t.status]}`}>
+                {t.buildingNome}: {tr(STATUS_LABEL[t.status])}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {timesheets.some((t) => isEditable(t)) && (
+              <button
+                onClick={autoFillHours}
+                className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
+              >
+                <Wand2 size={16} />
+                {tr("Auto-fill hours")}
+              </button>
+            )}
+            {printable && (
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
+              >
+                <Printer size={16} />
+                {tr("Print / Export PDF")}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {timesheets.some((t) => isEditable(t)) && (
-            <button
-              onClick={autoFillHours}
-              className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
-            >
-              <Wand2 size={16} />
-              {tr("Auto-fill hours")}
-            </button>
-          )}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
-          >
-            <Printer size={16} />
-            {tr("Print / Export PDF")}
-          </button>
-        </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 border-b-2 border-ink pb-3 print:pb-1">
-        <Image src="/logo.jpg" alt="Bidvest Noonan" width={160} height={50} className="h-10 w-auto object-contain print:h-6" />
-        <h1 className="text-center font-display text-xl font-bold uppercase tracking-wide text-ink print:text-sm">
-          Sign In &amp; Sign Out Book
-        </h1>
-        <div className="flex min-w-0 items-center gap-6">
+      <div className="flex flex-col gap-3 border-b-2 border-ink pb-3 sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-6 print:grid print:grid-cols-[auto_1fr_auto] print:items-center print:gap-6 print:pb-1">
+        <div className="flex items-center justify-between gap-3 sm:contents print:contents">
+          <Image src="/logo.jpg" alt="Bidvest Noonan" width={160} height={50} className="h-10 w-auto shrink-0 object-contain print:h-6" />
+          <h1 className="text-right font-display text-sm font-bold uppercase tracking-wide text-ink sm:text-center sm:text-xl print:text-sm">
+            Sign In &amp; Sign Out Book
+          </h1>
+        </div>
+        {/* Linha própria no celular — junto com logo+título, o nome do
+            prédio (que pode ser bem comprido) não cabia numa coluna só e
+            estourava a tela; numa linha dedicada, ele quebra pro logo da UCD
+            ir pra baixo em vez de vazar horizontalmente. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-3 sm:flex-nowrap sm:gap-6 print:flex-nowrap print:gap-6">
           {/* Sempre editável (não precisa clicar em "Edit") — só o nome, não
-              mexe no resto da folha. min-w-0 + max-w-full: sem isso, o
-              atributo `size` (baseado no tamanho do texto) empurra a
-              coluna "auto" do grid pra fora da tela em nomes longos no
-              celular — no desktop/impressão continua se ajustando ao texto
-              normalmente. */}
+              mexe no resto da folha. */}
           <input
             type="text"
             value={headerNome}
@@ -521,12 +554,14 @@ export default function CombinedTimesheetEditor({
               scheduleSaveHeader({ nomePredio: e.target.value, wo: "" });
             }}
             size={Math.max(headerNome.length, 1)}
-            className="min-w-0 max-w-full border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-xs"
+            className="min-w-0 max-w-full flex-1 border-0 bg-transparent font-display text-lg font-bold text-ink outline-none focus:bg-petrolLight print:text-xs"
           />
           <Image src="/logoUCD.png" alt="Client logo" width={56} height={56} className="h-14 w-14 shrink-0 object-contain print:h-6 print:w-6" />
         </div>
       </div>
 
+      {!preview && (
+      <>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4 text-sm print:mt-1">
         <div className="flex items-center gap-2">
           <span className="font-medium text-ink">{periodType === "biweekly" ? "FORTNIGHT" : "WEEK"}</span>
@@ -548,8 +583,23 @@ export default function CombinedTimesheetEditor({
 
       <div className="mt-3 flex items-center gap-2 text-sm print:mt-1">
         <span className="font-medium text-ink">Team Leader</span>
-        <span className="inline-block min-w-[220px] border-b border-ink px-2">{teamLeaderNome ?? " "}</span>
+        {readOnly ? (
+          <span className="inline-block min-w-[220px] border-b border-ink px-2">{teamLeaderNomeInput || " "}</span>
+        ) : (
+          <input
+            type="text"
+            value={teamLeaderNomeInput}
+            onChange={(e) => {
+              setTeamLeaderNomeInput(e.target.value);
+              scheduleSaveHeader({ nomePredio: headerNome, wo: "", teamLeaderNome: e.target.value });
+            }}
+            placeholder={tr("Type the Team Leader's name")}
+            className="min-w-[220px] flex-1 border-0 border-b border-ink bg-transparent px-2 text-ink outline-none focus:bg-petrolLight print:text-xs"
+          />
+        )}
       </div>
+      </>
+      )}
 
       <p className="mt-4 text-xs text-ink/40 sm:hidden print:hidden">{tr("Swipe the table sideways to see all days →")}</p>
 
@@ -781,6 +831,7 @@ export default function CombinedTimesheetEditor({
       </table>
       </div>
 
+      {!preview && (
       <div className="mt-10 print:mt-0 break-before-page">
         {!readOnly && (
         <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
@@ -1012,6 +1063,7 @@ export default function CombinedTimesheetEditor({
         </table>
         </div>
       </div>
+      )}
 
       {error && <p className="mt-3 text-sm text-danger print:hidden">{tr(error)}</p>}
 
