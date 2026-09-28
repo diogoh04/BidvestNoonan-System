@@ -5,6 +5,7 @@ import { toJSONSafe, StaffDTO } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { connectTeamLeader, disconnectTeamLeader } from "@/lib/teams";
 import { syncBuildingAssignments, closeAllOpenForStaff } from "@/lib/staffHistory";
+import { tlOwnsStaff } from "@/lib/teamLeaderScope";
 
 function mapStaff(w: any, teamsLed: StaffDTO["teamsLed"] = []): StaffDTO {
   return {
@@ -40,7 +41,9 @@ async function getTeamsLed(staffId: bigint): Promise<StaffDTO["teamsLed"]> {
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!hasRole(user, "master")) {
+  const staffId = BigInt(params.id);
+  const isMaster = hasRole(user, "master");
+  if (!isMaster && !(hasRole(user, "team_leader") && (await tlOwnsStaff(user!, staffId)))) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
@@ -70,7 +73,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!hasRole(user, "master")) {
+  const staffId = BigInt(params.id);
+  const isMaster = hasRole(user, "master");
+  const isScopedTeamLeader = !isMaster && hasRole(user, "team_leader") && (await tlOwnsStaff(user!, staffId));
+  if (!isMaster && !isScopedTeamLeader) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
@@ -82,12 +88,35 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const data = parsed.data;
-  const staffId = BigInt(params.id);
 
   // Staff com status especial (P45/LE/Blocked) não tem vínculo real de
   // prédio — ignora quaisquer assignments/teamsLed enviados nesse caso.
-  const assignments = data.status ? [] : data.assignments;
-  const teamsLed = data.status ? [] : data.teamsLed;
+  let assignments = data.status ? [] : data.assignments;
+  let teamsLed = data.status ? [] : data.teamsLed;
+
+  // Conta "team_leader" só pode mexer em nome/staffNumber/telefone/status
+  // (ver /my e StaffForm `restricted`) — prédios/horas/liderança de time
+  // continuam exclusivos do Master. Isso é reforçado AQUI, não só escondendo
+  // campos na tela: ignora qualquer assignments/teamsLed que vierem no corpo
+  // da requisição e usa os que já estavam salvos (ou limpa, se o status virou
+  // especial — mesma regra de sempre).
+  if (isScopedTeamLeader) {
+    if (data.status) {
+      assignments = [];
+    } else {
+      const currentLinks = await prisma.staffBuilding.findMany({
+        where: { staffId },
+        select: { buildingId: true, role: true, horas: true },
+      });
+      assignments = currentLinks.map((l) => ({
+        buildingId: l.buildingId.toString(),
+        role: l.role as "cleaner" | "team_leader",
+        horas: l.horas,
+      }));
+    }
+    const currentTeamsLed = await getTeamsLed(staffId);
+    teamsLed = currentTeamsLed.map((t) => ({ teamId: t.teamId, horas: t.horas }));
+  }
 
   // Times que este staff lidera ANTES desta edição — usado depois pra saber
   // quais desconectar (os que saíram da lista) — ver loop de sincronização

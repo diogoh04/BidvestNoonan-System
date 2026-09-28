@@ -21,3 +21,15 @@ export async function tlOwnsBuilding(user: SessionUser, buildingId: bigint): Pro
   });
   return !!b;
 }
+
+// Staff que a conta "team_leader" logada pode editar (nome/staffNumber/
+// telefone/status) — só quem está hoje como "cleaner" em algum prédio do
+// próprio time. Ver PUT/GET /api/staff/[id].
+export async function tlOwnsStaff(user: SessionUser, staffId: bigint): Promise<boolean> {
+  if (!user.teamId) return false;
+  const link = await prisma.staffBuilding.findFirst({
+    where: { staffId, role: "cleaner", building: { teamId: BigInt(user.teamId) } },
+    select: { id: true },
+  });
+  return !!link;
+}

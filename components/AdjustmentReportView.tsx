@@ -11,7 +11,7 @@ import { Pencil, Trash2, Copy, Check } from "lucide-react";
 import { formatWeekRange, formatDDMM, allDaysInRange } from "@/lib/week";
 import type { AdjustmentReportDTO, AdjustmentItemDTO } from "@/lib/types";
 
-type Editable = { onEdit: (itemId: string) => void; onDelete: (itemId: string) => void };
+type Editable = { onEdit: (itemId: string, day?: string) => void; onDelete: (itemId: string, day?: string) => void };
 
 function staffLabel(it: AdjustmentItemDTO): string {
   const n = it.staffNome ?? "—";
@@ -37,11 +37,13 @@ function timeRange(it: AdjustmentItemDTO): string | null {
 // Uma linha exibida na tela — igual um AdjustmentItemDTO, exceto que
 // "de X até Y" (dateFrom/dateTo diferentes) agora vira uma linha POR DIA
 // corrido (não pula fim de semana — ver allDaysInRange), em vez de uma linha
-// só com "14/09 to 16/09". `itemId` continua apontando pro item de verdade
-// no banco: editar/apagar qualquer linha de um intervalo edita/apaga o
-// intervalo inteiro (não dá pra editar só "uma das linhas" — a divisão é só
-// visual, o item salvo continua sendo um range só).
-type DisplayRow = { key: string; itemId: string; when: string; primary: string; secondary: string | null; tag: string | null; note: string | null };
+// só com "14/09 to 16/09". `itemId` continua apontando pro item de verdade no
+// banco, mas `day` (quando presente) deixa editar/apagar SÓ aquele dia — o
+// pai (AdjustmentReportEditorClient) parte o item em pedaços na hora de
+// salvar (ver splitOriginal lá). `day` fica de fora só pra
+// remove_from_building/add_to_building, que não são um range de dias de
+// verdade (ver ramo abaixo).
+type DisplayRow = { key: string; itemId: string; day?: string; when: string; primary: string; secondary: string | null; tag: string | null; note: string | null };
 
 function itemRows(it: AdjustmentItemDTO): DisplayRow[] {
   const t = timeRange(it);
@@ -55,6 +57,7 @@ function itemRows(it: AdjustmentItemDTO): DisplayRow[] {
     return allDaysInRange(it.dateFrom, it.dateTo).map((d) => ({
       key: `${it.id}:${d}`,
       itemId: it.id,
+      day: d,
       when: formatDDMM(d),
       primary,
       secondary,
@@ -124,11 +127,7 @@ export default function AdjustmentReportView({
 
           <div className="mt-2 space-y-2">
             {groupByStaff(g.items).map((sg, i) => {
-              // Marca só a 1ª linha de cada item com showActions — um range
-              // de vários dias vira várias linhas (itemRows), mas continua
-              // sendo UM item só pra editar/apagar (não faz sentido repetir
-              // lápis/lixeira em cada dia do mesmo range).
-              const rows = sg.items.flatMap((it) => itemRows(it).map((row, idx) => ({ ...row, showActions: idx === 0 })));
+              const rows = sg.items.flatMap((it) => itemRows(it));
               return (
                 <div key={i} className="rounded-md border border-line/70 bg-surface/40 px-3 py-2">
                   <div className="font-medium text-ink">{sg.label}</div>
@@ -142,20 +141,20 @@ export default function AdjustmentReportView({
                         )}
                         {row.tag && <span className="text-ink/40">({row.tag})</span>}
                         {row.note && <span className="text-xs text-ink/40">— {row.note}</span>}
-                        {editable && row.showActions && (
+                        {editable && (
                           <span className="ml-auto flex items-center gap-0.5">
                             <button
                               type="button"
-                              onClick={() => editable.onEdit(row.itemId)}
-                              title="Edit"
+                              onClick={() => editable.onEdit(row.itemId, row.day)}
+                              title={row.day ? `Edit ${row.when}` : "Edit"}
                               className="rounded-md p-2 text-ink/40 hover:bg-petrolLight hover:text-petrol"
                             >
                               <Pencil size={14} />
                             </button>
                             <button
                               type="button"
-                              onClick={() => editable.onDelete(row.itemId)}
-                              title="Delete"
+                              onClick={() => editable.onDelete(row.itemId, row.day)}
+                              title={row.day ? `Delete ${row.when}` : "Delete"}
                               className="rounded-md p-2 text-ink/40 hover:bg-red-50 hover:text-danger"
                             >
                               <Trash2 size={14} />

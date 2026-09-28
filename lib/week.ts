@@ -13,6 +13,16 @@ export function toISODate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+// Soma (ou subtrai, com delta negativo) dias corridos a uma data ISO —
+// usado pra partir um intervalo de ajuste em pedaços (ver
+// AdjustmentReportEditorClient: editar/excluir só um dia específico dentro
+// de um range de vários dias, ex.: 21/09–28/09).
+export function addDaysISO(iso: string, delta: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + delta);
+  return toISODate(d);
+}
+
 export function formatWeekRange(weekStartISO: string): string {
   const start = new Date(weekStartISO + "T00:00:00Z");
   const end = new Date(start);

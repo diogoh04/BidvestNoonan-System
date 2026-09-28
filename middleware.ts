@@ -10,6 +10,12 @@ export const config = {
 // checagem que realmente vale (autorização por prédio/dono do recurso)
 // fica em cada Route Handler — ver lib/auth.ts.
 const TEAM_LEADER_ALLOWED_PREFIXES = ["/", "/my", "/login"];
+// Editar um staff do próprio time (ver /staff/[id]/edit + StaffForm
+// `restricted` + tlOwnsStaff) — só essa página específica, não o prefixo
+// /staff inteiro (isso deixaria /staff/new também passar, que é exclusivo do
+// Master). A autorização de verdade (staff é mesmo do time dele?) continua
+// nas rotas da API, isto aqui é só o bloqueio grosso de path.
+const TEAM_LEADER_STAFF_EDIT_RE = /^\/staff\/[^/]+\/edit$/;
 const SUPERVISOR_ALLOWED_PREFIXES = ["/", "/review", "/login"];
 const PENDING_ALLOWED_PREFIXES = ["/pending", "/login"];
 
@@ -37,7 +43,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (payload.role === "team_leader" && !isAllowed(pathname, TEAM_LEADER_ALLOWED_PREFIXES)) {
+  if (
+    payload.role === "team_leader" &&
+    !isAllowed(pathname, TEAM_LEADER_ALLOWED_PREFIXES) &&
+    !TEAM_LEADER_STAFF_EDIT_RE.test(pathname)
+  ) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 

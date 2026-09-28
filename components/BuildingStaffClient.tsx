@@ -156,6 +156,7 @@ export default function BuildingStaffClient({
   canManageStaff = true,
   canFillSlots = canManageStaff,
   canRemoveStaff = canManageStaff,
+  canEditStaff = canManageStaff,
 }: {
   staff: StaffItem[];
   emptyLabel: string;
@@ -182,6 +183,11 @@ export default function BuildingStaffClient({
   // canManageStaff; liberado à parte pro team_leader em /my (contrapartida
   // do "Fill slot" acima: quem pode colocar alguém também pode tirar).
   canRemoveStaff?: boolean;
+  // Editar o cadastro (nome/staffNumber/telefone/status) — ver comentário em
+  // StaffRow.canEdit. Default = canManageStaff; liberado à parte pro
+  // team_leader em /my, escopado a quem está no próprio time (ver
+  // tlOwnsStaff).
+  canEditStaff?: boolean;
 }) {
   const [list, setList] = useState(staff);
   const [slots, setSlots] = useState(initialSlots ?? []);
@@ -326,6 +332,7 @@ export default function BuildingStaffClient({
           role={role}
           canManage={canManageStaff}
           canRemove={canRemoveStaff}
+          canEdit={canEditStaff}
           onDeleted={(sbId) => setList((prev) => prev.filter((p) => p.sbId !== sbId))}
         />
         {sheetFieldsOn && (

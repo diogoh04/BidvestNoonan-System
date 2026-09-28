@@ -28,13 +28,19 @@ type StaffRowProps = {
   role?: "cleaner" | "team_leader";
   // Recebe o `sbId` removido (ou o id do staff, se não houver vínculo).
   onDeleted?: (key: string) => void;
-  // Team Leader vê e comenta, mas não edita staff nem abre o histórico (isso
-  // é admin, exclusivo do Master).
+  // Team Leader vê e comenta, mas não abre o histórico completo (isso
+  // continua exclusivo do Master).
   canManage?: boolean;
   // Remover o vínculo (tirar a pessoa deste prédio) — separado de
   // `canManage` pra dar essa ação ao Team Leader (ver /my) sem liberar
   // editar/histórico junto. Default = canManage (Master sempre pôde).
   canRemove?: boolean;
+  // Editar o cadastro (nome/staffNumber/telefone/status) — separado de
+  // `canManage` pra dar essa ação ao Team Leader (ver /my e StaffForm
+  // `restricted`) sem liberar histórico junto. A rota /staff/[id]/edit e a
+  // API já restringem o que o Team Leader pode de fato salvar (ver
+  // tlOwnsStaff em lib/teamLeaderScope.ts). Default = canManage.
+  canEdit?: boolean;
 };
 
 type Observation = { id: string; texto: string | null; data: string | null; fotos?: string[] };
@@ -58,6 +64,7 @@ export default function StaffRow({
   onDeleted,
   canManage = true,
   canRemove = canManage,
+  canEdit = canManage,
 }: StaffRowProps) {
   const { t } = useLanguage();
   const [panel, setPanel] = useState<Panel>(null);
@@ -244,24 +251,24 @@ export default function StaffRow({
             <MessageSquarePlus size={18} />
           </button>
           {canManage && (
-            <>
-              <button
-                title="Building & team history"
-                onClick={() => togglePanel("history")}
-                className={`rounded-md p-2 transition hover:bg-petrolLight hover:text-petrol ${
-                  panel === "history" ? "bg-petrolLight text-petrol" : "text-ink/60"
-                }`}
-              >
-                <HistoryIcon size={18} />
-              </button>
-              <Link
-                href={`/staff/${id}/edit`}
-                title="Edit"
-                className="rounded-md p-2 text-ink/60 transition hover:bg-petrolLight hover:text-petrol"
-              >
-                <Pencil size={18} />
-              </Link>
-            </>
+            <button
+              title="Building & team history"
+              onClick={() => togglePanel("history")}
+              className={`rounded-md p-2 transition hover:bg-petrolLight hover:text-petrol ${
+                panel === "history" ? "bg-petrolLight text-petrol" : "text-ink/60"
+              }`}
+            >
+              <HistoryIcon size={18} />
+            </button>
+          )}
+          {canEdit && (
+            <Link
+              href={`/staff/${id}/edit`}
+              title="Edit"
+              className="rounded-md p-2 text-ink/60 transition hover:bg-petrolLight hover:text-petrol"
+            >
+              <Pencil size={18} />
+            </Link>
           )}
           {canRemove && (
             <button

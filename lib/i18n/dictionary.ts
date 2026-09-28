@@ -155,6 +155,8 @@ export const pt: Record<string, string> = {
   "Creating...": "Criando...",
   "Start report": "Iniciar relatório",
   "Save or cancel the open item first": "Salve ou cancele o item aberto primeiro",
+  "Editing just this day — the rest of the original": "Editando só este dia — o resto do período original",
+  "stays as it was.": "continua como estava.",
   Action: "Ação",
   Staff: "Funcionário",
   "Select from forecast...": "Selecionar da previsão...",

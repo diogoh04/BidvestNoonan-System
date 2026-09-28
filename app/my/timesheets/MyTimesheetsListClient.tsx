@@ -52,6 +52,15 @@ export default function MyTimesheetsListClient({
   }
   const weeks = Array.from(byWeek.entries()).sort((a, b) => b[0].localeCompare(a[0]));
 
+  // Agrupado por status (draft primeiro — é o que ainda precisa de ação —
+  // depois submitted, por último done) em vez de só cronológico, pra ficar
+  // fácil ver o que falta fazer sem precisar escanear a lista toda.
+  const STATUS_ORDER: TimesheetStatus[] = ["draft", "submitted", "done"];
+  const weeksByStatus = STATUS_ORDER.map((status) => ({
+    status,
+    weeks: weeks.filter(([, items]) => weekOverallStatus(items) === status),
+  })).filter((g) => g.weeks.length > 0);
+
   async function deleteWeek(weekStart: string, items: TimesheetDTO[]) {
     setDeletingWeek(weekStart);
     setError(null);
@@ -70,10 +79,25 @@ export default function MyTimesheetsListClient({
   }
 
   return (
-    <div className="mt-6 space-y-2">
+    <div className="mt-6 space-y-6">
       {error && <p className="text-sm text-danger">{t(error)}</p>}
 
-      {weeks.map(([weekStart, items]) => {
+      {weeksByStatus.map((group) => (
+        <div key={group.status}>
+          <p className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">
+            {t(STATUS_LABEL[group.status])}
+          </p>
+          <div className="space-y-2">
+            {group.weeks.map(([weekStart, items]) => renderWeekRow(weekStart, items))}
+          </div>
+        </div>
+      ))}
+
+      {weeks.length === 0 && <p className="text-sm text-ink/40">{t(emptyLabel)}</p>}
+    </div>
+  );
+
+  function renderWeekRow(weekStart: string, items: TimesheetDTO[]) {
         const status = weekOverallStatus(items);
         // Por enquanto, só dá pra excluir enquanto ainda está em draft — uma
         // vez enviada ao supervisor (submitted/done), fica escondido (ver
@@ -154,9 +178,5 @@ export default function MyTimesheetsListClient({
             )}
           </div>
         );
-      })}
-
-      {weeks.length === 0 && <p className="text-sm text-ink/40">{t(emptyLabel)}</p>}
-    </div>
-  );
+  }
 }

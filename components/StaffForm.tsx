@@ -40,7 +40,19 @@ const REASON_OPTIONS: { value: LeaveReason; label: string }[] = (
   ["absences", "transport", "productivity", "visa_blocked", "other"] as LeaveReason[]
 ).map((value) => ({ value, label: LEAVE_REASON_LABELS[value] }));
 
-export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
+export default function StaffForm({
+  initial,
+  restricted = false,
+  redirectTo = "/",
+}: {
+  initial?: StaffFormValues;
+  // Conta "team_leader" (ver /my e app/staff/[id]/edit/page.tsx): só edita
+  // nome/staffNumber/telefone/status — prédios, horas e liderança de time
+  // ficam escondidos (a API também recusa esses campos vindos dessa conta,
+  // ver tlOwnsStaff em lib/teamLeaderScope.ts, isto aqui é só a tela).
+  restricted?: boolean;
+  redirectTo?: string;
+}) {
   const router = useRouter();
   const isEdit = Boolean(initial?.id);
 
@@ -66,8 +78,14 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
   const [addingBuilding, setAddingBuilding] = useState(false);
 
   useEffect(() => {
+    // No modo restrito (Team Leader) essas seções nem aparecem, e os
+    // endpoints são exclusivos do Master (403 pra essa conta) — sem esse
+    // guard, o corpo do erro virava o estado de `buildings`/`teams` (um
+    // objeto, não array) e quebrava a tela inteira no primeiro `.some()`.
+    if (restricted) return;
     loadBuildings();
     loadTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function loadBuildings() {
@@ -183,7 +201,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
         );
       }
 
-      router.push("/");
+      router.push(redirectTo);
       router.refresh();
     } catch (e: any) {
       setError(e.message);
@@ -375,7 +393,7 @@ export default function StaffForm({ initial }: { initial?: StaffFormValues }) {
       </div>
       )}
 
-      {!status && (
+      {!status && !restricted && (
       <>
       <div>
         <label className="mb-1 block text-sm font-medium text-ink">

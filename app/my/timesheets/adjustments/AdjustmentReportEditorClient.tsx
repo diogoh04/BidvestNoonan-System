@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Send, X } from "lucide-react";
 import StaffSearchInput from "@/components/StaffSearchInput";
 import AdjustmentReportView from "@/components/AdjustmentReportView";
-import { getMonday, toISODate } from "@/lib/week";
+import { getMonday, toISODate, addDaysISO, formatPeriodRange } from "@/lib/week";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   ADJUSTMENT_ACTIONS,
@@ -35,11 +35,22 @@ type EditItem = {
   reasonCode: AbsenceCode | "";
   isCover: boolean;
   note: string;
+  // Presente só enquanto o draft é uma edição de UM dia específico dentro de
+  // um item que cobre vários dias (ver AdjustmentReportView -> onEdit(id,
+  // day) e editItem abaixo). Guarda o item como ele era ANTES da edição —
+  // ao salvar, o que sobra do range original (antes/depois do pedaço
+  // editado) vira item(ns) à parte, preservando os valores de origem. Nunca
+  // vai pro servidor (toPayload não lê este campo).
+  splitOriginal?: EditItem;
 };
+
+function newKey(): string {
+  return "new-" + Math.random().toString(36).slice(2);
+}
 
 function newItem(buildingId: string, weekStart: string): EditItem {
   return {
-    key: "new-" + Math.random().toString(36).slice(2),
+    key: newKey(),
     action: "add_hours",
     buildingId,
     staffId: null,
@@ -187,20 +198,58 @@ export default function AdjustmentReportEditorClient({
 
   async function saveDraft() {
     if (!draft || !isReady(draft)) return;
-    const exists = items.some((it) => it.key === draft.key);
-    const next = exists ? items.map((it) => (it.key === draft.key ? draft : it)) : [...items, draft];
+    const { splitOriginal, ...clean } = draft;
+    let next: EditItem[];
+    if (splitOriginal) {
+      // Editou só um dia (ou um pedaço) de um item maior — o que sobra do
+      // range original, antes e/ou depois do pedaço editado, vira item(ns)
+      // separados com os valores de ANTES da edição (splitOriginal), não os
+      // que o usuário está digitando agora.
+      const pieces: EditItem[] = [];
+      if (splitOriginal.dateFrom < clean.dateFrom) {
+        pieces.push({ ...splitOriginal, key: newKey(), dateTo: addDaysISO(clean.dateFrom, -1) });
+      }
+      pieces.push(clean);
+      if (clean.dateTo < splitOriginal.dateTo) {
+        pieces.push({ ...splitOriginal, key: newKey(), dateFrom: addDaysISO(clean.dateTo, 1) });
+      }
+      next = items.flatMap((it) => (it.key === draft.key ? pieces : [it]));
+    } else {
+      const exists = items.some((it) => it.key === draft.key);
+      next = exists ? items.map((it) => (it.key === draft.key ? clean : it)) : [...items, clean];
+    }
     setError(null);
     const ok = await save(next);
     if (ok) setDraft(null); // card volta a ficar limpo
   }
 
-  async function deleteItem(id: string) {
-    await save(items.filter((it) => it.key !== id));
+  // `day`: quando vem de um item de vários dias (ver AdjustmentReportView),
+  // exclui só aquele dia — o resto do range vira item(ns) à parte com os
+  // valores originais, mesma lógica do saveDraft acima.
+  async function deleteItem(id: string, day?: string) {
+    const it = items.find((x) => x.key === id);
+    if (!it) return;
+    if (day && it.dateFrom !== it.dateTo) {
+      const pieces: EditItem[] = [];
+      if (it.dateFrom < day) pieces.push({ ...it, key: newKey(), dateTo: addDaysISO(day, -1) });
+      if (day < it.dateTo) pieces.push({ ...it, key: newKey(), dateFrom: addDaysISO(day, 1) });
+      await save(items.flatMap((x) => (x.key === id ? pieces : [x])));
+    } else {
+      await save(items.filter((x) => x.key !== id));
+    }
   }
 
-  function editItem(id: string) {
+  // `day`: edita só aquele dia dentro de um item de vários dias — o draft
+  // vira um item de 1 dia só, guardando o original em `splitOriginal` (ver
+  // saveDraft) pra reconstruir o resto do range ao salvar.
+  function editItem(id: string, day?: string) {
     const it = items.find((x) => x.key === id);
-    if (it) setDraft({ ...it });
+    if (!it) return;
+    if (day && it.dateFrom !== it.dateTo) {
+      setDraft({ ...it, dateFrom: day, dateTo: day, splitOriginal: it });
+    } else {
+      setDraft({ ...it });
+    }
   }
 
   async function sendToSupervisor() {
@@ -297,6 +346,13 @@ export default function AdjustmentReportEditorClient({
         <div>
           {draft ? (
             <div className="rounded-md border border-petrol bg-white p-4">
+              {draft.splitOriginal && (
+                <p className="mb-3 rounded-md bg-petrolLight px-3 py-2 text-xs text-petrol">
+                  {t("Editing just this day — the rest of the original")}{" "}
+                  {formatPeriodRange(draft.splitOriginal.dateFrom, draft.splitOriginal.dateTo, "biweekly")}{" "}
+                  {t("stays as it was.")}
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="flex flex-col gap-1 text-xs text-ink/50">
                   {t("Building")}

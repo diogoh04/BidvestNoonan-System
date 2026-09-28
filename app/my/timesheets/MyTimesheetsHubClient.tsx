@@ -20,6 +20,14 @@ const STATUS_CLASS: Record<AdjustmentReportDTO["status"], string> = {
   done: "bg-green-50 text-success",
 };
 
+const STATUS_LABEL: Record<AdjustmentReportDTO["status"], string> = {
+  draft: "Draft",
+  submitted: "Submitted — awaiting review",
+  done: "Done",
+};
+
+const STATUS_ORDER: AdjustmentReportDTO["status"][] = ["draft", "submitted", "done"];
+
 // Central de "My Timesheets": abas Fortnightly / Weekly (legado) / Adjustments.
 export default function MyTimesheetsHubClient({
   initialTimesheets,
@@ -33,16 +41,21 @@ export default function MyTimesheetsHubClient({
   const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>("fortnightly");
   const [reports, setReports] = useState(
-    [...initialReports].sort((a, b) => {
-      const rank = (s: AdjustmentReportDTO["status"]) => (s === "submitted" ? 0 : s === "draft" ? 1 : 2);
-      return rank(a.status) - rank(b.status) || b.weekStart.localeCompare(a.weekStart);
-    })
+    [...initialReports].sort((a, b) => b.weekStart.localeCompare(a.weekStart))
   );
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const hasLegacyWeekly = initialTimesheets.some((t) => t.periodType === "weekly");
   const launchedPlans = [...initialFortnightPlans].sort((a, b) => b.fortnightStart.localeCompare(a.fortnightStart));
+
+  // Agrupado por status (draft — ainda precisa de ação — depois submitted,
+  // por último done), mesma organização da lista de quinzenais (ver
+  // MyTimesheetsListClient).
+  const reportsByStatus = STATUS_ORDER.map((status) => ({
+    status,
+    reports: reports.filter((r) => r.status === status),
+  })).filter((g) => g.reports.length > 0);
 
   async function deleteReport(id: string) {
     setDeletingId(id);
@@ -135,8 +148,13 @@ export default function MyTimesheetsHubClient({
 
           {reports.length === 0 && <p className="text-sm text-ink/40">{t("No adjustment reports yet.")}</p>}
 
-          <div className="space-y-2">
-            {reports.map((r) =>
+          {reportsByStatus.map((group) => (
+          <div key={group.status}>
+            <p className="mb-2 font-mono text-xs uppercase tracking-widest text-ink/40">
+              {t(STATUS_LABEL[group.status])}
+            </p>
+            <div className="space-y-2">
+            {group.reports.map((r) =>
               confirmingId === r.id ? (
                 <div
                   key={r.id}
@@ -196,7 +214,9 @@ export default function MyTimesheetsHubClient({
                 </div>
               )
             )}
+            </div>
           </div>
+          ))}
         </div>
       )}
     </div>
