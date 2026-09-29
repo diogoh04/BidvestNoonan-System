@@ -21,7 +21,7 @@ export default function Header({ role }: { role: AppRole }) {
   const showBack = pathname !== "/";
 
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-white">
+    <header className="sticky top-0 z-10 border-b border-line bg-white print:hidden">
       <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-1 px-2 py-2.5 sm:gap-2 sm:px-6 sm:py-4">
         <div className="flex justify-start gap-1.5 sm:gap-2">
           {showBack && (

@@ -98,11 +98,11 @@ function scaleFixedCols(pct: number[], dayCount: number): number[] {
 // distribuir espaço dentro desse mínimo, não mais dentro da tela toda. Só
 // conta pra tela: no print a classe `ts-table` zera esse mínimo (ver
 // <style jsx global> no fim do arquivo).
-// Hours e WO ganharam mais espaço (60→70 / 60→80) porque um WO de 6 dígitos
-// ("514161") ou o cabeçalho "Xh total" não cabiam — vinha de Name (150→130 /
-// 130→110), que sobrava de longe.
-const FRONT_FIXED_MIN_PX = [60, 70, 80, 130, 90]; // Building, Hours, WO, Name, Staff Number
-const BACK_FIXED_MIN_PX = [80, 70, 80, 110, 90]; // Building Covers, Hours, WO, Name, Staff Number
+// Hours e WO ganharam mais espaço (60→70 / 60→90) porque um WO de 6 dígitos
+// ("514161") ou o cabeçalho "Xh total" não cabiam — vinha de Name (150→120 /
+// 130→100), que sobrava de longe.
+const FRONT_FIXED_MIN_PX = [60, 70, 90, 120, 90]; // Building, Hours, WO, Name, Staff Number
+const BACK_FIXED_MIN_PX = [80, 70, 90, 100, 90]; // Building Covers, Hours, WO, Name, Staff Number
 const DAY_COL_MIN_PX = 120; // célula com IN+OUT lado a lado, ~60px cada - "06:00" (5 char) não cabia em 48px
 const SPACER_MIN_PX = 8;
 
@@ -215,12 +215,15 @@ export default function CombinedTimesheetEditor({
   // pergunta específica ("quem tá alocado"), e como não é uma folha real
   // (não tem semana, não foi enviada), mostrar esses campos só confundiria.
   preview?: boolean;
-  // false nas telas do Team Leader (Log timesheet / quinzenal / preview) —
-  // impressão oficial acontece só pelo lado do Master, em /timesheets (ver
-  // TimesheetView/LeaderTimesheetView). Só esconde o botão "Print / Export
-  // PDF"; as classes print:* continuam no JSX (inofensivas — nunca disparam
-  // sem alguém chamar window.print()) porque são as MESMAS usadas pelo lado
-  // do Master/Supervisor (review), então não dá pra remover só daqui.
+  // No Team Leader (Log timesheet), o chamador passa `anySubmitted` — só
+  // libera o botão "Print / Export PDF" depois que a folha foi enviada
+  // (antes disso ainda é rascunho, não faz sentido exportar). Em
+  // quinzenal/preview continua false. Impressão oficial do lado do
+  // Master acontece em /timesheets (ver TimesheetView/LeaderTimesheetView).
+  // Só esconde o botão; as classes print:* continuam no JSX (inofensivas —
+  // nunca disparam sem alguém chamar window.print()) porque são as MESMAS
+  // usadas pelo lado do Master/Supervisor (review), então não dá pra
+  // remover só daqui.
   printable?: boolean;
 }) {
   // Apelidado `tr` (não `t`) porque `t` já é o nome-padrão da variável de
@@ -609,7 +612,7 @@ export default function CombinedTimesheetEditor({
         style={{ minWidth: `${frontMinWidthPx}px` }}
       >
         <colgroup>
-          {scaleFixedCols([9, 6, 9, 18, 9], DAYS.length).map((w, i) => (
+          {scaleFixedCols([9, 6, 12, 15, 9], DAYS.length).map((w, i) => (
             <col key={i} style={{ width: `${w}%` }} />
           ))}
           {DAYS.map((d, i) => (
@@ -891,7 +894,7 @@ export default function CombinedTimesheetEditor({
           style={{ minWidth: `${backMinWidthPx}px` }}
         >
           <colgroup>
-            {scaleFixedCols([9, 6, 9, 14, 13], DAYS.length).map((w, i) => (
+            {scaleFixedCols([9, 6, 12, 11, 13], DAYS.length).map((w, i) => (
               <col key={i} style={{ width: `${w}%` }} />
             ))}
             {DAYS.map((d, i) => (

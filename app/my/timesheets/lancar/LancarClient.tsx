@@ -451,7 +451,7 @@ export default function LancarClient({
             timesheets={timesheets}
             onChanged={updateOne}
             onRowsChange={handleRowsChange}
-            printable={false}
+            printable={anySubmitted}
           />
         </>
       )}
