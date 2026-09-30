@@ -480,7 +480,14 @@ export default function CombinedTimesheetEditor({
     const rows = (rowsByTimesheet[t.id] ?? t.entries.rows).filter((r) => r.kind !== "cover");
     return sum + Math.max(rows.length, 1);
   }, 0);
+  // Prioridade por prédio: "Horas disponíveis" (Building.horasDisponiveis, o
+  // orçamento repassado pro time leader — ver BuildingHoursCard em
+  // /buildings/[id] e /teams/[id]) primeiro; só cai pra soma das horas de
+  // cada pessoa cadastrada quando o prédio não tem esse orçamento definido.
+  // Sem essa prioridade, um prédio com mais gente cadastrada do que o
+  // orçamento real (cobertura/rotatividade) inflava o total exibido.
   const grandTotalHours = timesheets.reduce((sum, t) => {
+    if (t.buildingHorasDisponiveis != null) return sum + t.buildingHorasDisponiveis;
     const rows = (rowsByTimesheet[t.id] ?? t.entries.rows).filter((r) => r.kind !== "cover");
     return sum + rows.reduce((s, r) => s + (r.horas ?? 0), 0);
   }, 0);
@@ -700,7 +707,7 @@ export default function CombinedTimesheetEditor({
                           className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
                         />
                       ) : (
-                        rowOverrides[emptyKey]?.nomePredio ?? t.buildingNome
+                        t.buildingNome
                       )}
                     </td>
                     <td className={cell}></td>
@@ -720,7 +727,7 @@ export default function CombinedTimesheetEditor({
                           className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
                         />
                       ) : (
-                        rowOverrides[emptyKey]?.wo ?? (t.buildingWorkOrder ?? "")
+                        t.buildingWorkOrder ?? ""
                       )}
                     </td>
                     <td className={`${cell} text-ink/30`} colSpan={2}>
@@ -739,20 +746,18 @@ export default function CombinedTimesheetEditor({
 
             // Enquanto ninguém mexeu (ou editou igual pra todo mundo), continua
             // mesclado igual antes. Só separa de verdade quando alguma linha
-            // ficou diferente das outras — assim o que foi digitado não some
-            // ao sair do modo edição. `r.predioLabel`/`r.workOrder` é o rótulo
-            // por pessoa ("Sheet labels" em BuildingStaffClient/StaffBuilding,
-            // fotografado na criação da folha — ver lib/timesheetSnapshot.ts);
-            // `rowOverrides` é o mecanismo antigo por índice de linha
-            // (editMode na folha, hoje desligado) — mantido só por
-            // compatibilidade com o que já foi salvo assim antes.
-            const tNomes = rows.map(
-              (r, i) => rowOverrides[`${t.id}:${i}`]?.nomePredio ?? (r.predioLabel?.trim() || t.buildingNome)
-            );
+            // ficou diferente das outras. `r.predioLabel`/`r.workOrder` é o
+            // rótulo por pessoa ("Sheet labels" em BuildingStaffClient/
+            // StaffBuilding, fotografado na criação da folha e resincronizado
+            // quando editado depois — ver lib/timesheetSnapshot.ts) — única
+            // fonte pra Building/WO por linha. NÃO cair mais em `rowOverrides`
+            // (mecanismo antigo por índice de linha do editMode, hoje
+            // desligado): um valor salvo assim antes ficava congelado pra
+            // sempre e mascarava qualquer correção feita depois em "Sheet
+            // labels", que é exatamente o bug relatado.
+            const tNomes = rows.map((r) => r.predioLabel?.trim() || t.buildingNome);
             const buildingAllSame = tNomes.every((v) => v === tNomes[0]);
-            const tWos = rows.map(
-              (r, i) => rowOverrides[`${t.id}:${i}`]?.wo ?? ((r.workOrder?.trim() || t.buildingWorkOrder) ?? "")
-            );
+            const tWos = rows.map((r) => (r.workOrder?.trim() || t.buildingWorkOrder) ?? "");
             const woAllSame = tWos.every((v) => v === tWos[0]);
 
             return (
@@ -958,7 +963,7 @@ export default function CombinedTimesheetEditor({
                       className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
                     />
                   ) : (
-                    coverOverrides[coverKey]?.nomePredio ?? t.buildingNome
+                    t.buildingNome
                   )}
                 </td>
                 <td className={`${backCell} text-center`}>{row.horas ?? ""}</td>
@@ -978,7 +983,7 @@ export default function CombinedTimesheetEditor({
                       className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
                     />
                   ) : (
-                    coverOverrides[coverKey]?.wo ?? (t.buildingWorkOrder ?? "")
+                    t.buildingWorkOrder ?? ""
                   )}
                 </td>
                 <td className={backCell}>

@@ -56,6 +56,7 @@ export async function GET() {
         id: b.id.toString(),
         nome: b.nome,
         workOrder: b.workOrder,
+        horasDisponiveis: b.horasDisponiveis,
         slots: slots.filter((s) => s.buildingId === b.id).map((s) => ({ id: s.id.toString(), horas: s.horas })),
         cleaners: cleanerLinks
           .filter((c) => c.buildingId === b.id)

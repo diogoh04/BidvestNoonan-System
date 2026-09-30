@@ -30,7 +30,8 @@ async function getMyProfile() {
 // visual (a de hoje) — o preview não representa um período real.
 export default async function PreviewPage() {
   const profile = await getMyProfile();
-  const buildings: { id: string; nome: string; workOrder: string | null }[] = profile.buildings ?? [];
+  const buildings: { id: string; nome: string; workOrder: string | null; horasDisponiveis: number | null }[] =
+    profile.buildings ?? [];
 
   const weekStart = snapToWorkingDay(toISODate(new Date()));
 
@@ -40,6 +41,7 @@ export default async function PreviewPage() {
       buildingId: b.id,
       buildingNome: b.nome,
       buildingWorkOrder: b.workOrder,
+      buildingHorasDisponiveis: b.horasDisponiveis ?? null,
       weekStart,
       weekEnd: null,
       periodType: "weekly",

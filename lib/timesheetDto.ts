@@ -18,6 +18,7 @@ export function mapTimesheet(t: any): TimesheetDTO {
     buildingId: t.buildingId.toString(),
     buildingNome: t.building.nome,
     buildingWorkOrder: t.building.workOrder,
+    buildingHorasDisponiveis: t.building.horasDisponiveis ?? null,
     weekStart: t.weekStart.toISOString().slice(0, 10),
     weekEnd: t.weekEnd ? t.weekEnd.toISOString().slice(0, 10) : null,
     periodType: t.periodType,

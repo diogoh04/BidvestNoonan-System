@@ -116,6 +116,13 @@ export type TimesheetDTO = {
   buildingId: string;
   buildingNome: string;
   buildingWorkOrder: string | null;
+  // Orçamento de horas repassado pro time leader gerir neste prédio (ver
+  // Building.horasDisponiveis, editado em /buildings/[id] e /teams/[id] via
+  // BuildingHoursCard) — prioridade no total da folha (ver grandTotalHours em
+  // CombinedTimesheetEditor) sobre a soma das horas de cada pessoa
+  // cadastrada, que pode passar do orçamento real. null = prédio sem esse
+  // orçamento definido, cai pra soma das pessoas.
+  buildingHorasDisponiveis: number | null;
   weekStart: string;
   // Fim real do período — só presente nas folhas novas (duração livre, ver
   // getTimesheetDates). Nulo nas folhas antigas (duração fixa por periodType).

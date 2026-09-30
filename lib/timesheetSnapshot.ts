@@ -118,6 +118,48 @@ export function cloneEntriesForNewWeek(
 // linhas/ordem/identidade (kind/refId/nome/staffNumber/horas) — só o mapa
 // `days` de cada linha muda, virando as chaves normais (MONDAY..FRIDAY) sem
 // o prefixo W1_/W2_.
+// Reflete novas horas contratadas nas folhas ainda "draft" deste prédio —
+// mesmo problema do rótulo (ver resyncDraftTimesheetSheetLabel em
+// app/api/buildings/[id]/staff/sheet/route.ts): sem isso a folha ficava com
+// a hora antiga congelada de quando foi criada (ver `horas` em
+// buildInitialEntries acima). Casamento por `refId` (Staff.id) — mesma
+// ressalva de vínculo duplicado no mesmo prédio (duas linhas recebem a
+// mesma hora).
+export async function resyncDraftTimesheetHours(buildingId: bigint, staffId: string, horas: number | null) {
+  const drafts = await prisma.timesheet.findMany({
+    where: { buildingId, status: "draft", deletedAt: null },
+    select: { id: true, entries: true },
+  });
+  await Promise.all(
+    drafts.map((t) => {
+      const entries = t.entries as unknown as TimesheetEntries;
+      let changed = false;
+      const nextRows = entries.rows.map((r) => {
+        if (r.kind !== "staff" || r.refId !== staffId) return r;
+        changed = true;
+        return { ...r, horas };
+      });
+      if (!changed) return null;
+      return prisma.timesheet.update({ where: { id: t.id }, data: { entries: { rows: nextRows } as any } });
+    })
+  );
+}
+
+// Mesmo resync acima, mas pra quando muda `Staff.horasSemana` (o padrão
+// usado quando o vínculo StaffBuilding não tem hora própria) — precisa
+// varrer todos os prédios em que esse staff está como cleaner SEM hora
+// própria (`horas: null`), já que só esses herdam o valor global.
+export async function resyncDraftTimesheetHoursSemana(staffId: bigint, horasSemana: number | null) {
+  const links = await prisma.staffBuilding.findMany({
+    where: { staffId, role: "cleaner", horas: null },
+    select: { buildingId: true },
+  });
+  const buildingIds = [...new Set(links.map((l) => l.buildingId.toString()))].map((s) => BigInt(s));
+  await Promise.all(
+    buildingIds.map((buildingId) => resyncDraftTimesheetHours(buildingId, staffId.toString(), horasSemana))
+  );
+}
+
 export function splitFortnightEntries(source: TimesheetEntries): {
   week1: TimesheetEntries;
   week2: TimesheetEntries;

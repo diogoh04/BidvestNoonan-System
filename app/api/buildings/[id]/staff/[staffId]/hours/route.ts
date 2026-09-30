@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toJSONSafe } from "@/lib/types";
 import { getCurrentUser, hasRole } from "@/lib/auth";
+import { resyncDraftTimesheetHours } from "@/lib/timesheetSnapshot";
 
 export async function PATCH(
   req: NextRequest,
@@ -42,6 +43,8 @@ export async function PATCH(
     where: { id: target.id },
     data: { horas },
   });
+
+  await resyncDraftTimesheetHours(buildingId, updated.staffId.toString(), updated.horas);
 
   return NextResponse.json(
     toJSONSafe({

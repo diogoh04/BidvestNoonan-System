@@ -62,18 +62,29 @@ function SheetFields({
 }) {
   const [predio, setPredio] = useState(item.predioLabel ?? "");
   const [wo, setWo] = useState(item.workOrder ?? "");
+  const [saveError, setSaveError] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const { t } = useLanguage();
 
   function scheduleSave(nextPredio: string, nextWo: string) {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      fetch(`/api/buildings/${buildingId}/staff/sheet`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sbId: item.sbId, predioLabel: nextPredio, workOrder: nextWo }),
-      }).catch(() => {});
-      onSaved({ predioLabel: nextPredio.trim() || null, workOrder: nextWo.trim() || null });
+    timer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/buildings/${buildingId}/staff/sheet`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sbId: item.sbId, predioLabel: nextPredio, workOrder: nextWo }),
+        });
+        if (!res.ok) throw new Error();
+        setSaveError(false);
+        // Só confirma no estado do pai (e assim na folha) depois que o
+        // servidor realmente salvou — antes disso o input mostrava sucesso
+        // mesmo quando a requisição falhava (ex.: sessão expirada), daí o
+        // rótulo "voltar ao padrão" na folha sem nenhum aviso.
+        onSaved({ predioLabel: nextPredio.trim() || null, workOrder: nextWo.trim() || null });
+      } catch {
+        setSaveError(true);
+      }
     }, 500);
   }
 
@@ -98,6 +109,7 @@ function SheetFields({
         }}
         className="w-24 rounded border border-line bg-white px-1.5 py-0.5 text-ink outline-none focus:border-petrol"
       />
+      {saveError && <span className="text-danger">{t("Failed to save — try again")}</span>}
     </div>
   );
 }

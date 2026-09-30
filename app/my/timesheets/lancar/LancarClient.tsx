@@ -18,6 +18,7 @@ import type {
   TimesheetPeriodType,
   TimesheetEntries,
   TimesheetRow,
+  TimesheetDayValue,
   FortnightPlanDTO,
 } from "@/lib/types";
 
@@ -26,18 +27,32 @@ type MyProfile = { id: string; nome: string | null; staffNumber: string | null; 
 type ExistingPeriod = { weekStart: string; weekEnd: string | null; periodType: TimesheetPeriodType };
 type FortnightSource = { fortnightStart: string; fortnightEnd: string | null; entries: TimesheetEntries };
 
-// Mesma lógica de cloneEntriesForNewWeek (lib/timesheetSnapshot.ts), mas
-// reescrita aqui porque aquele arquivo importa Prisma (server-only) e não
-// pode entrar num componente client. Mantém as linhas (staff/vaga/cover) e
-// zera os horários — nunca copia horas de verdade, só a forma das linhas.
-function cloneRowsZeroed(
+// Mantém as linhas (staff/vaga/cover) da quinzena anterior E copia os
+// horários de verdade — pareando dia-a-dia pela POSIÇÃO (1º dia útil da
+// quinzena anterior → 1º dia útil da nova, etc.), já que a data em si muda
+// de uma quinzena pra outra. Se a nova quinzena tiver mais dias úteis que a
+// anterior, o excedente fica em branco.
+function clonePriorRows(
   source: TimesheetEntries,
+  sourcePeriodType: TimesheetPeriodType,
+  sourceStart: string,
+  sourceEnd: string | null,
   periodType: TimesheetPeriodType,
   weekStart: string,
   weekEnd: string | null
 ): TimesheetEntries {
-  const emptyDays = Object.fromEntries(getTimesheetDates(weekStart, weekEnd, periodType).map((d) => [d, { in: null, out: null }]));
-  return { rows: source.rows.map((r) => ({ ...r, days: { ...emptyDays } })) };
+  const sourceDates = getTimesheetDates(sourceStart, sourceEnd, sourcePeriodType);
+  const destDates = getTimesheetDates(weekStart, weekEnd, periodType);
+  return {
+    rows: source.rows.map((r) => {
+      const days: Record<string, TimesheetDayValue> = {};
+      destDates.forEach((destKey, i) => {
+        const sourceKey = sourceDates[i];
+        days[destKey] = (sourceKey ? r.days[sourceKey] : null) ?? { in: null, out: null };
+      });
+      return { ...r, days };
+    }),
+  };
 }
 
 export default function LancarClient({
@@ -220,10 +235,10 @@ export default function LancarClient({
     }
   }
 
-  // Começa uma quinzenal nova — em branco, ou copiando (só a forma das
-  // linhas, nunca os horários) a quinzenal anterior de cada prédio. `end` é
-  // a data que o Team Leader escolheu no campo "End date" — o período fica
-  // com essa duração exata, não mais travado em 10 dias úteis.
+  // Começa uma quinzenal nova — em branco, ou copiando (linhas E horários,
+  // pareados por posição de dia útil) a quinzenal anterior de cada prédio.
+  // `end` é a data que o Team Leader escolheu no campo "End date" — o
+  // período fica com essa duração exata, não mais travado em 10 dias úteis.
   async function startNewFortnight(week: string, end: string, copyPrior: boolean) {
     if (!profile) return;
     // Quinzena de verdade = 14 dias corridos (contando sábado/domingo), não
@@ -250,7 +265,15 @@ export default function LancarClient({
           if (copyPrior) {
             const source = findPriorFortnightSource(b.id, week);
             if (source) {
-              const cloned = cloneRowsZeroed(source.entries, "biweekly", week, end);
+              const cloned = clonePriorRows(
+                source.entries,
+                "biweekly",
+                source.fortnightStart,
+                source.fortnightEnd,
+                "biweekly",
+                week,
+                end
+              );
               const patchRes = await fetch(`/api/timesheets/${ts.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
