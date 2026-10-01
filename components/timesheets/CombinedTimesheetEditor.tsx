@@ -71,10 +71,15 @@ function frontTableSizing(rowCount: number) {
   return { text: "text-base print:text-[6px]", pad: "p-1.5 print:p-0", cellH: "h-11 print:h-3" };
 }
 
+// Limiares com margem de segurança (uns 3 a menos do que o teto real de cada
+// faixa): nome composto ("Estephane Silva Sena de Almeida") quebra em 2
+// linhas na coluna Name mesmo sem passar do rowCount nominal, deixando
+// aquela linha mais alta que as outras — sem essa folga, a página de
+// Building Covers estourava pra uma página extra por só 1-2 linhas quebradas.
 function backTableSizing(rowCount: number) {
-  if (rowCount <= 19) return { text: "text-base print:text-[10px]", pad: "p-1 print:p-0.5", cellH: "h-10 print:h-6" };
-  if (rowCount <= 24) return { text: "text-base print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-10 print:h-5" };
-  if (rowCount <= 32) return { text: "text-base print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-4" };
+  if (rowCount <= 16) return { text: "text-base print:text-[10px]", pad: "p-1 print:p-0.5", cellH: "h-10 print:h-6" };
+  if (rowCount <= 21) return { text: "text-base print:text-[9px]", pad: "p-1 print:p-[2px]", cellH: "h-10 print:h-5" };
+  if (rowCount <= 29) return { text: "text-base print:text-[8px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-4" };
   return { text: "text-base print:text-[7px]", pad: "p-1 print:p-0", cellH: "h-10 print:h-3" };
 }
 

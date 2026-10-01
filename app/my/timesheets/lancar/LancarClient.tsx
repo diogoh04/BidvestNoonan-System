@@ -27,12 +27,21 @@ type MyProfile = { id: string; nome: string | null; staffNumber: string | null; 
 type ExistingPeriod = { weekStart: string; weekEnd: string | null; periodType: TimesheetPeriodType };
 type FortnightSource = { fortnightStart: string; fortnightEnd: string | null; entries: TimesheetEntries };
 
-// Mantém as linhas (staff/vaga/cover) da quinzena anterior E copia os
-// horários de verdade — pareando dia-a-dia pela POSIÇÃO (1º dia útil da
-// quinzena anterior → 1º dia útil da nova, etc.), já que a data em si muda
-// de uma quinzena pra outra. Se a nova quinzena tiver mais dias úteis que a
-// anterior, o excedente fica em branco.
+// Parte da folha RECÉM-CRIADA (`fresh` — já veio de buildInitialEntries, que
+// lê StaffBuilding/BuildingSlot ao vivo: roster atual, predioLabel/workOrder/
+// horas em dia, ver lib/timesheetSnapshot.ts) e só empresta da quinzena
+// anterior os HORÁRIOS (days), pareando dia-a-dia pela POSIÇÃO (1º dia útil
+// da quinzena anterior → 1º dia útil da nova). Casamento de linha é por
+// `kind:refId` — gente que já estava lá antes recebe o horário de antes;
+// se a nova quinzena tiver mais dias úteis que a anterior, o excedente fica
+// em branco. Linhas da quinzena anterior sem `refId` (ex.: "cover" avulso
+// adicionado só naquela folha, refId null) ou sem correspondente na folha
+// fresca (gente que saiu do prédio desde então) são mantidas no final, com
+// os mesmos horários antigos repaginados — só assim não se perde o que foi
+// lançado manualmente, sem travar o rótulo/WO/horas de quem continua lá no
+// rótulo antigo.
 function clonePriorRows(
+  fresh: TimesheetEntries,
   source: TimesheetEntries,
   sourcePeriodType: TimesheetPeriodType,
   sourceStart: string,
@@ -43,16 +52,37 @@ function clonePriorRows(
 ): TimesheetEntries {
   const sourceDates = getTimesheetDates(sourceStart, sourceEnd, sourcePeriodType);
   const destDates = getTimesheetDates(weekStart, weekEnd, periodType);
-  return {
-    rows: source.rows.map((r) => {
-      const days: Record<string, TimesheetDayValue> = {};
-      destDates.forEach((destKey, i) => {
-        const sourceKey = sourceDates[i];
-        days[destKey] = (sourceKey ? r.days[sourceKey] : null) ?? { in: null, out: null };
-      });
-      return { ...r, days };
-    }),
-  };
+
+  function mapDays(sourceRow: TimesheetRow | undefined): Record<string, TimesheetDayValue> {
+    const days: Record<string, TimesheetDayValue> = {};
+    destDates.forEach((destKey, i) => {
+      const sourceKey = sourceDates[i];
+      days[destKey] = (sourceRow && sourceKey ? sourceRow.days[sourceKey] : null) ?? { in: null, out: null };
+    });
+    return days;
+  }
+
+  const rowKey = (r: TimesheetRow) => (r.refId ? `${r.kind}:${r.refId}` : null);
+  const sourceByKey = new Map(
+    source.rows.map((r) => [rowKey(r), r] as const).filter(([k]) => k !== null)
+  );
+  const matchedKeys = new Set<string>();
+
+  const freshRows = fresh.rows.map((r) => {
+    const key = rowKey(r);
+    const prior = key ? sourceByKey.get(key) : undefined;
+    if (key && prior) matchedKeys.add(key);
+    return { ...r, days: mapDays(prior) };
+  });
+
+  const leftoverRows = source.rows
+    .filter((r) => {
+      const key = rowKey(r);
+      return !key || !matchedKeys.has(key);
+    })
+    .map((r) => ({ ...r, days: mapDays(r) }));
+
+  return { rows: [...freshRows, ...leftoverRows] };
 }
 
 export default function LancarClient({
@@ -266,6 +296,7 @@ export default function LancarClient({
             const source = findPriorFortnightSource(b.id, week);
             if (source) {
               const cloned = clonePriorRows(
+                ts.entries,
                 source.entries,
                 "biweekly",
                 source.fortnightStart,
