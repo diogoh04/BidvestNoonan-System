@@ -319,6 +319,13 @@ export default function CombinedTimesheetEditor({
   const [coverNome, setCoverNome] = useState("");
   const [coverStaffNumber, setCoverStaffNumber] = useState("");
   const [coverHoras, setCoverHoras] = useState("");
+  // Building/WO próprios desse cover avulso — mesma ideia do "Sheet label"
+  // por pessoa (StaffBuilding.predioLabel/workOrder), só que coverRow não tem
+  // vínculo (refId null), então esses dois campos vêm digitados na hora
+  // (ver TimesheetRow.predioLabel/workOrder). Vazio = usa buildingNome/
+  // buildingWorkOrder do prédio escolhido, igual as outras linhas.
+  const [coverPredioLabel, setCoverPredioLabel] = useState("");
+  const [coverWorkOrder, setCoverWorkOrder] = useState("");
   const [savingCover, setSavingCover] = useState(false);
 
   useEffect(() => {
@@ -410,6 +417,8 @@ export default function CombinedTimesheetEditor({
         staffNumber: coverStaffNumber.trim() || null,
         horas: coverHoras.trim() === "" ? null : Number(coverHoras.replace(",", ".")),
         days: emptyDays(periodType, weekStart, weekEnd),
+        predioLabel: coverPredioLabel.trim() || null,
+        workOrder: coverWorkOrder.trim() || null,
       };
       const rows = rowsByTimesheet[coverTimesheetId] ?? [];
       const next = [...rows, row];
@@ -419,6 +428,8 @@ export default function CombinedTimesheetEditor({
       setCoverNome("");
       setCoverStaffNumber("");
       setCoverHoras("");
+      setCoverPredioLabel("");
+      setCoverWorkOrder("");
     } finally {
       setSavingCover(false);
     }
@@ -876,6 +887,20 @@ export default function CombinedTimesheetEditor({
             />
           )}
           <input
+            type="text"
+            value={coverPredioLabel}
+            onChange={(e) => setCoverPredioLabel(e.target.value)}
+            placeholder={tr("Building")}
+            className="w-32 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+          />
+          <input
+            type="text"
+            value={coverWorkOrder}
+            onChange={(e) => setCoverWorkOrder(e.target.value)}
+            placeholder="WO"
+            className="w-24 rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-petrol"
+          />
+          <input
             type="number"
             min={0}
             step={0.25}
@@ -968,7 +993,7 @@ export default function CombinedTimesheetEditor({
                       className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
                     />
                   ) : (
-                    t.buildingNome
+                    row.predioLabel?.trim() || t.buildingNome
                   )}
                 </td>
                 <td className={`${backCell} text-center`}>{row.horas ?? ""}</td>
@@ -988,7 +1013,7 @@ export default function CombinedTimesheetEditor({
                       className="w-full min-w-0 border-0 bg-transparent p-0 text-center outline-none focus:bg-petrolLight"
                     />
                   ) : (
-                    t.buildingWorkOrder ?? ""
+                    (row.workOrder?.trim() || t.buildingWorkOrder) ?? ""
                   )}
                 </td>
                 <td className={backCell}>

@@ -100,10 +100,13 @@ export type TimesheetRow = {
   // conjunto real de chaves depende do periodType da folha, ver
   // getTimesheetDayKeys.
   days: Record<string, TimesheetDayValue>;
-  // Building/WO próprios desta linha (ver StaffBuilding.predioLabel/workOrder
-  // e o botão "Sheet labels" em BuildingStaffClient) — só em linhas "staff",
-  // fotografado na criação da folha (lib/timesheetSnapshot.ts) e
-  // resincronizado quando editado depois (ver /api/buildings/[id]/staff/sheet).
+  // Building/WO próprios desta linha. Em linhas "staff" vem de
+  // StaffBuilding.predioLabel/workOrder (botão "Sheet labels" em
+  // BuildingStaffClient) — fotografado na criação da folha
+  // (lib/timesheetSnapshot.ts) e resincronizado quando editado depois (ver
+  // /api/buildings/[id]/staff/sheet). Em linhas "cover" (refId null) é
+  // digitado na hora, direto no formulário "Add cover" (ver
+  // CombinedTimesheetEditor) — não tem StaffBuilding por trás pra resincronizar.
   // Vazio/null = usa buildingNome/buildingWorkOrder do timesheet.
   predioLabel?: string | null;
   workOrder?: string | null;
