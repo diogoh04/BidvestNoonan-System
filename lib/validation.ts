@@ -226,6 +226,14 @@ export const timesheetRowSchema = z.object({
   staffNumber: z.string().nullable(),
   horas: z.number().nullable(),
   days: timesheetDaysSchema,
+  // Sem isso, o Zod descarta esses dois campos (padrão "strip" pra chaves
+  // fora do schema) a cada PATCH — ou seja, qualquer auto-save normal da
+  // folha (digitar hora, autofill, copiar da quinzena anterior) apagava o
+  // "Sheet label" por pessoa de volta pro nome/WO padrão do prédio, mesmo
+  // sem ninguém mexer nele. Só a criação inicial (antes do primeiro PATCH)
+  // preservava, porque buildInitialEntries nunca passa por este schema.
+  predioLabel: z.string().nullable().optional(),
+  workOrder: z.string().nullable().optional(),
 });
 
 export const timesheetEntriesSchema = z.object({
