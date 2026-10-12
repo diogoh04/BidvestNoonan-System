@@ -88,7 +88,12 @@ export function timesheetDayLabel(dayKey: string): string {
 
 export type TimesheetStatus = "draft" | "submitted" | "done";
 
-export type TimesheetDayValue = { in: string | null; out: string | null };
+// `color` = destaque manual escolhido pelo Team Leader pra essa célula (hex,
+// ex. "#fde68a") — ver SignCell em CombinedTimesheetEditor. Quando ausente,
+// a célula ainda pode ganhar cor automática por código (HP/AA/AU/...), ver
+// lib/timesheetStatusColors.ts; a manual sempre tem prioridade sobre a
+// automática.
+export type TimesheetDayValue = { in: string | null; out: string | null; color?: string | null };
 
 export type TimesheetRow = {
   kind: "staff" | "openSlot" | "cover";
@@ -110,6 +115,14 @@ export type TimesheetRow = {
   // Vazio/null = usa buildingNome/buildingWorkOrder do timesheet.
   predioLabel?: string | null;
   workOrder?: string | null;
+  // Nota de texto livre cobrindo uma semana inteira (ex. "She's covering
+  // Evandro's Holidays"), em vez de preencher IN/OUT dia a dia — ver
+  // WeekNoteButton em CombinedTimesheetEditor. Chave = índice da semana
+  // dentro do período (0 = primeira, 1 = segunda — ver `segments`,
+  // calculado a partir dos cortes de fim de semana/feriado). Mostrada
+  // mesclada nas colunas daquela semana, tanto na tela/PDF quanto no
+  // export Excel (ver lib/timesheetExcelExport.ts).
+  weekNotes?: Record<number, string> | null;
 };
 
 export type TimesheetEntries = { rows: TimesheetRow[] };

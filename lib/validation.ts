@@ -212,6 +212,10 @@ export type UserInput = z.infer<typeof userInputSchema>;
 const timesheetDayValueSchema = z.object({
   in: z.string().trim().max(5).nullable(),
   out: z.string().trim().max(5).nullable(),
+  // Destaque manual por célula (hex, ver SignCell) — optional() pra não
+  // quebrar folhas salvas antes dessa feature (sem o campo). Mesma lição do
+  // predioLabel/workOrder: faltar aqui faz o Zod descartar o campo a cada save.
+  color: z.string().trim().max(9).nullable().optional(),
 });
 
 // z.record em vez do objeto fixo de 5 chaves (TIMESHEET_DAYS) — a folha
@@ -234,6 +238,10 @@ export const timesheetRowSchema = z.object({
   // preservava, porque buildInitialEntries nunca passa por este schema.
   predioLabel: z.string().nullable().optional(),
   workOrder: z.string().nullable().optional(),
+  // Nota de semana inteira (ver TimesheetRow.weekNotes) — mesma lição do
+  // predioLabel/workOrder acima: tem que estar listado aqui, senão o Zod
+  // descarta o campo a cada save.
+  weekNotes: z.record(z.string()).optional(),
 });
 
 export const timesheetEntriesSchema = z.object({

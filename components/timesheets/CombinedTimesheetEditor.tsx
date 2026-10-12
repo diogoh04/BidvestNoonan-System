@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Fragment } from "react";
 import Image from "next/image";
-import { Printer, Plus, X, Wand2 } from "lucide-react";
+import { Printer, Plus, X, Wand2, FileSpreadsheet } from "lucide-react";
 import {
   getTimesheetDates,
   timesheetDayLabel,
@@ -21,6 +21,7 @@ import {
 import StaffSearchInput from "@/components/StaffSearchInput";
 import { fetchSheetOverrides, indexSheetOverrides, saveSheetOverride } from "@/lib/timesheetSheetOverrides";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { dayCellStatusCode, STATUS_DAY_BG_CLASS, HIGHLIGHT_SWATCHES } from "@/lib/timesheetStatusColors";
 
 const ESTATES_EVENTS_WO = "515736";
 const MIN_COVER_ROWS = 7;
@@ -151,7 +152,7 @@ function BlankRow({
   );
 }
 
-type DayValue = { in: string | null; out: string | null };
+type DayValue = { in: string | null; out: string | null; color?: string | null };
 
 // Componente de módulo (fora do pai) de propósito: se fosse declarado
 // dentro de CombinedTimesheetEditor, a cada tecla digitada o React recebe
@@ -160,23 +161,191 @@ type DayValue = { in: string | null; out: string | null };
 // depois de cada caractere. Aqui ele recebe só o valor + callbacks, sem
 // fechar sobre o state do pai, então a identidade do componente é estável
 // entre renders e o input mantém o foco.
+// Popover de destaque manual (ver HIGHLIGHT_SWATCHES) — aberto a partir do
+// botãozinho no canto da célula (`ColorPickerButton` abaixo). Componente à
+// parte só pra não inchar o SignCell, que já é chamado uma vez por
+// dia×linha (centenas de instâncias numa folha cheia).
+function ColorPickerButton({
+  color,
+  onChange,
+}: {
+  color: string | null | undefined;
+  onChange: (v: string) => void;
+}) {
+  const { t: tr } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="absolute right-0 top-0 z-10 print:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={tr("Highlight color")}
+        className="flex h-2.5 w-2.5 items-center justify-center rounded-bl rounded-tr-sm border border-ink/15 bg-white/70 hover:border-petrol"
+        style={color ? { backgroundColor: color } : undefined}
+      />
+      {open && (
+        <div className="absolute right-0 top-3 flex items-center gap-1 rounded-md border border-line bg-white p-1.5 shadow-lg">
+          {HIGHLIGHT_SWATCHES.map((hex) => (
+            <button
+              key={hex}
+              type="button"
+              onClick={() => {
+                onChange(hex);
+                setOpen(false);
+              }}
+              title={hex}
+              className={`h-4 w-4 rounded-full border ${color === hex ? "border-ink" : "border-ink/20"}`}
+              style={{ backgroundColor: hex }}
+            />
+          ))}
+          <label className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-dashed border-ink/30 text-[8px] text-ink/50" title={tr("Custom color")}>
+            +
+            <input
+              type="color"
+              value={color ?? "#ffffff"}
+              onChange={(e) => {
+                onChange(e.target.value);
+                setOpen(false);
+              }}
+              className="h-0 w-0 opacity-0"
+            />
+          </label>
+          {color && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              title={tr("Clear highlight")}
+              className="ml-0.5 text-xs text-ink/40 hover:text-danger"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Popover da nota de semana (ver TimesheetRow.weekNotes) — só aparece no
+// primeiro dia de cada semana (ver `segments`/`weekNote` prop do SignCell).
+// Mesmo padrão de popover + clique-fora do ColorPickerButton acima.
+function WeekNoteButton({
+  note,
+  onChange,
+}: {
+  note: string | null | undefined;
+  onChange: (text: string) => void;
+}) {
+  const { t: tr } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(note ?? "");
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) setDraft(note ?? "");
+  }, [open, note]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="absolute left-0 top-0 z-10 print:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={tr("Week note")}
+        className={`flex h-2.5 w-2.5 items-center justify-center rounded-br rounded-tl-sm border ${
+          note ? "border-amber-400 bg-amber-200" : "border-ink/15 bg-white/70"
+        } hover:border-petrol`}
+      />
+      {open && (
+        <div className="absolute left-0 top-3 w-48 rounded-md border border-line bg-white p-2 shadow-lg">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={2}
+            placeholder={tr("Note for this week (e.g. covering someone's holidays)")}
+            className="w-full resize-none rounded border border-line p-1 text-xs text-ink outline-none focus:border-petrol"
+          />
+          <div className="mt-1 flex justify-end gap-2">
+            {note && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+                className="text-xs text-ink/40 hover:text-danger"
+              >
+                {tr("Remove")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                onChange(draft.trim());
+                setOpen(false);
+              }}
+              className="text-xs font-medium text-petrol hover:text-petrolDark"
+            >
+              {tr("Save")}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SignCell({
   value,
   editable,
   onChangeIn,
   onChangeOut,
+  onChangeColor,
   className,
   textClass,
+  weekNote,
 }: {
   value: DayValue;
   editable: boolean;
   onChangeIn: (v: string) => void;
   onChangeOut: (v: string) => void;
+  onChangeColor: (v: string) => void;
   className: string;
   textClass: string;
+  // Só preenchido no 1º dia de cada semana (ver `segments`) — abre o botão
+  // de nota de semana nesse canto da célula.
+  weekNote?: { note: string | null | undefined; onChange: (text: string) => void };
 }) {
+  const statusCode = dayCellStatusCode(value);
+  const autoBgClass = statusCode ? STATUS_DAY_BG_CLASS[statusCode] : "";
+  const manualColor = value.color ?? null;
   return (
-    <td className={className}>
+    <td
+      className={`${className} relative ${manualColor ? "" : autoBgClass}`}
+      style={manualColor ? { backgroundColor: manualColor } : undefined}
+    >
       <div className="flex h-full items-stretch justify-center">
         <input
           value={value.in ?? ""}
@@ -193,6 +362,8 @@ function SignCell({
           className={`h-full w-1/2 border-0 bg-transparent p-0 text-center leading-none text-inherit outline-none focus:bg-petrolLight disabled:text-ink/60 ${textClass}`}
         />
       </div>
+      {editable && <ColorPickerButton color={manualColor} onChange={onChangeColor} />}
+      {editable && weekNote && <WeekNoteButton note={weekNote.note} onChange={weekNote.onChange} />}
     </td>
   );
 }
@@ -367,13 +538,29 @@ export default function CombinedTimesheetEditor({
     timesheetId: string,
     rowIndex: number,
     day: string,
-    field: "in" | "out",
+    field: "in" | "out" | "color",
     value: string
   ) {
     const rows = rowsByTimesheet[timesheetId] ?? [];
     const next = rows.map((r, i) =>
       i === rowIndex ? { ...r, days: { ...r.days, [day]: { ...r.days[day], [field]: value || null } } } : r
     );
+    scheduleSave(timesheetId, next);
+  }
+
+  // Nota de semana inteira (ver TimesheetRow.weekNotes e WeekNoteButton) —
+  // `segmentIndex` identifica a semana (0, 1...), não a data, então
+  // continua valendo mesmo se os dias da folha mudarem. Texto vazio remove
+  // a chave em vez de salvar "" (mantém o objeto limpo).
+  function updateRowNote(timesheetId: string, rowIndex: number, segmentIndex: number, text: string) {
+    const rows = rowsByTimesheet[timesheetId] ?? [];
+    const next = rows.map((r, i) => {
+      if (i !== rowIndex) return r;
+      const weekNotes = { ...(r.weekNotes ?? {}) };
+      if (text.trim()) weekNotes[segmentIndex] = text.trim();
+      else delete weekNotes[segmentIndex];
+      return { ...r, weekNotes };
+    });
     scheduleSave(timesheetId, next);
   }
 
@@ -489,6 +676,23 @@ export default function CombinedTimesheetEditor({
     spacerAfter.add(4);
   }
   const spacerCount = spacerAfter.size;
+
+  // Blocos de dias consecutivos sem corte de spacer no meio (cada um é uma
+  // "semana" visual) — usado pela nota de semana (ver WeekNoteButton):
+  // segmentIndex identifica a semana, independente da data exata.
+  const segments: number[][] = [];
+  {
+    let current: number[] = [];
+    for (let i = 0; i < DAYS.length; i++) {
+      current.push(i);
+      if (spacerAfter.has(i)) {
+        segments.push(current);
+        current = [];
+      }
+    }
+    if (current.length) segments.push(current);
+  }
+
   const frontMinWidthPx = minTableWidthPx(FRONT_FIXED_MIN_PX, DAYS.length, spacerCount);
   const backMinWidthPx = minTableWidthPx(BACK_FIXED_MIN_PX, DAYS.length, spacerCount);
 
@@ -524,6 +728,38 @@ export default function CombinedTimesheetEditor({
 
   const anyEditable = timesheets.some(isEditable);
 
+  // Mesmos dados da folha impressa, só que achatados linha-a-linha (sem
+  // mesclar Building/WO verticalmente) — ver lib/timesheetExcelExport.ts.
+  async function exportExcel() {
+    const { downloadTimesheetXlsx } = await import("@/lib/timesheetExcelExport");
+    const dayHeaders = DAYS.map((d, i) => ({ isoDate: realDates ? realDates[i] : null, fallbackLabel: colLabel(d, i) }));
+    const toExcelRow = (t: TimesheetDTO, r: TimesheetRow) => ({
+      building: r.predioLabel?.trim() || t.buildingNome,
+      hours: r.horas,
+      wo: (r.workOrder?.trim() || t.buildingWorkOrder) ?? null,
+      name: r.nome,
+      staffNumber: r.staffNumber,
+      days: DAYS.map((d) => r.days[d] ?? EMPTY_DAY),
+      weekNotes: r.weekNotes ?? undefined,
+    });
+    const frontRows = timesheets.flatMap((t) =>
+      (rowsByTimesheet[t.id] ?? t.entries.rows).filter((r) => r.kind !== "cover").map((r) => toExcelRow(t, r))
+    );
+    const coverRows = coversFlat.map(({ t, row }) => toExcelRow(t, row));
+    await downloadTimesheetXlsx({
+      filename: `sign-in-sign-out-${weekStart || "sheet"}`,
+      title: "Sign In & Sign Out Book",
+      subtitle: headerNome,
+      fortnightLabel: `${periodType === "biweekly" ? "FORTNIGHT" : "WEEK"} ${weekStart ? formatPeriodRange(weekStart, weekEnd, periodType) : "—"}`,
+      teamLeaderNome: teamLeaderNomeInput || null,
+      totalHours: grandTotalHours,
+      dayHeaders,
+      spacerAfterIndexes: Array.from(spacerAfter),
+      frontRows,
+      coverRows,
+    });
+  }
+
   return (
     <div className="bg-white print:px-8 print:py-4">
       {!preview && (
@@ -546,13 +782,22 @@ export default function CombinedTimesheetEditor({
               </button>
             )}
             {printable && (
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
-              >
-                <Printer size={16} />
-                {tr("Print / Export PDF")}
-              </button>
+              <>
+                <button
+                  onClick={exportExcel}
+                  className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
+                >
+                  <FileSpreadsheet size={16} />
+                  {tr("Export Excel")}
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 rounded-md bg-petrol px-4 py-2 text-sm font-medium text-white hover:bg-petrolDark"
+                >
+                  <Printer size={16} />
+                  {tr("Print / Export PDF")}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -831,20 +1076,49 @@ export default function CombinedTimesheetEditor({
                       )}
                       <td className={cell}>{r.nome ?? <span className="text-ink/30">Open slot</span>}</td>
                       <td className={`${cell} text-center`}>{r.staffNumber ?? ""}</td>
-                      {DAYS.map((d, di) => (
-                        <>
-                          <SignCell
-                            key={d}
-                            value={r.days[d] ?? EMPTY_DAY}
-                            editable={isEditable(t)}
-                            onChangeIn={(v) => updateCell(t.id, rowIndex, d, "in", v)}
-                            onChangeOut={(v) => updateCell(t.id, rowIndex, d, "out", v)}
-                            className={signCell}
-                            textClass={sz.text}
-                          />
-                          {spacerAfter.has(di) && <td key={d + "-spacer"} className={SPACER_CLASS}></td>}
-                        </>
-                      ))}
+                      {segments.map((seg, segIndex) => {
+                        const note = r.weekNotes?.[segIndex];
+                        const lastDi = seg[seg.length - 1];
+                        if (note) {
+                          return (
+                            <Fragment key={segIndex}>
+                              <td colSpan={seg.length * 2} className={`${signCell} relative bg-amber-50 text-center align-middle`}>
+                                <span className={sz.text}>{note}</span>
+                                {isEditable(t) && (
+                                  <WeekNoteButton note={note} onChange={(text) => updateRowNote(t.id, rowIndex, segIndex, text)} />
+                                )}
+                              </td>
+                              {spacerAfter.has(lastDi) && <td className={SPACER_CLASS}></td>}
+                            </Fragment>
+                          );
+                        }
+                        return (
+                          <Fragment key={segIndex}>
+                            {seg.map((di) => {
+                              const d = DAYS[di];
+                              return (
+                                <Fragment key={d}>
+                                  <SignCell
+                                    value={r.days[d] ?? EMPTY_DAY}
+                                    editable={isEditable(t)}
+                                    onChangeIn={(v) => updateCell(t.id, rowIndex, d, "in", v)}
+                                    onChangeOut={(v) => updateCell(t.id, rowIndex, d, "out", v)}
+                                    onChangeColor={(v) => updateCell(t.id, rowIndex, d, "color", v)}
+                                    className={signCell}
+                                    textClass={sz.text}
+                                    weekNote={
+                                      di === seg[0]
+                                        ? { note, onChange: (text) => updateRowNote(t.id, rowIndex, segIndex, text) }
+                                        : undefined
+                                    }
+                                  />
+                                  {spacerAfter.has(di) && <td className={SPACER_CLASS}></td>}
+                                </Fragment>
+                              );
+                            })}
+                          </Fragment>
+                        );
+                      })}
                     </tr>
                   );
                 })}
@@ -1040,6 +1314,7 @@ export default function CombinedTimesheetEditor({
                       editable={isEditable(t)}
                       onChangeIn={(v) => updateCell(t.id, rowIndex, d, "in", v)}
                       onChangeOut={(v) => updateCell(t.id, rowIndex, d, "out", v)}
+                      onChangeColor={(v) => updateCell(t.id, rowIndex, d, "color", v)}
                       className={backSignCell}
                       textClass={backSz.text}
                     />
@@ -1116,6 +1391,14 @@ export default function CombinedTimesheetEditor({
           }
           .ts-table {
             min-width: 0 !important;
+          }
+          /* Sem isso o Chrome some com o fundo colorido das células HP/AA/
+             AU/etc. no PDF — por padrão ele ignora cor de fundo na
+             impressão a menos que a pessoa marque "Background graphics" na
+             hora de imprimir, o que ninguém faz. */
+          .ts-table * {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
         }
       `}</style>

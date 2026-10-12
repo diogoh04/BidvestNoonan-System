@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Printer, Plus, X, Pencil, Check } from "lucide-react";
+import { Printer, Plus, X, Pencil, Check, FileSpreadsheet } from "lucide-react";
 import { type Slot } from "@/lib/openSlots";
 import { buildSheetRows } from "@/lib/timesheetRows";
 import { getTimesheetDayKeys, timesheetDayLabel, type TimesheetDayValue, type TimesheetPeriodType } from "@/lib/types";
@@ -384,6 +384,43 @@ export default function TimesheetView({ building }: { building: Building }) {
     }
   }
 
+  // Mesmos dados da folha impressa (roster em branco — essa tela não tem
+  // horário já lançado, só o molde pra assinar no papel), achatados
+  // linha-a-linha (sem mesclar Building/WO) — ver lib/timesheetExcelExport.ts.
+  async function exportExcel() {
+    const { downloadTimesheetXlsx } = await import("@/lib/timesheetExcelExport");
+    const dayHeaders = DAYS.map((d) => ({ isoDate: null, fallbackLabel: timesheetDayLabel(d) }));
+    const blankDays = DAYS.map(() => ({ in: null, out: null }));
+    const frontRows = rows.map((r) => ({
+      building: effPredio(r) || building.nome,
+      hours: r.horas,
+      wo: effWo(r) || (building.workOrder ?? null),
+      name: hideNames ? "" : r.nome,
+      staffNumber: hideNames ? "" : r.staffNumber,
+      days: blankDays,
+    }));
+    const coverRows = covers.map((c) => ({
+      building: building.nome,
+      hours: c.horas,
+      wo: building.workOrder,
+      name: hideNames ? "" : c.nome,
+      staffNumber: hideNames ? "" : c.staffNumber,
+      days: blankDays,
+    }));
+    await downloadTimesheetXlsx({
+      filename: `sign-in-sign-out-${building.nome}`,
+      title: "Sign In & Sign Out Book",
+      subtitle: headerNome,
+      fortnightLabel: periodType === "biweekly" ? "FORTNIGHT" : "WEEK",
+      teamLeaderNome: hideNames ? null : building.teamLeaders.map((t) => t.nome).join(", ") || null,
+      totalHours,
+      dayHeaders,
+      spacerAfterIndexes: hasSpacer ? [SPACER_AFTER_INDEX] : [],
+      frontRows,
+      coverRows,
+    });
+  }
+
   return (
     <main className="mx-auto max-w-6xl bg-white px-6 py-10 print:max-w-none print:px-8 print:py-4">
       <div className="mb-6 flex flex-wrap items-center justify-end gap-4 print:hidden">
@@ -421,6 +458,13 @@ export default function TimesheetView({ building }: { building: Building }) {
         >
           {editMode ? <Check size={14} /> : <Pencil size={14} />}
           {editMode ? "Done editing" : "Edit"}
+        </button>
+        <button
+          onClick={exportExcel}
+          className="flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium text-ink hover:border-petrol hover:text-petrol"
+        >
+          <FileSpreadsheet size={16} />
+          Export Excel
         </button>
         <button
           onClick={() => window.print()}
